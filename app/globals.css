@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: #1E2A3A;
+    --primary-light: #2A3B50;
+    --primary-dark: #121B27;
+    --accent: #44B9CD;
+    --accent-hover: #2f9fb3;
+    --warm: #C19968;
+    --red-accent: #AC2419;
+  }
+
+  body {
+    color: #1e293b;
+    background-color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+/* Custom smooth transitions and animations */
+.glow-accent {
+  box-shadow: 0 0 25px rgba(68, 185, 205, 0.25);
+}
