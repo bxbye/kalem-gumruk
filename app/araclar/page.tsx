@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ToolsSection from "@/components/ToolsSection";
 import DutyCostCalculator from "@/components/DutyCostCalculator";
+import GerekliBaglantilarSection from "@/components/GerekliBaglantilarSection";
 import { companyInfo } from "@/data/company";
 import { ShieldCheck, ExternalLink, HelpCircle } from "lucide-react";
 
@@ -44,6 +45,9 @@ export default function AraclarPage() {
 
         {/* GTİP & Masraf Hesaplama Simülatörü */}
         <DutyCostCalculator />
+
+        {/* Kalem Gümrük Gerekli Bağlantılar Portalı (Kargo, Liman, Resmi Sistemler) */}
+        <GerekliBaglantilarSection />
 
         {/* Tüm Araçlar */}
         <ToolsSection />

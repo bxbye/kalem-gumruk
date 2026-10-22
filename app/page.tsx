@@ -1,27 +1,34 @@
 import Hero from "@/components/Hero";
 import StatsBar from "@/components/StatsBar";
-import ServicesGrid from "@/components/ServicesGrid";
-import SirkulerPreview from "@/components/SirkulerPreview";
+import LinksCompactTicker from "@/components/LinksCompactTicker";
+import ServicesCarousel from "@/components/ServicesCarousel";
+import CircularsCarousel from "@/components/CircularsCarousel";
 import Link from "next/link";
 import { companyInfo } from "@/data/company";
-import { ShieldCheck, ArrowRight, MessageCircle, Phone } from "lucide-react";
+import { getAllSirkuler } from "@/lib/sirkuler";
+import { ArrowRight, MessageCircle } from "lucide-react";
 
 export default function HomePage() {
+  const allSirkuler = getAllSirkuler();
+
   return (
     <>
-      {/* 1. Karşılama Alanı (Soluk Fotoğraf Arka Planlı & Hareketli Manşetli Hero + 5'li Hızlı Erişim Bandı) */}
+      {/* 1. Karşılama Alanı (Soluk Fotoğraf Arka Planlı & Karaca Tarzı Kayan Manşetli Hero + 5'li Hızlı Erişim Bandı) */}
       <Hero />
 
-      {/* 2. Kurumsal Güven İstatistikleri (1997, 25+ Yıl, %99.8 İntaç) */}
+      {/* 2. Gerekli Bağlantılar ve Resmi Portallar (Kompakt Kayan Bant) */}
+      <LinksCompactTicker />
+
+      {/* 3. Kurumsal Güven İstatistikleri (1997, 25+ Yıl, %99.8 İntaç) */}
       <StatsBar />
 
-      {/* 3. Başlıca Hizmetlerimizin Özeti (Detaylara Menüden veya Kartlardan Hızlı Geçiş) */}
-      <ServicesGrid />
+      {/* 4. Başlıca Hizmetlerimiz (Otomatik Kayan ve Elle Kaydırılabilir Carousel) */}
+      <ServicesCarousel />
 
-      {/* 4. En Güncel Mevzuat Sirkülerleri (3 Öne Çıkan Tebliğ) */}
-      <SirkulerPreview />
+      {/* 5. Güncel Mevzuat & Sirküler Bülteni (Otomatik Kayan ve Elle Kaydırılabilir Carousel) */}
+      <CircularsCarousel items={allSirkuler} />
 
-      {/* 5. Sade & Prestijli Eylem / İletişim Çağrısı (Sayfayı Kalabalıklaştırmayan Şık Kapanış) */}
+      {/* 6. Sade & Prestijli Eylem / İletişim Çağrısı */}
       <section className="py-14 bg-gradient-to-r from-[#1E2A3A] to-[#121B27] text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1.5 text-center md:text-left">

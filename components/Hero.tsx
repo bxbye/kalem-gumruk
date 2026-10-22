@@ -117,10 +117,10 @@ export default function Hero() {
       {/* ------------------------------------------------------------- */}
       {/* 2. KARACA TARZI YATAY KAYAN MANŞET SLIDER ALANI */}
       {/* ------------------------------------------------------------- */}
-      <div className="relative z-10 w-full min-h-[460px] sm:min-h-[500px] lg:min-h-[530px] flex items-center overflow-hidden">
+      <div className="relative z-10 w-full min-h-[440px] sm:min-h-[480px] lg:min-h-[520px] flex items-center overflow-hidden">
         {/* Yatay Kayan Slider Bandı (Horizontal Slide Track) */}
         <div
-          className="w-full flex transition-transform duration-700 ease-out"
+          className="w-full flex transition-transform duration-700 ease-in-out"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {slides.map((slide, sIndex) => {
@@ -128,42 +128,46 @@ export default function Hero() {
             return (
               <div
                 key={slide.id}
-                className="w-full shrink-0 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-16 flex flex-col justify-center items-start"
+                className="min-w-full w-full shrink-0 flex items-center"
               >
-                <div className="max-w-3xl space-y-3.5">
-                  {/* Slogan Kutuları: Karaca'daki gibi siyah zeminli, beyaz kalın yazılı kutular */}
-                  <div className="space-y-3">
-                    {slide.slogans.map((slogan, idx) => (
-                      <div
-                        key={idx}
-                        className={`transition-all duration-700 ease-out ${
-                          isActive
-                            ? "opacity-100 translate-x-0"
-                            : "opacity-0 -translate-x-12"
-                        }`}
-                        style={{
-                          transitionDelay: isActive ? `${idx * 140}ms` : "0ms",
-                        }}
-                      >
-                        <div className="inline-block bg-black/80 backdrop-blur-xs px-5 sm:px-7 py-2.5 sm:py-3.5 rounded-md shadow-2xl border-l-4 border-[#44B9CD]">
-                          <span className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-wide">
-                            {slogan}
-                          </span>
+                <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-16 flex flex-col justify-center items-start">
+                  <div className="w-full max-w-2xl sm:max-w-3xl space-y-3">
+                    {/* Slogan Kutuları: Karaca tarzı siyah zeminli, beyaz kalın yazılı kutular */}
+                    <div className="space-y-2.5 sm:space-y-3">
+                      {slide.slogans.map((slogan, idx) => (
+                        <div
+                          key={idx}
+                          className={`transition-all duration-600 ease-out ${
+                            isActive
+                              ? "opacity-100 translate-x-0"
+                              : "opacity-0 -translate-x-4 pointer-events-none"
+                          }`}
+                          style={{
+                            transitionDelay: isActive ? `${idx * 120}ms` : "0ms",
+                          }}
+                        >
+                          <div className="inline-block max-w-full bg-black/85 backdrop-blur-xs px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-2xl border-l-4 border-[#44B9CD]">
+                            <span className="block text-base sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight break-words">
+                              {slogan}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  {/* Alt Kısa Açıklama */}
-                  <div
-                    className={`pt-2 transition-all duration-700 ease-out ${
-                      isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-                    }`}
-                    style={{ transitionDelay: isActive ? "450ms" : "0ms" }}
-                  >
-                    <p className="inline-block text-xs sm:text-sm font-medium text-slate-200 bg-black/60 backdrop-blur-xs px-4 py-2 rounded-md border border-white/10">
-                      {slide.description}
-                    </p>
+                    {/* Alt Kısa Açıklama */}
+                    <div
+                      className={`pt-2 transition-all duration-600 ease-out ${
+                        isActive
+                          ? "opacity-100 translate-y-0"
+                          : "opacity-0 translate-y-2 pointer-events-none"
+                      }`}
+                      style={{ transitionDelay: isActive ? "380ms" : "0ms" }}
+                    >
+                      <p className="inline-block max-w-xl text-xs sm:text-sm font-medium text-slate-200 bg-black/70 backdrop-blur-xs px-3.5 py-1.5 rounded-md border border-white/10">
+                        {slide.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
