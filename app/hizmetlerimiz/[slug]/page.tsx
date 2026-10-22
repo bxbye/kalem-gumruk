@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { servicesData } from "@/data/services";
 import { companyInfo } from "@/data/company";
 import { CheckCircle2, ArrowLeft, Phone, MessageSquare, ShieldCheck } from "lucide-react";
-import QuickQuoteForm from "@/components/QuickQuoteForm";
+import CustomsMultiStepForm from "@/components/CustomsMultiStepForm";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -122,7 +122,7 @@ export default async function ServiceDetailPage({ params }: Props) {
         </div>
 
         {/* Alt Form */}
-        <QuickQuoteForm />
+        <CustomsMultiStepForm />
       </div>
     </div>
   );
