@@ -7,9 +7,15 @@ export interface SirkulerItem {
   slug: string;
   date: string;
   category: string;
+  regulationType?: string; // Tebliğ, Karar, Genelge, Yönetmelik
+  officialGazetteNumber?: string; // Resmi Gazete Sayısı (Örn: 32700)
+  relatedGtip?: string; // İlgili GTİP veya Fasıllar (Örn: 84. ve 85. Fasıllar)
   summary: string;
   content: string;
+  expertNote?: string; // Kalem Gümrük Müşavirlik Uzman Tavsiyesi / Yorumu
   sourceUrl?: string;
+  pdfUrl?: string;
+  author?: string;
 }
 
 const dbPath = path.join(process.cwd(), "data", "sirkuler-db.json");
@@ -37,7 +43,7 @@ export function getSirkulerBySlug(slug: string): SirkulerItem | undefined {
 export function saveSirkuler(item: Omit<SirkulerItem, "id" | "slug">): SirkulerItem {
   const items = getAllSirkuler();
   
-  // Basit ve temiz slug üretimi
+  // SEO uyumlu kalıcı slug üretimi
   const slug = item.title
     .toLowerCase()
     .replace(/ğ/g, "g")
@@ -53,6 +59,7 @@ export function saveSirkuler(item: Omit<SirkulerItem, "id" | "slug">): SirkulerI
     ...item,
     id: "sirkuler-" + Date.now(),
     slug,
+    author: item.author || "Kalem Gümrük Mevzuat Kurulu",
   };
 
   items.unshift(newItem);

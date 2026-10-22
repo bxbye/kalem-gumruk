@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ToolsSection from "@/components/ToolsSection";
+import DutyCostCalculator from "@/components/DutyCostCalculator";
 import { companyInfo } from "@/data/company";
 import { ShieldCheck, ExternalLink, HelpCircle } from "lucide-react";
 
@@ -40,6 +41,9 @@ export default function AraclarPage() {
             <ExternalLink className="w-4 h-4" />
           </a>
         </div>
+
+        {/* GTİP & Masraf Hesaplama Simülatörü */}
+        <DutyCostCalculator />
 
         {/* Tüm Araçlar */}
         <ToolsSection />

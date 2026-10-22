@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { companyInfo } from "@/data/company";
 import {
   ShieldCheck,
@@ -37,7 +38,7 @@ export default function Hero() {
         "İthalat, ihracat ve antrepo operasyonlarınızda 25+ yıllık tecrübemiz ve %99.8 zamanında intaç oranımızla yanınızdayız.",
       primaryCta: {
         text: "Hemen Fiyat & Süreç Teklifi Al",
-        href: "#teklif",
+        href: "/iletisim#teklif",
       },
     },
     {
@@ -94,52 +95,65 @@ export default function Hero() {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Arka Plan Glow & İnce Grid */}
-      <div className="absolute inset-0 opacity-15 pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#44B9CD]/25 blur-3xl"></div>
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-[#1E2A3A] blur-3xl"></div>
+      {/* ------------------------------------------------------------- */}
+      {/* KULLANICININ EKLEDİĞİ KALEM GÜMRÜK HERO GÖRSELİ (SOLUK ARKA PLAN) */}
+      {/* ------------------------------------------------------------- */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <Image
+          src="/kalem-gumruk-hero.jpg"
+          alt="Kalem Gümrük Müşavirliği"
+          fill
+          priority
+          className="object-cover object-center opacity-22 filter contrast-125"
+        />
+        {/* Zarif Koyu Gradyan Katmanı (Yazıların kusursuz okunması için) */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1E2A3A]/95 via-[#1E2A3A]/85 to-[#1E2A3A]/70"></div>
+        {/* Hafif Turkuaz Vurgu Işığı */}
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#44B9CD]/20 blur-3xl"></div>
       </div>
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
 
       {/* Kompakt Slider Gövdesi */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 lg:pt-12 lg:pb-14">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 lg:pt-12 lg:pb-14">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Sol Kolon: Dinamik Slayt İçeriği */}
-          <div className="lg:col-span-8 space-y-4 animate-in fade-in duration-300">
-            {/* Rozet */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-[#44B9CD]/40 text-[11px] font-semibold text-[#44B9CD]">
-              <Sparkles className="w-3 h-3" />
-              <span>{activeSlide.badge}</span>
+          {/* Sol Kolon: Dinamik Slayt İçeriği (Her slaytta tek tek hareketli efektlerle gelen manşetler) */}
+          <div key={currentSlide} className="lg:col-span-8 space-y-4">
+            {/* 1. Rozet: Yukarıdan süzülerek gelir */}
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-xs border border-[#44B9CD]/40 text-[11px] font-semibold text-[#44B9CD]">
+                <Sparkles className="w-3 h-3" />
+                <span>{activeSlide.badge}</span>
+              </div>
             </div>
 
-            {/* Başlık */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
+            {/* 2. Manşet Başlığı: Soldan süzülerek gelir */}
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white animate-in fade-in slide-in-from-left-4 duration-500 fill-mode-both">
               {activeSlide.titlePrefix}
               <span className="text-[#44B9CD] underline decoration-[#44B9CD]/30 decoration-wavy">
                 {activeSlide.titleHighlight}
               </span>
             </h1>
 
-            {/* Güven Veren 3 Temel Slogan */}
+            {/* 3. Güven Veren 3 Temel Slogan: Sırayla (Staggered) hareketli gelir */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               {activeSlide.slogans.map((slogan, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/95"
+                  style={{ animationDelay: `${(idx + 1) * 120}ms` }}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-white/10 backdrop-blur-xs border border-white/15 text-xs font-semibold text-white animate-in fade-in slide-in-from-bottom-2 duration-400 fill-mode-both shadow-xs"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#44B9CD] shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-[#44B9CD] shrink-0" />
                   <span className="line-clamp-1">{slogan}</span>
                 </div>
               ))}
             </div>
 
-            {/* Açıklama */}
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+            {/* 4. Açıklama: Yumuşak geçişle belirir */}
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-2xl animate-in fade-in duration-500 delay-300 fill-mode-both">
               {activeSlide.description}
             </p>
 
-            {/* Aksiyon Butonları */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+            {/* 5. Aksiyon Butonları: Büyüyerek gelir */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 animate-in fade-in zoom-in-95 duration-500 delay-350 fill-mode-both">
               {activeSlide.primaryCta.isExternal ? (
                 <a
                   href={activeSlide.primaryCta.href}
@@ -166,7 +180,7 @@ export default function Hero() {
                 href={companyInfo.evrimPortalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white font-semibold px-5 py-3 rounded-xl border border-white/20 transition-all text-xs"
+                className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white font-semibold px-5 py-3 rounded-xl border border-white/20 transition-all text-xs backdrop-blur-xs"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#44B9CD]" />
                 <span>Evrim Web Gümrük Portalı</span>
@@ -175,9 +189,9 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Sağ Kolon: Kompakt Güven Kartı */}
+          {/* Sağ Kolon: Kompakt Kurumsal Statü Kartı */}
           <div className="lg:col-span-4 hidden lg:block">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 shadow-xl space-y-3.5">
+            <div className="bg-[#1E2A3A]/85 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-2xl space-y-3.5">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div>
                   <div className="text-[10px] text-[#44B9CD] font-bold uppercase tracking-wider">
@@ -265,7 +279,7 @@ export default function Hero() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
             {/* 1. Hızlı Teklif */}
             <Link
-              href="/#teklif"
+              href="/iletisim#teklif"
               className="group p-4 sm:p-5 bg-white hover:bg-slate-50 transition-all flex items-center justify-between"
             >
               <div className="space-y-0.5">
@@ -276,7 +290,7 @@ export default function Hero() {
                   Hızlı Teklif Formu
                 </div>
                 <div className="text-[11px] text-slate-500 hidden sm:block">
-                  Adım adım talep oluşturun
+                  4 adımda talep oluşturun
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-[#1E2A3A] text-slate-700 group-hover:text-[#44B9CD] flex items-center justify-center transition-all shrink-0">

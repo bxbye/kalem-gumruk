@@ -5,9 +5,21 @@ import { revalidatePath } from "next/cache";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { password, title, category, summary, content, sourceUrl } = body;
+    const {
+      password,
+      title,
+      category,
+      regulationType,
+      officialGazetteNumber,
+      relatedGtip,
+      summary,
+      content,
+      expertNote,
+      sourceUrl,
+      pdfUrl,
+    } = body;
 
-    // Yönetici Şifre Kontrolü (Varsayılan: kalem1997, ortam değişkeniyle değiştirilebilir)
+    // Yönetici Şifre Kontrolü
     const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
     if (password !== validPassword) {
       return NextResponse.json(
@@ -26,19 +38,26 @@ export async function POST(request: Request) {
     const newItem = saveSirkuler({
       title: title.trim(),
       category: category || "Genel Mevzuat",
+      regulationType: regulationType ? regulationType.trim() : "Gümrük Tebliği",
+      officialGazetteNumber: officialGazetteNumber ? officialGazetteNumber.trim() : undefined,
+      relatedGtip: relatedGtip ? relatedGtip.trim() : undefined,
       date: new Date().toISOString().split("T")[0],
       summary: summary ? summary.trim() : content.slice(0, 160).trim() + "...",
       content: content.trim(),
+      expertNote: expertNote ? expertNote.trim() : undefined,
       sourceUrl: sourceUrl ? sourceUrl.trim() : undefined,
+      pdfUrl: pdfUrl ? pdfUrl.trim() : undefined,
+      author: "Kalem Gümrük Mevzuat Kurulu",
     });
 
-    // Önbellekleri tazele
+    // Önbellekleri anında tazele (SSG / ISR)
     revalidatePath("/");
     revalidatePath("/sirkuler");
+    revalidatePath(`/sirkuler/${newItem.slug}`);
 
     return NextResponse.json({
       success: true,
-      message: "Sirküler başarıyla web sitesinde yayımlandı!",
+      message: "Mevzuat sirküleri başarıyla web sitesinde yayımlandı!",
       item: newItem,
     });
   } catch (error) {
