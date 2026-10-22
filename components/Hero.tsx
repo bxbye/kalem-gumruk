@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { companyInfo } from "@/data/company";
@@ -12,81 +12,93 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
 } from "lucide-react";
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
 
+  // Karaca Gümrükçülük tarzı 4 manşet slaytı
   const slides = [
     {
       id: 1,
-      badge: "⭐ 1997'DEN BUGÜNE GÜVENLE",
       slogans: [
         "Çözüm Odaklı Yaklaşım",
         "Koşulsuz Müşteri Memnuniyeti",
         "Yüksek Kaliteli Hizmet Anlayışı",
       ],
-      description:
-        "A Karne yetkili gümrük müşavirlerimiz ve 25+ yıllık saha tecrübemizle dış ticaret operasyonlarınızı sıfır gecikmeyle yönetiyoruz.",
-      cta: {
-        text: "Hızlı Teklif Al",
-        href: "/iletisim#teklif",
-      },
+      description: "1997'den bugüne A Karne yetkili gümrük müşavirlerimizle kesintisiz güven.",
     },
     {
       id: 2,
-      badge: "🚀 DİJİTAL GÜMRÜK & ŞEFFAFLIK",
       slogans: [
         "Sıfır Gecikme & Hızlı Tescil",
         "Evrim Web Gümrük ile 7/24 Canlı Takip",
-        "%99.8 Zamanında İntaç Güvencesi",
+        "%99.8 Zamanında İntaç Garantisi",
       ],
-      description:
-        "Tüm ithalat ve ihracat dosyalarınızı, beyanname kapanışlarını ve dijital arşivinizi cebinizden an be an izleyin.",
-      cta: {
-        text: "Evrim Müşteri Girişi",
-        href: companyInfo.evrimPortalUrl,
-        isExternal: true,
-      },
+      description: "Tüm ithalat ve ihracat beyannamelerinizi ofisinizden anlık olarak takip edin.",
     },
     {
       id: 3,
-      badge: "🛡️ HUKUKİ GÜVENCE & DANIŞMANLIK",
       slogans: [
         "Mevzuata %100 Tam Uyum",
         "Doğru GTİP Tespiti & Vergi Analizi",
-        "DİR & Yatırım Teşvik Uzmanlığı",
+        "Dahilde İşleme (DİR) & Teşvik Danışmanlığı",
       ],
-      description:
-        "Resmi Gazete tebliğlerini anlık analiz ederek firmanızı olası cezai yaptırımlardan koruyor, maliyet avantajı sağlıyoruz.",
-      cta: {
-        text: "Gümrük Araçlarını İncele",
-        href: "/araclar",
-      },
+      description: "Resmi Gazete tebliğlerini anlık analiz ederek cezai riskleri sıfıra indiriyoruz.",
+    },
+    {
+      id: 4,
+      slogans: [
+        "Tüm Liman & Gümrüklerde Saha Gücü",
+        "Hava, Deniz, Kara ve Serbest Bölge Çözümleri",
+        "Dış Ticarette Stratejik Çözüm Ortağınız",
+      ],
+      description: "Ambarlı, Erenköy, Muratbey, İGA ve tüm limanlarda yetkili operasyon kadrosu.",
     },
   ];
 
-  // 6 saniyede bir otomatik geçiş
+  // Otomatik kayma (6 saniye)
   useEffect(() => {
     if (isPaused) return;
-    const interval = setInterval(() => {
+    const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, [isPaused, slides.length]);
 
-  const activeSlide = slides[currentSlide];
+  const handlePrev = () => {
+    setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  // Mobil Dokunmatik Kaydırma (Swipe)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (diff > 50) handleNext();
+    if (diff < -50) handlePrev();
+    touchStartX.current = null;
+  };
 
   return (
     <section
-      className="relative overflow-hidden bg-slate-900 text-white"
+      className="relative overflow-hidden bg-slate-950 text-white select-none"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* ------------------------------------------------------------- */}
-      {/* 1. GÖRSEL ALANI (Fotoğraf Net Şekilde Görünür, Az Soluk Karartma) */}
+      {/* 1. GÖRSEL ARKA PLAN (Net Görünür, Karaca Tarzı Az Soluk Katman) */}
       {/* ------------------------------------------------------------- */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -94,122 +106,104 @@ export default function Hero() {
           alt="Kalem Gümrük Müşavirliği"
           fill
           priority
-          className="object-cover object-center filter brightness-90"
+          className="object-cover object-center filter brightness-95"
         />
-        {/* Az soluklaştıran yarı saydam katman (Fotoğraf görünür, yazılar parlar) */}
-        <div className="absolute inset-0 bg-slate-950/45"></div>
-        {/* Sol tarafta yazıların rahat okunması için yumuşak gölge geçişi */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-transparent"></div>
+        {/* Karaca sitesindeki gibi hafif karartıcı yarı saydam perde */}
+        <div className="absolute inset-0 bg-black/35"></div>
+        {/* Yazıların keskin okunması için sol tarafta yumuşak gradyan */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent"></div>
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. GÖRSEL ÜZERİNDE HAREKETLİ GELEN SLOGAN MESAJLAR */}
+      {/* 2. KARACA TARZI YATAY KAYAN MANŞET SLIDER ALANI */}
       {/* ------------------------------------------------------------- */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[440px] sm:min-h-[480px] lg:min-h-[500px] flex flex-col justify-center py-12">
-        <div key={currentSlide} className="max-w-3xl space-y-5">
-          {/* Rozet */}
-          <div className="animate-in fade-in slide-in-from-top-3 duration-400">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-bold text-[#44B9CD] shadow-sm">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{activeSlide.badge}</span>
-            </span>
-          </div>
-
-          {/* Slogan Mesajlar: Tek tek hareketli efektlerle gelen satırlar */}
-          <div className="space-y-2.5">
-            {activeSlide.slogans.map((slogan, idx) => (
+      <div className="relative z-10 w-full min-h-[460px] sm:min-h-[500px] lg:min-h-[530px] flex items-center overflow-hidden">
+        {/* Yatay Kayan Slider Bandı (Horizontal Slide Track) */}
+        <div
+          className="w-full flex transition-transform duration-700 ease-out"
+          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        >
+          {slides.map((slide, sIndex) => {
+            const isActive = currentSlide === sIndex;
+            return (
               <div
-                key={idx}
-                style={{ animationDelay: `${idx * 160}ms` }}
-                className="animate-in fade-in slide-in-from-left-6 duration-500 fill-mode-both"
+                key={slide.id}
+                className="w-full shrink-0 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-16 flex flex-col justify-center items-start"
               >
-                <div className="inline-flex items-center gap-3 bg-slate-950/65 backdrop-blur-md px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-white/15 shadow-xl hover:border-[#44B9CD]/50 transition-colors">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#44B9CD] shadow-sm shadow-[#44B9CD]"></span>
-                  <span className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white drop-shadow-md">
-                    {slogan}
-                  </span>
+                <div className="max-w-3xl space-y-3.5">
+                  {/* Slogan Kutuları: Karaca'daki gibi siyah zeminli, beyaz kalın yazılı kutular */}
+                  <div className="space-y-3">
+                    {slide.slogans.map((slogan, idx) => (
+                      <div
+                        key={idx}
+                        className={`transition-all duration-700 ease-out ${
+                          isActive
+                            ? "opacity-100 translate-x-0"
+                            : "opacity-0 -translate-x-12"
+                        }`}
+                        style={{
+                          transitionDelay: isActive ? `${idx * 140}ms` : "0ms",
+                        }}
+                      >
+                        <div className="inline-block bg-black/80 backdrop-blur-xs px-5 sm:px-7 py-2.5 sm:py-3.5 rounded-md shadow-2xl border-l-4 border-[#44B9CD]">
+                          <span className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-wide">
+                            {slogan}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Alt Kısa Açıklama */}
+                  <div
+                    className={`pt-2 transition-all duration-700 ease-out ${
+                      isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                    }`}
+                    style={{ transitionDelay: isActive ? "450ms" : "0ms" }}
+                  >
+                    <p className="inline-block text-xs sm:text-sm font-medium text-slate-200 bg-black/60 backdrop-blur-xs px-4 py-2 rounded-md border border-white/10">
+                      {slide.description}
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Açıklama */}
-          <div className="animate-in fade-in duration-600 delay-450 fill-mode-both pt-1">
-            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-xl bg-slate-950/50 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-              {activeSlide.description}
-            </p>
-          </div>
-
-          {/* Eylem Butonu */}
-          <div className="animate-in fade-in zoom-in-95 duration-500 delay-500 fill-mode-both pt-2 flex items-center gap-3">
-            {activeSlide.cta.isExternal ? (
-              <a
-                href={activeSlide.cta.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-[#44B9CD] hover:bg-[#2f9fb3] text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-lg hover:scale-105"
-              >
-                <Lock className="w-4 h-4" />
-                <span>{activeSlide.cta.text}</span>
-              </a>
-            ) : (
-              <Link
-                href={activeSlide.cta.href}
-                className="inline-flex items-center gap-2 bg-[#44B9CD] hover:bg-[#2f9fb3] text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-lg hover:scale-105"
-              >
-                <span>{activeSlide.cta.text}</span>
-              </Link>
-            )}
-
-            <a
-              href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                companyInfo.whatsappDefaultMessage
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-black/40 hover:bg-black/60 backdrop-blur-md text-white font-semibold px-5 py-3 rounded-xl border border-white/20 text-xs transition-colors"
-            >
-              <span>Müşavir Hattı: {companyInfo.phone}</span>
-            </a>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Slider Sayfalama Noktaları (Karaca örneğindeki gibi ortalanmış kare indikatörler) */}
-        <div className="absolute bottom-6 left-4 sm:left-8 flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15">
-            {slides.map((slide, index) => (
-              <button
-                key={slide.id}
-                onClick={() => setCurrentSlide(index)}
-                aria-label={`Slayt ${index + 1}`}
-                className={`transition-all duration-300 rounded-xs ${
-                  currentSlide === index
-                    ? "w-6 h-2 bg-[#44B9CD] shadow-xs shadow-[#44B9CD]"
-                    : "w-2 h-2 bg-white/40 hover:bg-white/70"
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="flex items-center gap-1">
+        {/* ------------------------------------------------------------- */}
+        {/* SLIDER KARE SAYFALAMA NOKTALARI (Karaca Sitesindeki Gibi Ortada) */}
+        {/* ------------------------------------------------------------- */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-20">
+          {slides.map((slide, index) => (
             <button
-              onClick={() =>
-                setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1))
-              }
-              aria-label="Önceki"
-              className="p-1.5 rounded-lg bg-slate-950/60 backdrop-blur-md hover:bg-slate-950 text-white border border-white/15 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-              aria-label="Sonraki"
-              className="p-1.5 rounded-lg bg-slate-950/60 backdrop-blur-md hover:bg-slate-950 text-white border border-white/15 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+              key={slide.id}
+              onClick={() => setCurrentSlide(index)}
+              aria-label={`Slayt ${index + 1}`}
+              className={`transition-all duration-300 rounded-xs shadow-md ${
+                currentSlide === index
+                  ? "w-4 h-4 bg-[#44B9CD] scale-110 ring-2 ring-white/50"
+                  : "w-3.5 h-3.5 bg-white/70 hover:bg-white"
+              }`}
+            />
+          ))}
         </div>
+
+        {/* Sağ & Sol Yönlendirme Okları */}
+        <button
+          onClick={handlePrev}
+          aria-label="Önceki Slayt"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs border border-white/20 transition-all hover:scale-110"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <button
+          onClick={handleNext}
+          aria-label="Sonraki Slayt"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs border border-white/20 transition-all hover:scale-110"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
       {/* ------------------------------------------------------------- */}
