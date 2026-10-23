@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { servicesData } from "@/data/services";
 import { companyInfo } from "@/data/company";
 import { CheckCircle2, ArrowLeft, Phone, MessageSquare, ShieldCheck } from "lucide-react";
-import CustomsMultiStepForm from "@/components/CustomsMultiStepForm";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -43,11 +42,13 @@ export default async function ServiceDetailPage({ params }: Props) {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         {/* Breadcrumb & Geri Dön */}
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Link href="/" className="hover:text-[#44B9CD]">
+          <Link href="/" className="hover:text-[#44B9CD] transition-colors">
             Ana Sayfa
           </Link>
           <span>/</span>
-          <span>Hizmetlerimiz</span>
+          <Link href="/hizmetlerimiz" className="hover:text-[#44B9CD] transition-colors">
+            Hizmetlerimiz
+          </Link>
           <span>/</span>
           <span className="text-slate-900 font-semibold">{service.title}</span>
         </div>
@@ -120,9 +121,6 @@ export default async function ServiceDetailPage({ params }: Props) {
             </div>
           </div>
         </div>
-
-        {/* Alt Form */}
-        <CustomsMultiStepForm />
       </div>
     </div>
   );

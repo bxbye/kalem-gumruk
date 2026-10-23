@@ -33,11 +33,11 @@ export default function GerekliBaglantilarSection() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#44B9CD]/15 text-[#1E2A3A] text-xs font-bold uppercase tracking-wider mb-2">
             <Globe className="w-3.5 h-3.5 text-[#44B9CD]" />
-            <span>Hızlı Erişim Masası</span>
+            <span>Müşavir Masası & Hızlı Erişim</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1E2A3A]">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E2A3A]">
             Gerekli Bağlantılar & Resmi Portallar
-          </h2>
+          </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl">
             Kargo takip, liman konteyner sorgulama, GİB e-arşiv ve GTB resmi gümrükleme sistemlerine
             tek merkezden doğrudan erişim sağlayın.

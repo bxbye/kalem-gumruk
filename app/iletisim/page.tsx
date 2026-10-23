@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { companyInfo } from "@/data/company";
-import CustomsMultiStepForm from "@/components/CustomsMultiStepForm";
+import QuickQuoteForm from "@/components/QuickQuoteForm";
 import {
   MapPin,
   Phone,
@@ -138,7 +138,7 @@ export default function IletisimPage() {
         </div>
 
         {/* Teklif ve İletişim Formu */}
-        <CustomsMultiStepForm />
+        <QuickQuoteForm />
       </div>
     </div>
   );

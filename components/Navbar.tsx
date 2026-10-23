@@ -78,64 +78,115 @@ export default function Navbar() {
             onMouseEnter={() => setServicesDropdown(true)}
             onMouseLeave={() => setServicesDropdown(false)}
           >
-            <button className="flex items-center gap-1 hover:text-[#44B9CD] transition-colors py-2">
+            <Link
+              href="/hizmetlerimiz"
+              className="flex items-center gap-1 hover:text-[#44B9CD] transition-colors py-2 font-medium"
+            >
               <span>Hizmetlerimiz</span>
               <ChevronDown className="w-3.5 h-3.5" />
-            </button>
+            </Link>
 
             {servicesDropdown && (
-              <div className="absolute top-full left-0 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 py-2.5 z-50 animate-in fade-in slide-in-from-top-1">
-                <Link
-                  href="/hizmetlerimiz/ithalat"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">İthalat Gümrükleme</div>
-                  <div className="text-[11px] text-slate-500 font-normal">Tescil, vergi hesabı ve teslimat</div>
-                </Link>
-                <Link
-                  href="/hizmetlerimiz/ihracat"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">İhracat Gümrükleme</div>
-                  <div className="text-[11px] text-slate-500 font-normal">A.TR, EUR.1, Birlik ve intaç</div>
-                </Link>
-                <Link
-                  href="/hizmetlerimiz/dahilde-haricte-isleme"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">Dahilde & Hariçte İşleme (DİR)</div>
-                  <div className="text-[11px] text-slate-500 font-normal">DİİB alımı ve taahhüt kapatma</div>
-                </Link>
-                <Link
-                  href="/hizmetlerimiz/antrepo-transit"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">Antrepo & Transit Ticaret</div>
-                  <div className="text-[11px] text-slate-500 font-normal">Gümrüklü depolama ve sevk</div>
-                </Link>
-                <Link
-                  href="/hizmetlerimiz/serbest-bolge"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">Serbest Bölge Rejimi</div>
-                  <div className="text-[11px] text-slate-500 font-normal">SBİF ve özel rejim yönetimi</div>
-                </Link>
-                <Link
-                  href="/hizmetlerimiz/danismanlik"
-                  className="block px-4 py-2 hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
-                >
-                  <div className="font-bold text-xs text-slate-900">Gümrük Danışmanlığı & YYS</div>
-                  <div className="text-[11px] text-slate-500 font-normal">Sonradan kontrol ve teşvikler</div>
-                </Link>
+              <div className="absolute top-full left-0 w-[540px] bg-white rounded-3xl shadow-2xl border border-slate-100 p-4 z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="grid grid-cols-2 gap-1.5 pb-3">
+                  {/* Sol Kolon */}
+                  <div className="space-y-1">
+                    <Link
+                      href="/hizmetlerimiz/ithalat"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">İthalat Gümrükleme</div>
+                      <div className="text-[11px] text-slate-500 font-normal">Tescil, vergi hesabı ve teslimat</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/ihracat"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">İhracat Gümrükleme</div>
+                      <div className="text-[11px] text-slate-500 font-normal">A.TR, EUR.1, Birlik ve intaç</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/dahilde-isleme"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Dahilde İşleme (DİR)</div>
+                      <div className="text-[11px] text-slate-500 font-normal">DİİB alımı, stok ve kapatma</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/haricte-isleme"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Hariçte İşleme</div>
+                      <div className="text-[11px] text-slate-500 font-normal">Tamir & işleme geçici çıkış</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/antrepo"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Antrepo Rejimi</div>
+                      <div className="text-[11px] text-slate-500 font-normal">Gümrüklü depolama ve kısmi çekim</div>
+                    </Link>
+                  </div>
+
+                  {/* Sağ Kolon */}
+                  <div className="space-y-1">
+                    <Link
+                      href="/hizmetlerimiz/transit"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Transit Rejimi</div>
+                      <div className="text-[11px] text-slate-500 font-normal">NCTS / T1 / T2 & teminat takibi</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/serbest-bolge"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Serbest Bölge İşlemleri</div>
+                      <div className="text-[11px] text-slate-500 font-normal">SBİF tanzimi ve özel muafiyetler</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/danismanlik"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Gümrük Danışmanlığı &amp; YYS</div>
+                      <div className="text-[11px] text-slate-500 font-normal">Mevzuat yönlendirmesi & teşvikler</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/hukuk"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Gümrük Hukuk Hizmetleri</div>
+                      <div className="text-[11px] text-slate-500 font-normal">İtiraz, ceza uzlaşma ve savunma</div>
+                    </Link>
+                    <Link
+                      href="/hizmetlerimiz/sigorta"
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-[#44B9CD] transition-colors"
+                    >
+                      <div className="font-bold text-xs text-slate-900">Sigorta Hizmetleri</div>
+                      <div className="text-[11px] text-slate-500 font-normal">Emtia & nakliyat güvence poliçeleri</div>
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between px-3 text-xs">
+                  <span className="text-slate-400 text-[11px]">Toplam 10 Hizmet Rejimi</span>
+                  <Link
+                    href="/hizmetlerimiz"
+                    className="font-bold text-[#44B9CD] hover:text-[#1E2A3A] transition-colors flex items-center gap-1"
+                  >
+                    <span>Tüm Hizmetler Sayfasına Git</span>
+                    <span>→</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
 
           <Link href="/araclar" className="hover:text-[#44B9CD] transition-colors py-2">
-            Gümrükçü Masası
+            Müşavir Masası
           </Link>
           <Link href="/sirkuler" className="hover:text-[#44B9CD] transition-colors py-2">
-            Mevzuat & Sirküler
+            Bilgi Merkezi
           </Link>
           <Link href="/kariyer" className="hover:text-[#44B9CD] transition-colors py-2">
             Kariyer
@@ -193,9 +244,14 @@ export default function Navbar() {
             Kurumsal
           </Link>
           <div className="py-2 border-b border-slate-100">
-            <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Hizmetlerimiz
-            </span>
+            <Link
+              href="/hizmetlerimiz"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1.5"
+            >
+              <span>Hizmetlerimiz (Tümü)</span>
+              <span className="text-[#44B9CD] text-[11px]">10 Hizmet →</span>
+            </Link>
             <div className="pl-3 space-y-1.5 text-xs text-slate-700">
               <Link href="/hizmetlerimiz/ithalat" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
                 • İthalat Gümrükleme
@@ -203,17 +259,29 @@ export default function Navbar() {
               <Link href="/hizmetlerimiz/ihracat" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
                 • İhracat Gümrükleme
               </Link>
-              <Link href="/hizmetlerimiz/dahilde-haricte-isleme" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
-                • Dahilde & Hariçte İşleme (DİR)
+              <Link href="/hizmetlerimiz/dahilde-isleme" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Dahilde İşleme (DİR)
               </Link>
-              <Link href="/hizmetlerimiz/antrepo-transit" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
-                • Antrepo & Transit Ticaret
+              <Link href="/hizmetlerimiz/haricte-isleme" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Hariçte İşleme
+              </Link>
+              <Link href="/hizmetlerimiz/antrepo" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Antrepo Rejimi
+              </Link>
+              <Link href="/hizmetlerimiz/transit" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Transit Rejimi
               </Link>
               <Link href="/hizmetlerimiz/serbest-bolge" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
-                • Serbest Bölge Rejimi
+                • Serbest Bölge İşlemleri
               </Link>
               <Link href="/hizmetlerimiz/danismanlik" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
-                • Gümrük Danışmanlığı & YYS
+                • Gümrük Danışmanlığı &amp; YYS
+              </Link>
+              <Link href="/hizmetlerimiz/hukuk" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Gümrük Hukuk Hizmetleri
+              </Link>
+              <Link href="/hizmetlerimiz/sigorta" onClick={() => setMobileMenuOpen(false)} className="block hover:text-[#44B9CD]">
+                • Sigorta Hizmetleri
               </Link>
             </div>
           </div>
@@ -222,14 +290,14 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen(false)}
             className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
           >
-            Gümrükçü Masası
+            Müşavir Masası
           </Link>
           <Link
             href="/sirkuler"
             onClick={() => setMobileMenuOpen(false)}
             className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
           >
-            Mevzuat & Sirküler
+            Bilgi Merkezi
           </Link>
           <Link
             href="/kariyer"

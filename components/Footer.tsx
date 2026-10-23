@@ -35,10 +35,15 @@ export default function Footer() {
 
           {/* Kolon 2: Hızlı Hizmet Bağlantıları */}
           <div>
-            <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-[#44B9CD] pl-2.5">
-              Hizmetlerimiz
-            </h3>
-            <ul className="space-y-2.5 text-xs text-slate-300">
+            <div className="flex items-center justify-between mb-4 border-l-2 border-[#44B9CD] pl-2.5">
+              <h3 className="text-white text-sm font-bold uppercase tracking-wider">
+                Hizmetlerimiz
+              </h3>
+              <Link href="/hizmetlerimiz" className="text-[11px] text-[#44B9CD] hover:underline font-semibold">
+                Tümü (10) →
+              </Link>
+            </div>
+            <ul className="space-y-2 text-xs text-slate-300">
               <li>
                 <Link href="/hizmetlerimiz/ithalat" className="hover:text-[#44B9CD] transition-colors">
                   İthalat Gümrükleme İşlemleri
@@ -51,25 +56,48 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/hizmetlerimiz/dahilde-haricte-isleme"
+                  href="/hizmetlerimiz/dahilde-isleme"
                   className="hover:text-[#44B9CD] transition-colors"
                 >
-                  Dahilde & Hariçte İşleme (DİR)
+                  Dahilde İşleme Rejimi (DİR)
                 </Link>
               </li>
               <li>
-                <Link href="/hizmetlerimiz/antrepo-transit" className="hover:text-[#44B9CD] transition-colors">
-                  Antrepo & Transit Ticaret
+                <Link
+                  href="/hizmetlerimiz/haricte-isleme"
+                  className="hover:text-[#44B9CD] transition-colors"
+                >
+                  Hariçte İşleme Hizmetleri
+                </Link>
+              </li>
+              <li>
+                <Link href="/hizmetlerimiz/antrepo" className="hover:text-[#44B9CD] transition-colors">
+                  Antrepo Rejimi İşlemleri
+                </Link>
+              </li>
+              <li>
+                <Link href="/hizmetlerimiz/transit" className="hover:text-[#44B9CD] transition-colors">
+                  Transit Rejimi & NCTS
                 </Link>
               </li>
               <li>
                 <Link href="/hizmetlerimiz/serbest-bolge" className="hover:text-[#44B9CD] transition-colors">
-                  Serbest Bölge Rejimi
+                  Serbest Bölge İşlemleri
                 </Link>
               </li>
               <li>
                 <Link href="/hizmetlerimiz/danismanlik" className="hover:text-[#44B9CD] transition-colors">
-                  YYS & Mevzuat Danışmanlığı
+                  Dış Ticaret & Gümrük Danışmanlığı
+                </Link>
+              </li>
+              <li>
+                <Link href="/hizmetlerimiz/hukuk" className="hover:text-[#44B9CD] transition-colors">
+                  Gümrük Hukuk Hizmetleri & Uzlaşma
+                </Link>
+              </li>
+              <li>
+                <Link href="/hizmetlerimiz/sigorta" className="hover:text-[#44B9CD] transition-colors">
+                  Emtia Nakliyat Sigortası
                 </Link>
               </li>
             </ul>
@@ -78,7 +106,7 @@ export default function Footer() {
           {/* Kolon 3: Faydalı Gümrük Portalları */}
           <div>
             <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-[#44B9CD] pl-2.5">
-              Gümrükçü Masası
+              Müşavir Masası
             </h3>
             <ul className="space-y-2.5 text-xs text-slate-300">
               <li>

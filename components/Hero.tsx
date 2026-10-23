@@ -16,7 +16,7 @@ import {
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   // Karaca Gümrükçülük tarzı 4 manşet slaytı
@@ -59,14 +59,22 @@ export default function Hero() {
     },
   ];
 
-  // Otomatik kayma (6 saniye)
+  // Sayfa ilk yüklendiğinde ilk slayt animasyonlarının tetiklenmesi için mount kontrolü
   useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(() => {
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Otomatik kayma: Tüm yazılar geldikten sonra (~2.8s) tam 2 saniye bekleyip diğer slayta geçer (Toplam 4.8 saniye)
+  useEffect(() => {
+    if (!isMounted) return;
+    const timer = setTimeout(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [isPaused, slides.length]);
+    }, 4800);
+    return () => clearTimeout(timer);
+  }, [currentSlide, slides.length, isMounted]);
 
   const handlePrev = () => {
     setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
@@ -92,8 +100,6 @@ export default function Hero() {
   return (
     <section
       className="relative overflow-hidden bg-slate-950 text-white select-none"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -124,7 +130,7 @@ export default function Hero() {
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {slides.map((slide, sIndex) => {
-            const isActive = currentSlide === sIndex;
+            const isActive = isMounted && currentSlide === sIndex;
             return (
               <div
                 key={slide.id}
@@ -132,37 +138,49 @@ export default function Hero() {
               >
                 <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-16 flex flex-col justify-center items-start">
                   <div className="w-full max-w-2xl sm:max-w-3xl space-y-3">
-                    {/* Slogan Kutuları: Karaca tarzı siyah zeminli, beyaz kalın yazılı kutular */}
+                    {/* Slogan Kutuları: Yukarıdan aşağıya tek tek, sırayla gelen sakin animasyon */}
                     <div className="space-y-2.5 sm:space-y-3">
-                      {slide.slogans.map((slogan, idx) => (
-                        <div
-                          key={idx}
-                          className={`transition-all duration-600 ease-out ${
-                            isActive
-                              ? "opacity-100 translate-x-0"
-                              : "opacity-0 -translate-x-4 pointer-events-none"
-                          }`}
-                          style={{
-                            transitionDelay: isActive ? `${idx * 120}ms` : "0ms",
-                          }}
-                        >
-                          <div className="inline-block max-w-full bg-black/85 backdrop-blur-xs px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-2xl border-l-4 border-[#44B9CD]">
-                            <span className="block text-base sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight break-words">
-                              {slogan}
-                            </span>
+                      {slide.slogans.map((slogan, idx) => {
+                        // Sıralı gecikme: 1. slogan 200ms, 2. slogan 750ms, 3. slogan 1300ms (550ms aralıkla)
+                        const delayMs = 200 + idx * 550;
+                        return (
+                          <div
+                            key={idx}
+                            className={`transition-all ${
+                              isActive
+                                ? "opacity-100 translate-y-0"
+                                : "opacity-0 -translate-y-8 pointer-events-none"
+                            }`}
+                            style={{
+                              transitionDuration: isActive ? "950ms" : "250ms",
+                              transitionDelay: isActive ? `${delayMs}ms` : "0ms",
+                              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                            }}
+                          >
+                            <div className="inline-block max-w-full bg-black/85 backdrop-blur-xs px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-2xl border-l-4 border-[#44B9CD]">
+                              <span className="block text-base sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight break-words">
+                                {slogan}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
-                    {/* Alt Kısa Açıklama */}
+                    {/* Alt Kısa Açıklama - Sloganlardan hemen sonra sırayla yukarıdan aşağıya gelsin */}
                     <div
-                      className={`pt-2 transition-all duration-600 ease-out ${
+                      className={`pt-2 transition-all ${
                         isActive
                           ? "opacity-100 translate-y-0"
-                          : "opacity-0 translate-y-2 pointer-events-none"
+                          : "opacity-0 -translate-y-6 pointer-events-none"
                       }`}
-                      style={{ transitionDelay: isActive ? "380ms" : "0ms" }}
+                      style={{
+                        transitionDuration: isActive ? "950ms" : "250ms",
+                        transitionDelay: isActive
+                          ? `${200 + slide.slogans.length * 550}ms`
+                          : "0ms",
+                        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      }}
                     >
                       <p className="inline-block max-w-xl text-xs sm:text-sm font-medium text-slate-200 bg-black/70 backdrop-blur-xs px-3.5 py-1.5 rounded-md border border-white/10">
                         {slide.description}
