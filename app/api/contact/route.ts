@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { db } from "@/db";
+import { formSubmissions } from "@/db/schema";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { fullName, company, phone, email, serviceType, message, honeypot } = body;
 
-    // Spam / Bot engelleme (Görünmez alan doldurulduysa reddet)
+    // Spam / Bot engelleme
     if (honeypot) {
       return NextResponse.json({ success: true, message: "İşlem başarılı." });
     }
@@ -18,7 +20,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // SMTP Ayarları (Ortam değişkenlerinden alınır)
+    // 1. Veritabanına Kaydet (D1 / SQLite)
+    const refCode = `TK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const submissionId = `SUB-${refCode}`;
+    const now = new Date();
+
+    await db.insert(formSubmissions).values({
+      id: submissionId,
+      formSlug: serviceType ? "fiyat-teklifi" : "iletisim",
+      data: JSON.stringify({
+        fullName,
+        company,
+        phone,
+        email,
+        serviceType: serviceType || "Genel Bilgi",
+        message,
+      }),
+      files: "[]",
+      status: "NEW",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 2. SMTP E-Posta Gönderimi
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = Number(process.env.SMTP_PORT || 587);
     const smtpUser = process.env.SMTP_USER;
@@ -29,7 +53,7 @@ export async function POST(request: Request) {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
         <div style="background-color: #1E2A3A; padding: 20px; color: #ffffff; text-align: center;">
           <h2 style="margin: 0; font-size: 20px;">Yeni Web İletişim / Teklif Talebi</h2>
-          <p style="margin: 5px 0 0 0; color: #44B9CD; font-size: 14px;">Kalem Gümrük Müşavirliği Web Sitesi</p>
+          <p style="margin: 5px 0 0 0; color: #44B9CD; font-size: 14px;">Talep Referans No: <strong>${refCode}</strong></p>
         </div>
         <div style="padding: 24px; background-color: #ffffff;">
           <table style="width: 100%; border-collapse: collapse;">
@@ -61,7 +85,7 @@ export async function POST(request: Request) {
           </div>
         </div>
         <div style="background-color: #f1f5f9; padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">
-          Bu mesaj kalemgumruk.com iletişim formu üzerinden gönderilmiştir.
+          Bu mesaj veritabanına (#${refCode}) referansıyla kaydedilmiştir.
         </div>
       </div>
     `;
@@ -71,33 +95,44 @@ export async function POST(request: Request) {
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
+        auth: { user: smtpUser, pass: smtpPass },
       });
 
       await transporter.sendMail({
         from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
         to: receiverEmail,
         replyTo: email || undefined,
-        subject: `[Web Form] ${serviceType || "İletişim Talebi"} - ${fullName} (${company || "Bireysel"})`,
+        subject: `[${refCode}] ${serviceType || "İletişim Talebi"} - ${fullName} (${company || "Bireysel"})`,
         html: emailHtml,
       });
-    } else {
-      console.log("SMTP ayarları henüz girilmedi. Gelen form verisi:", {
-        fullName,
-        company,
-        phone,
-        email,
-        serviceType,
-        message,
-      });
+
+      // Müşteriye otomatik teşekkür maili
+      if (email) {
+        await transporter.sendMail({
+          from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+          to: email,
+          subject: `Talebiniz Alındı (#${refCode}) | Kalem Gümrük`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <div style="background-color: #1E2A3A; padding: 20px; color: #ffffff; text-align: center;">
+                <h3 style="margin:0;">Kalem Gümrük Müşavirliği</h3>
+                <p style="margin:5px 0 0 0; color: #44B9CD; font-size:13px;">Talebiniz Kaydedildi</p>
+              </div>
+              <div style="padding: 24px; color: #334155;">
+                <p>Sayın <strong>${fullName}</strong>,</p>
+                <p>İletmiş olduğunuz talep <strong>#${refCode}</strong> takip kodu ile operasyon birimimize iletilmiştir. Uzman gümrük müşavirlerimiz en kısa sürede sizinle irtibata geçecektir.</p>
+                <p>İlginiz için teşekkür eder, iyi çalışmalar dileriz.</p>
+              </div>
+            </div>
+          `,
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: "Talebiniz başarıyla alındı. Gümrük müşavirimiz en kısa sürede sizinle iletişime geçecektir.",
+      refCode,
+      message: `Talebiniz #${refCode} referans koduyla başarıyla kaydedildi. Gümrük müşavirimiz en kısa sürede sizinle iletişime geçecektir.`,
     });
   } catch (error) {
     console.error("Form gönderme hatası:", error);

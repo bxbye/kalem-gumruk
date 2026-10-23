@@ -1,14 +1,22 @@
-import type { Metadata } from "next";
-import { companyInfo } from "@/data/company";
-import { Briefcase, Users, GraduationCap, CheckCircle2, ArrowRight, Mail } from "lucide-react";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Kariyer & İnsan Kaynakları | Kalem Gümrük Müşavirliği",
-  description:
-    "Kalem Gümrük Müşavirliği Ltd. Şti. kariyer fırsatları, staj olanakları ve insan kaynakları politikamız. Yetenekli profesyonelleri aramızda görmekten mutluluk duyarız.",
-};
+import { useState } from "react";
+import { companyInfo } from "@/data/company";
+import {
+  Briefcase,
+  Users,
+  GraduationCap,
+  ArrowRight,
+  Mail,
+  FileText,
+  Upload,
+  CheckCircle2,
+} from "lucide-react";
+import DynamicForm from "@/components/DynamicForm";
 
 export default function KariyerPage() {
+  const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
+
   const openPositions = [
     {
       title: "Gümrük Müşavir Yardımcısı (B Karne)",
@@ -30,13 +38,21 @@ export default function KariyerPage() {
     },
   ];
 
+  const handleApplyClick = (posTitle: string) => {
+    setSelectedPosition(posTitle);
+    const formElement = document.getElementById("basvuru-formu");
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="py-16 bg-slate-50 min-h-screen">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Başlık */}
         <div className="text-center space-y-3">
           <span className="text-xs font-bold text-[#44B9CD] uppercase tracking-wider">
-            İnsan Kaynakları
+            İnsan Kaynakları & Kariyer
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#1E2A3A]">
             Kalem Gümrük Ailesine Katılın
@@ -77,7 +93,7 @@ export default function KariyerPage() {
             </div>
             <h3 className="text-sm font-bold text-slate-900">Modern Dijital Altyapı</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Sektör standardı Evrim Web Gümrük ve modern dijital operasyon araçlarıyla hızlı ve
+              Sektör standardı Evrim Web Gümrük ve modern bulut operasyon araçlarıyla hızlı ve
               verimli çalışma imkanı sağlıyoruz.
             </p>
           </div>
@@ -85,7 +101,11 @@ export default function KariyerPage() {
 
         {/* Açık Pozisyonlar */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-[#1E2A3A]">Açık Pozisyonlarımız</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-[#1E2A3A]">Açık Pozisyonlarımız</h2>
+            <span className="text-xs text-slate-500">Doğrudan CV yükleyerek başvurun</span>
+          </div>
+
           <div className="space-y-3">
             {openPositions.map((pos, idx) => (
               <div
@@ -103,38 +123,56 @@ export default function KariyerPage() {
                   <p className="text-xs text-slate-600 max-w-2xl">{pos.desc}</p>
                 </div>
 
-                <a
-                  href={`mailto:${companyInfo.email}?subject=${encodeURIComponent(
-                    `İş Başvurusu: ${pos.title}`
-                  )}`}
-                  className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] hover:text-white rounded-xl text-xs font-bold transition-all"
+                <button
+                  type="button"
+                  onClick={() => handleApplyClick(pos.title)}
+                  className="shrink-0 flex items-center gap-1.5 px-5 py-2.5 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] hover:text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                 >
-                  <span>Başvur Yap</span>
+                  <span>Online Başvur</span>
                   <ArrowRight className="w-3.5 h-3.5" />
-                </a>
+                </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Genel Başvuru Kutusu */}
+        {/* Başvuru & CV Yükleme Formu */}
+        <div id="basvuru-formu" className="pt-6">
+          <div className="max-w-2xl mx-auto">
+            <DynamicForm
+              slug="kariyer-staj"
+              titleOverride={
+                selectedPosition
+                  ? `"${selectedPosition}" Başvurusu`
+                  : "İş & Staj Başvuru Formu"
+              }
+              descOverride="Özgeçmişinizi (CV) PDF veya Word formatında yükleyerek İnsan Kaynakları havuzumuza dahil olabilirsiniz."
+              initialValues={
+                selectedPosition ? { applicationType: selectedPosition } : {}
+              }
+              className="shadow-sm border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Genel İletişim Bilgisi */}
         <div className="bg-[#1E2A3A] text-white rounded-3xl p-8 sm:p-10 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-2">
-            <h3 className="text-lg font-bold">Aradığınız Pozisyonu Göremediniz mi?</h3>
+            <h3 className="text-lg font-bold">Sorularınız mı Var?</h3>
             <p className="text-xs text-slate-300 max-w-xl">
-              Özgeçmişinizi (CV) veri tabanımıza eklememiz için e-posta adresimize gönderebilirsiniz.
-              Uygun pozisyon açıldığında sizinle irtibata geçilecektir.
+              Staj protokolleri veya genel kariyer süreçleri hakkında İnsan Kaynakları departmanımıza
+              e-posta yoluyla da ulaşabilirsiniz.
             </p>
           </div>
 
           <a
             href={`mailto:${companyInfo.email}?subject=${encodeURIComponent(
-              "Genel İş Başvurusu - Kalem Gümrük"
+              "Kariyer Süreçleri Hakkında Bilgi Talebi"
             )}`}
             className="shrink-0 flex items-center gap-2 bg-[#44B9CD] hover:bg-[#2f9fb3] text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow"
           >
             <Mail className="w-4 h-4" />
-            <span>CV Gönder: {companyInfo.email}</span>
+            <span>{companyInfo.email}</span>
           </a>
         </div>
       </div>

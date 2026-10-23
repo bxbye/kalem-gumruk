@@ -185,11 +185,17 @@ export default function Navbar() {
           <Link href="/araclar" className="hover:text-[#44B9CD] transition-colors py-2">
             Müşavir Masası
           </Link>
+          <Link href="/belgeler" className="hover:text-[#44B9CD] transition-colors py-2">
+            Belgelerimiz
+          </Link>
           <Link href="/sirkuler" className="hover:text-[#44B9CD] transition-colors py-2">
             Bilgi Merkezi
           </Link>
           <Link href="/kariyer" className="hover:text-[#44B9CD] transition-colors py-2">
             Kariyer
+          </Link>
+          <Link href="/degerlendirme" className="hover:text-[#44B9CD] transition-colors py-2">
+            Görüşler
           </Link>
           <Link href="/iletisim" className="hover:text-[#44B9CD] transition-colors py-2">
             İletişim
@@ -293,6 +299,13 @@ export default function Navbar() {
             Müşavir Masası
           </Link>
           <Link
+            href="/belgeler"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
+          >
+            Belgelerimiz
+          </Link>
+          <Link
             href="/sirkuler"
             onClick={() => setMobileMenuOpen(false)}
             className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
@@ -305,6 +318,13 @@ export default function Navbar() {
             className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
           >
             Kariyer
+          </Link>
+          <Link
+            href="/degerlendirme"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block py-2 text-xs font-bold text-slate-900 border-b border-slate-100"
+          >
+            Müşteri Görüşleri
           </Link>
           <Link
             href="/iletisim"

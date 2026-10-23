@@ -1,5 +1,6 @@
-import fs from "fs";
-import path from "path";
+import { db } from "@/db";
+import { sirkuler } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface SirkulerItem {
   id: string;
@@ -16,34 +17,73 @@ export interface SirkulerItem {
   sourceUrl?: string;
   pdfUrl?: string;
   author?: string;
+  viewsCount?: number;
+  isPublished?: boolean;
 }
-
-const dbPath = path.join(process.cwd(), "data", "sirkuler-db.json");
 
 export function getAllSirkuler(): SirkulerItem[] {
   try {
-    if (!fs.existsSync(dbPath)) {
-      return [];
-    }
-    const data = fs.readFileSync(dbPath, "utf-8");
-    const items = JSON.parse(data) as SirkulerItem[];
-    // En yeni tarih en üstte
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const records = db
+      .select()
+      .from(sirkuler)
+      .where(eq(sirkuler.isPublished, true))
+      .orderBy(desc(sirkuler.date))
+      .all();
+
+    return records.map((r) => ({
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      date: r.date,
+      category: r.category,
+      regulationType: r.regulationType || undefined,
+      officialGazetteNumber: r.officialGazetteNumber || undefined,
+      relatedGtip: r.relatedGtip || undefined,
+      summary: r.summary,
+      content: r.content,
+      expertNote: r.expertNote || undefined,
+      sourceUrl: r.sourceUrl || undefined,
+      pdfUrl: r.pdfUrl || undefined,
+      author: r.author || undefined,
+      viewsCount: r.viewsCount,
+      isPublished: r.isPublished,
+    }));
   } catch (error) {
-    console.error("Sirküler okuma hatası:", error);
+    console.error("Veritabanından sirküler okuma hatası:", error);
     return [];
   }
 }
 
 export function getSirkulerBySlug(slug: string): SirkulerItem | undefined {
-  const items = getAllSirkuler();
-  return items.find((item) => item.slug === slug);
+  try {
+    const r = db.select().from(sirkuler).where(eq(sirkuler.slug, slug)).get();
+    if (!r) return undefined;
+
+    return {
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      date: r.date,
+      category: r.category,
+      regulationType: r.regulationType || undefined,
+      officialGazetteNumber: r.officialGazetteNumber || undefined,
+      relatedGtip: r.relatedGtip || undefined,
+      summary: r.summary,
+      content: r.content,
+      expertNote: r.expertNote || undefined,
+      sourceUrl: r.sourceUrl || undefined,
+      pdfUrl: r.pdfUrl || undefined,
+      author: r.author || undefined,
+      viewsCount: r.viewsCount,
+      isPublished: r.isPublished,
+    };
+  } catch (error) {
+    console.error("Sirküler slug okuma hatası:", error);
+    return undefined;
+  }
 }
 
 export function saveSirkuler(item: Omit<SirkulerItem, "id" | "slug">): SirkulerItem {
-  const items = getAllSirkuler();
-  
-  // SEO uyumlu kalıcı slug üretimi
   const slug = item.title
     .toLowerCase()
     .replace(/ğ/g, "g")
@@ -55,14 +95,39 @@ export function saveSirkuler(item: Omit<SirkulerItem, "id" | "slug">): SirkulerI
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") + "-" + Date.now().toString().slice(-4);
 
-  const newItem: SirkulerItem = {
-    ...item,
-    id: "sirkuler-" + Date.now(),
-    slug,
-    author: item.author || "Kalem Gümrük Mevzuat Kurulu",
-  };
+  const id = "sirkuler-" + Date.now();
+  const dateStr = item.date || new Date().toISOString().split("T")[0];
 
-  items.unshift(newItem);
-  fs.writeFileSync(dbPath, JSON.stringify(items, null, 2), "utf-8");
-  return newItem;
+  db.insert(sirkuler).values({
+    id,
+    slug,
+    title: item.title,
+    category: item.category || "Genel Mevzuat",
+    regulationType: item.regulationType || null,
+    officialGazetteNumber: item.officialGazetteNumber || null,
+    relatedGtip: item.relatedGtip || null,
+    summary: item.summary,
+    content: item.content,
+    expertNote: item.expertNote || null,
+    sourceUrl: item.sourceUrl || null,
+    pdfUrl: item.pdfUrl || null,
+    author: item.author || "Kalem Gümrük Mevzuat Kurulu",
+    viewsCount: 0,
+    isPublished: true,
+    date: dateStr,
+    createdAt: new Date(),
+  }).run();
+
+  return {
+    ...item,
+    id,
+    slug,
+    date: dateStr,
+    viewsCount: 0,
+    isPublished: true,
+  };
+}
+
+export function deleteSirkuler(id: string) {
+  return db.delete(sirkuler).where(eq(sirkuler.id, id)).run();
 }

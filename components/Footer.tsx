@@ -213,9 +213,15 @@ export default function Footer() {
           <div>
             © {new Date().getFullYear()} {companyInfo.name}. Tüm Hakları Saklıdır.
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <Link href="/kurumsal#kvkk" className="hover:text-white transition-colors">
               KVKK & Gizlilik Politikası
+            </Link>
+            <Link href="/belgeler" className="hover:text-white transition-colors">
+              Belgelerimiz
+            </Link>
+            <Link href="/degerlendirme" className="hover:text-white transition-colors">
+              Müşteri Değerlendirmeleri
             </Link>
             <Link href="/sirkuler" className="hover:text-white transition-colors">
               Gümrük Sirkülerleri

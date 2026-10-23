@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { db } from "@/db";
+import { chatConversations } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +16,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const sessionId = `chat-session-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // 1. Veritabanına Kaydet (D1 / SQLite)
+    const now = new Date();
+    await db.insert(chatConversations).values({
+      id: `chat-${Date.now()}`,
+      sessionId,
+      contactInfo: contactInfo.trim(),
+      question: question.trim(),
+      messages: JSON.stringify(conversationHistory || []),
+      status: "NEW",
+      isLeadCaptured: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 2. Müşavire E-Posta Bildirimi Gönder
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = Number(process.env.SMTP_PORT || 587);
     const smtpUser = process.env.SMTP_USER;
@@ -28,12 +48,12 @@ export async function POST(request: Request) {
         <div style="padding: 24px; background-color: #ffffff;">
           <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px; border-radius: 8px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 14px;">Ziyaretçinin İletişim Bilgileri:</h4>
-            <p style="margin: 0; font-size: 15px; font-weight: bold; color: #1e293b;">${contactInfo}</p>
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${contactInfo}</p>
           </div>
 
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr>
-              <td style="padding: 8px 0; color: #64748b; font-weight: bold; width: 140px; vertical-align: top;">Sorduğu Soru / Talep:</td>
+              <td style="padding: 8px 0; color: #64748b; font-weight: bold; width: 140px; vertical-align: top;">Sorduğu Soru / Konu:</td>
               <td style="padding: 8px 0; color: #1e293b; background-color: #f8fafc; padding: 10px; border-radius: 6px;">${question}</td>
             </tr>
           </table>
@@ -41,7 +61,7 @@ export async function POST(request: Request) {
           ${
             conversationHistory && conversationHistory.length > 0
               ? `
-            <div style="border-top: 1px solid #e2e8f0; pt: 16px; margin-top: 16px;">
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
               <h4 style="margin: 0 0 10px 0; color: #475569; font-size: 12px; text-transform: uppercase;">Sohbet Geçmişi:</h4>
               <div style="background-color: #f8fafc; padding: 12px; border-radius: 6px; font-size: 12px; color: #334155; line-height: 1.5;">
                 ${conversationHistory
@@ -57,7 +77,7 @@ export async function POST(request: Request) {
           }
         </div>
         <div style="background-color: #f1f5f9; padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">
-          Bu bildirim kalemgumruk.com web sitesi canlı chatbot asistanı üzerinden anında oluşturulmuştur.
+          Bu bildirim kalemgumruk.com web sitesi canlı chatbot asistanı üzerinden oluşturulmuş ve veritabanına kaydedilmiştir.
         </div>
       </div>
     `;
@@ -67,10 +87,7 @@ export async function POST(request: Request) {
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
+        auth: { user: smtpUser, pass: smtpPass },
       });
 
       await transporter.sendMail({
@@ -79,16 +96,11 @@ export async function POST(request: Request) {
         subject: `[Chatbot Talebi] Yeni Soru & İletişim Bilgisi: ${contactInfo.slice(0, 40)}`,
         html: emailHtml,
       });
-    } else {
-      console.log("Chatbot yeni müşteri talebi (SMTP henüz yapılandırılmadı):", {
-        contactInfo,
-        question,
-      });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Talebiniz gümrük müşavirimize iletildi. En kısa sürede dönüş yapılacaktır.",
+      message: "Talebiniz kaydedildi ve gümrük müşavirimize iletildi. En kısa sürede dönüş yapılacaktır.",
     });
   } catch (error) {
     console.error("Chat lead bildirim hatası:", error);
