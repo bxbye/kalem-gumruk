@@ -36,7 +36,7 @@ contactRouter.post("/", async (req, res) => {
       return res.status(400).json({ error: "Girdiğiniz metin çok uzun." });
     }
 
-    const refCode = `TK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const refCode = req.body?.refCode || `TK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const submissionId = `SUB-${refCode}`;
     const now = new Date();
 

@@ -1,37 +1,76 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
-export function getMailer() {
+let cachedTransporter: Transporter | null = null;
+let lastSmtpConfigHash = "";
+
+export function getMailer(): Transporter | null {
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || 465);
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
+  const smtpUser = process.env.SMTP_USER?.trim();
+  const rawPass = process.env.SMTP_PASS?.trim();
+  // Google Uygulama Şifrelerindeki 4'erli boşlukları temizle
+  const smtpPass = rawPass ? rawPass.replace(/\s+/g, "") : "";
 
   if (!smtpUser || !smtpPass) {
     return null;
   }
 
-  // Gmail veya özel SMTP yapılandırması
+  const currentHash = `${smtpHost}:${smtpPort}:${smtpUser}:${smtpPass}`;
+  if (cachedTransporter && lastSmtpConfigHash === currentHash) {
+    return cachedTransporter;
+  }
+
   const isGmail = smtpHost.includes("gmail") || process.env.SMTP_SERVICE === "gmail";
 
   if (isGmail) {
-    return nodemailer.createTransport({
+    cachedTransporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: smtpUser,
-        pass: smtpPass, // 16 haneli Google Uygulama Şifresi
+        pass: smtpPass,
+      },
+    });
+  } else {
+    cachedTransporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
   }
 
-  return nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: { user: smtpUser, pass: smtpPass },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
+  lastSmtpConfigHash = currentHash;
+  return cachedTransporter;
+}
+
+export async function verifySmtp(): Promise<{ ok: boolean; message: string; host?: string; user?: string }> {
+  const transporter = getMailer();
+  if (!transporter) {
+    return {
+      ok: false,
+      message: "SMTP kullanıcı adı (SMTP_USER) veya şifresi (SMTP_PASS) .env dosyasında tanımlı değil.",
+    };
+  }
+
+  try {
+    await transporter.verify();
+    return {
+      ok: true,
+      message: "SMTP bağlantısı ve kimlik doğrulama başarılı.",
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      user: process.env.SMTP_USER,
+    };
+  } catch (error: any) {
+    return {
+      ok: false,
+      message: `SMTP doğrulama hatası: ${error?.message || String(error)}`,
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      user: process.env.SMTP_USER,
+    };
+  }
 }
 
 const langDisplayMap: Record<string, string> = {
@@ -197,7 +236,7 @@ export async function sendContactEmail({
   const langLabel = langDisplayMap[cleanLang] || cleanLang;
 
   if (!transporter || !smtpUser) {
-    console.log(`[Mailer] SMTP ayarı eksik. Form bildirimi konsola yazıldı: [${refCode}] ${fullName} (${phone}) [Lang: ${langLabel}] -> ${receiverEmail}`);
+    console.warn(`[Mailer] ⚠️ SMTP yapılandırması eksik (SMTP_USER veya SMTP_PASS yok). Form bildirimi e-postası iletilemedi: [${refCode}] ${fullName} (${phone}) -> ${receiverEmail}`);
     return;
   }
 
@@ -258,13 +297,18 @@ export async function sendContactEmail({
   `;
 
   // Şirkete / Kadir Bey'e bildirim
-  await transporter.sendMail({
-    from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
-    to: receiverEmail,
-    replyTo: email || undefined,
-    subject: mailSubject,
-    html: emailHtml,
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
+      to: receiverEmail,
+      replyTo: email || undefined,
+      subject: mailSubject,
+      html: emailHtml,
+    });
+    console.log(`[Mailer] ✅ İletişim e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${info.messageId})`);
+  } catch (err: any) {
+    console.error(`[Mailer] ❌ İletişim e-postası gönderim hatası: [${refCode}] -> ${receiverEmail}:`, err?.message || err);
+  }
 
   // Müşteriye kendi dilinde otomatik onay e-postası (varsa)
   if (email) {
@@ -276,14 +320,15 @@ export async function sendContactEmail({
         lang,
       });
 
-      await transporter.sendMail({
+      const custInfo = await transporter.sendMail({
         from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
         to: email,
         subject: conf.subject,
         html: conf.html,
       });
-    } catch (err) {
-      console.warn("[Mailer] Müşteri onay maili gönderilemedi:", err);
+      console.log(`[Mailer] ✅ Müşteri otomatik onay e-postası iletildi: [${refCode}] -> ${email} (MsgID: ${custInfo.messageId})`);
+    } catch (err: any) {
+      console.warn(`[Mailer] ⚠️ Müşteri onay e-postası gönderilemedi (${email}):`, err?.message || err);
     }
   }
 }
@@ -327,7 +372,7 @@ export async function sendChatLeadEmail({
   const mailSubject = `[${refCode}] [${langBadge}] Chatbot: ${clientDisplay}`;
 
   if (!transporter || !smtpUser) {
-    console.log(`[Mailer] SMTP ayarı eksik. Chatbot mesajı konsola yazıldı: ${mailSubject} -> ${receiverEmail}`);
+    console.warn(`[Mailer] ⚠️ SMTP yapılandırması eksik. Chatbot mesajı e-postası iletilemedi: [${refCode}] ${mailSubject} -> ${receiverEmail}`);
     return;
   }
 
@@ -387,10 +432,71 @@ export async function sendChatLeadEmail({
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"Kalem Gümrük Web Chatbot" <${smtpUser}>`,
-    to: receiverEmail,
-    subject: mailSubject,
-    html: emailHtml,
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"Kalem Gümrük Web Chatbot" <${smtpUser}>`,
+      to: receiverEmail,
+      subject: mailSubject,
+      html: emailHtml,
+    });
+    console.log(`[Mailer] ✅ Chatbot e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${info.messageId})`);
+  } catch (err: any) {
+    console.error(`[Mailer] ❌ Chatbot e-postası gönderim hatası: [${refCode}] -> ${receiverEmail}:`, err?.message || err);
+  }
+}
+
+// 3. Test E-postası Gönderimi
+export async function sendTestEmail(targetEmail?: string): Promise<{ success: boolean; message: string; messageId?: string }> {
+  const transporter = getMailer();
+  const smtpUser = process.env.SMTP_USER;
+  const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
+
+  if (!transporter || !smtpUser) {
+    return {
+      success: false,
+      message: "SMTP yapılandırması eksik (SMTP_USER veya SMTP_PASS tanımlı değil).",
+    };
+  }
+
+  const testRef = `TEST-${Date.now().toString().slice(-4)}`;
+  try {
+    const info = await transporter.sendMail({
+      from: `"Kalem Gümrük Sistem Doğrulama" <${smtpUser}>`,
+      to: receiverEmail,
+      subject: `[${testRef}] SMTP Sistem Test Bildirimi | Kalem Gümrük`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #1E2A3A; padding: 18px; text-align: center; color: #ffffff;">
+            <h3 style="margin: 0; color: #44B9CD;">Kalem Gümrük Müşavirliği</h3>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">E-Posta Servisi Doğrulama Testi</p>
+          </div>
+          <div style="padding: 20px; color: #334155; line-height: 1.6; font-size: 14px;">
+            <p>Merhaba,</p>
+            <p>Bu e-posta, web sitesi SMTP e-posta bildirim servisinin eksiksiz çalıştığını doğrulamak amacıyla gönderilmiştir.</p>
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 6px; margin: 14px 0;">
+              <p style="margin: 0; font-size: 13px; color: #166534;">
+                ✅ <strong>Durum:</strong> SMTP Sunucusu Aktif ve Yetkili<br/>
+                🕒 <strong>Tarih:</strong> ${new Date().toLocaleString("tr-TR")}<br/>
+                🎯 <strong>Alıcı:</strong> ${receiverEmail}
+              </p>
+            </div>
+            <p style="margin-top: 15px; font-size: 12px; color: #64748b;">Tüm iletişim formları ve chatbot lead bildirimleri bu yapılandırma üzerinden iletilecektir.</p>
+          </div>
+        </div>
+      `,
+    });
+
+    console.log(`[Mailer] ✅ Test e-postası başarıyla gönderildi: -> ${receiverEmail} (MsgID: ${info.messageId})`);
+    return {
+      success: true,
+      message: `Test e-postası başarıyla gönderildi (${receiverEmail})`,
+      messageId: info.messageId,
+    };
+  } catch (err: any) {
+    console.error(`[Mailer] ❌ Test e-postası gönderilemedi: -> ${receiverEmail}:`, err?.message || err);
+    return {
+      success: false,
+      message: `Test e-postası gönderilemedi: ${err?.message || String(err)}`,
+    };
+  }
 }

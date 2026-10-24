@@ -27,6 +27,7 @@ import {
   Search,
   Filter,
   RefreshCw,
+  Send,
   X,
   FileDown,
   Building2,
@@ -95,6 +96,8 @@ export default function AdminPage() {
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsResult, setSettingsResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success?: boolean; message?: string } | null>(null);
 
   // 2. Müşavir Masası / Bağlantı Form State
   const [baglantiModalOpen, setBaglantiModalOpen] = useState(false);
@@ -331,6 +334,25 @@ export default function AdminPage() {
       setSettingsResult({ success: false, message: "Ağ bağlantı hatası." });
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  // E-Posta / SMTP Testi Gönder
+  const handleTestEmail = async () => {
+    setTestingSmtp(true);
+    setSmtpTestResult(null);
+    try {
+      const res = await fetch("/api/admin/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      setSmtpTestResult(data);
+    } catch (err: any) {
+      setSmtpTestResult({ success: false, message: err?.message || "Sunucuya bağlanılamadı." });
+    } finally {
+      setTestingSmtp(false);
     }
   };
 
@@ -2398,6 +2420,42 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+
+            {/* E-Posta & SMTP Servis Doğrulama Kartı */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1E2A3A] flex items-center gap-2">
+                    <span>📧 E-Posta Bildirim Servisi (Nodemailer SMTP)</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    İletişim formu, fiyat teklifi ve web chatbot üzerinden iletilen tüm talepler anında <code className="bg-slate-100 px-1 py-0.5 rounded text-sky-700 font-semibold">kadir.kaya@kayapermit.com</code> adresine iletilir.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestEmail}
+                  disabled={testingSmtp}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{testingSmtp ? "Test E-Postası Gönderiliyor..." : "Canlı Test Maili Gönder"}</span>
+                </button>
+              </div>
+
+              {smtpTestResult && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                    smtpTestResult.success
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-rose-50 text-rose-800 border border-rose-200"
+                  }`}
+                >
+                  <span>{smtpTestResult.success ? "✅" : "⚠️"}</span>
+                  <span>{smtpTestResult.message}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

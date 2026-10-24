@@ -13,10 +13,21 @@ function formatMessagesText(messages: Array<{ sender: string; text: string; time
     .join("\n");
 }
 
+// Yardımcı: Metin içerisinden telefon veya e-posta tespit et
+function extractContactFromText(text: string): { phone?: string; email?: string } {
+  const phoneMatch = text.match(/(?:(?:\+90|0)?\s*[5]\d{2}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2})/);
+  const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
+  return {
+    phone: phoneMatch ? phoneMatch[0].trim() : undefined,
+    email: emailMatch ? emailMatch[0].trim() : undefined,
+  };
+}
+
 // 1. Ziyaretçi Mesaj Gönderdiğinde / Oturumu Güncellediğinde
 chatLeadRouter.post("/message", async (req, res) => {
   try {
-    const { sessionId, message, sender = "user" } = req.body || {};
+    const { sessionId, refCode: clientRefCode, message, sender = "user", lang = "tr" } = req.body || {};
+    const visitorLang = String(lang).toLowerCase();
 
     if (!sessionId || !message || typeof message !== "string") {
       return res.status(400).json({ error: "Geçersiz oturum veya boş mesaj." });
@@ -32,6 +43,8 @@ chatLeadRouter.post("/message", async (req, res) => {
     const existing = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessionId)).get();
 
     let currentMessages: Array<{ id: string; sender: string; text: string; time: string }> = [];
+    const detected = extractContactFromText(trimmedMessage);
+    const refCode = clientRefCode || `TK-CHAT-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     if (existing) {
       try {
@@ -56,11 +69,22 @@ chatLeadRouter.post("/message", async (req, res) => {
         time: now.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
       });
 
+      // İletişim bilgisi mesaj içinde yakalandıysa güncelle
+      let updatedContact = existing.contactInfo;
+      let shouldSendNotification = false;
+
+      if (!existing.contactInfo && (detected.phone || detected.email)) {
+        updatedContact = [detected.phone, detected.email].filter(Boolean).join(" | ");
+        shouldSendNotification = true;
+      }
+
       // 1. chat_conversations tablosunu güncelle
       await db
         .update(chatConversations)
         .set({
+          contactInfo: updatedContact,
           messages: JSON.stringify(currentMessages),
+          isLeadCaptured: existing.isLeadCaptured || Boolean(detected.phone || detected.email),
           updatedAt: now,
         })
         .where(eq(chatConversations.sessionId, sessionId));
@@ -73,13 +97,15 @@ chatLeadRouter.post("/message", async (req, res) => {
       const firstQuestion = userQuestions[0] || trimmedMessage;
 
       const crmData = {
-        fullName: existing?.contactInfo || "Web Chatbot Ziyaretçisi",
-        phone: "-",
+        fullName: updatedContact || "Web Chatbot Ziyaretçisi",
+        phone: detected.phone || "-",
         company: "-",
         serviceType: "💬 Chatbot Danışma",
         question: firstQuestion,
         message: formatMessagesText(currentMessages),
         chatHistory: currentMessages,
+        refCode,
+        _lang: visitorLang,
       };
 
       if (existingSub) {
@@ -103,6 +129,17 @@ chatLeadRouter.post("/message", async (req, res) => {
         });
       }
 
+      // Mesaj içinde telefon/email yakalandıysa derhal bildirim gönder
+      if (shouldSendNotification) {
+        sendChatLeadEmail({
+          refCode,
+          contactInfo: updatedContact || undefined,
+          question: firstQuestion,
+          messages: currentMessages,
+          lang: visitorLang,
+        }).catch((err) => console.error("[Chat Lead Auto-Detect Mail Error]:", err));
+      }
+
       return res.json({
         success: true,
         userMessageCount: currentMessages.filter((m) => m.sender === "user").length,
@@ -120,16 +157,17 @@ chatLeadRouter.post("/message", async (req, res) => {
       ];
 
       const convId = `chat-${Date.now()}`;
+      const contactInfo = [detected.phone, detected.email].filter(Boolean).join(" | ") || null;
 
       // 1. chat_conversations'a ekle
       await db.insert(chatConversations).values({
         id: convId,
         sessionId,
-        contactInfo: null,
+        contactInfo,
         question: trimmedMessage,
         messages: JSON.stringify(currentMessages),
         status: "NEW",
-        isLeadCaptured: false,
+        isLeadCaptured: Boolean(contactInfo),
         createdAt: now,
         updatedAt: now,
       });
@@ -137,13 +175,15 @@ chatLeadRouter.post("/message", async (req, res) => {
       // 2. CRM (form_submissions) tablosuna da kaydet
       const subId = `SUB-CHAT-${sessionId}`;
       const crmData = {
-        fullName: "Web Chatbot Ziyaretçisi",
-        phone: "-",
+        fullName: contactInfo || "Web Chatbot Ziyaretçisi",
+        phone: detected.phone || "-",
         company: "-",
         serviceType: "💬 Chatbot Danışma",
         question: trimmedMessage,
         message: formatMessagesText(currentMessages),
         chatHistory: currentMessages,
+        refCode,
+        _lang: visitorLang,
       };
 
       await db.insert(formSubmissions).values({
@@ -156,6 +196,16 @@ chatLeadRouter.post("/message", async (req, res) => {
         createdAt: now,
         updatedAt: now,
       });
+
+      if (contactInfo) {
+        sendChatLeadEmail({
+          refCode,
+          contactInfo,
+          question: trimmedMessage,
+          messages: currentMessages,
+          lang: visitorLang,
+        }).catch((err) => console.error("[Chat Lead First Msg Mail Error]:", err));
+      }
 
       return res.json({
         success: true,
@@ -180,6 +230,7 @@ chatLeadRouter.post("/", async (req, res) => {
       question,
       messages,
       sessionId,
+      refCode: clientRefCode,
       honeypot,
       lang = "tr",
     } = req.body || {};
@@ -195,7 +246,7 @@ chatLeadRouter.post("/", async (req, res) => {
     }
 
     const sessId = sessionId || `sess-${Date.now()}`;
-    const refCode = `TK-CHAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const refCode = clientRefCode || `TK-CHAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date();
 
     const existing = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessId)).get();

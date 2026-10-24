@@ -8,6 +8,7 @@ import {
   siteSettings,
 } from "../db/schema.js";
 import { eq, desc, asc } from "drizzle-orm";
+import { verifySmtp, sendTestEmail } from "../services/mailer.js";
 
 export const adminRouter = Router();
 
@@ -460,4 +461,27 @@ adminRouter.post("/settings", async (req, res) => {
     console.error("[Admin Settings Save Error]:", error);
     return res.status(500).json({ error: "Ayarlar kaydedilemedi." });
   }
+});
+
+// ==================== 6. SMTP TEST & SAĞLIK ====================
+adminRouter.get("/smtp-status", async (req, res) => {
+  if (!checkAdminPassword(req, res)) return;
+  const status = await verifySmtp();
+  return res.json({
+    success: status.ok,
+    status,
+    config: {
+      smtpHost: process.env.SMTP_HOST || "smtp.gmail.com",
+      smtpPort: process.env.SMTP_PORT || 465,
+      smtpUser: process.env.SMTP_USER || "Tanımsız",
+      contactReceiver: process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com",
+    },
+  });
+});
+
+adminRouter.post("/test-email", async (req, res) => {
+  if (!checkAdminPassword(req, res)) return;
+  const targetEmail = req.body?.targetEmail || process.env.CONTACT_RECEIVER;
+  const result = await sendTestEmail(targetEmail);
+  return res.json(result);
 });

@@ -167,6 +167,7 @@ export default function ChatBot() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sessionId,
+        refCode,
         lang: language,
         message: trimmed,
         sender: "user",
@@ -266,6 +267,7 @@ export default function ChatBot() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
+          refCode,
           lang: language,
           contactName: contactName.trim(),
           contactPhone: contactPhone.trim(),
@@ -330,6 +332,7 @@ export default function ChatBot() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sessionId,
+        refCode,
         lang: language,
         contactInfo: `WhatsApp Referral [${language.toUpperCase()}]`,
         question: userFirstQuestion || "WhatsApp Danışma Yönlendirmesi",

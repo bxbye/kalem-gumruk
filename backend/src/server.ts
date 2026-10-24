@@ -1,10 +1,11 @@
+import "./config/env.js";
 import express from "express";
 import cors from "cors";
 import path from "path";
-import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import { ensureDatabaseInitialized } from "./db/index.js";
 import { uploadsDir } from "./services/storage.js";
+import { verifySmtp } from "./services/mailer.js";
 
 // Rotalar
 import { contactRouter } from "./routes/contact.js";
@@ -17,8 +18,6 @@ import { exchangeRatesRouter } from "./routes/exchangeRates.js";
 import { uploadRouter } from "./routes/upload.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicDataRouter } from "./routes/publicData.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 5001;
@@ -174,11 +173,19 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 // 8. Sunucuyu Başlat
-app.listen(Number(PORT), "0.0.0.0", () => {
+app.listen(Number(PORT), "0.0.0.0", async () => {
   console.log(`=================================================`);
   console.log(`🚀 Kalem Gümrük Backend Servisi Hazır!`);
   console.log(`📡 URL: http://localhost:${PORT}`);
   console.log(`📁 Uploads: ${uploadsDir}`);
   console.log(`🩺 Health: http://localhost:${PORT}/health`);
+
+  // SMTP Bildirim Bağlantısını Doğrula
+  const smtpStatus = await verifySmtp();
+  if (smtpStatus.ok) {
+    console.log(`📧 SMTP: ✅ Hazır (${smtpStatus.user} -> ${process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com"})`);
+  } else {
+    console.warn(`📧 SMTP: ⚠️ ${smtpStatus.message}`);
+  }
   console.log(`=================================================`);
 });
