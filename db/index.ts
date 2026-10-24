@@ -3,6 +3,10 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
+import { companyInfo } from "@/data/company";
+import { gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
+import { servicesData } from "@/data/services";
+import { defaultSirkuler } from "@/data/sirkuler";
 
 // Veritabanı dosya yolu: data/kalem.sqlite
 const dataDir = path.join(process.cwd(), "data");
@@ -106,6 +110,51 @@ export function ensureDatabaseInitialized() {
         created_at INTEGER,
         updated_at INTEGER
       );
+
+      CREATE TABLE IF NOT EXISTS site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS gerekli_baglantilar (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        short_title TEXT NOT NULL,
+        category TEXT NOT NULL,
+        url TEXT NOT NULL,
+        image TEXT NOT NULL,
+        description TEXT NOT NULL,
+        tag TEXT NOT NULL,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS services (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        short_desc TEXT NOT NULL,
+        icon_name TEXT NOT NULL DEFAULT 'ArrowDownToLine',
+        category TEXT NOT NULL DEFAULT 'gumruk',
+        features TEXT NOT NULL DEFAULT '[]',
+        detailed_content TEXT NOT NULL,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS "references" (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sector TEXT NOT NULL,
+        description TEXT,
+        logo_url TEXT,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER
+      );
     `);
 
     // 2. Başlangıç Formlarını (Seed Forms) Kontrol Et ve Ekle
@@ -114,16 +163,40 @@ export function ensureDatabaseInitialized() {
       seedDefaultForms(sqlite);
     }
 
-    // 3. Mevcut sirkuler-db.json verilerini sirkuler tablosuna aktar (Migration)
+    // 3. Başlangıç Sirküler Verilerini Yükle
     const checkSirkuler = sqlite.prepare("SELECT count(*) as count FROM sirkuler").get() as { count: number };
     if (checkSirkuler.count === 0) {
-      seedSirkulerFromJson(sqlite);
+      seedDefaultSirkuler(sqlite);
     }
 
     // 4. Başlangıç Belgeleri ve Sertifikaları Ekle
     const checkDocs = sqlite.prepare("SELECT count(*) as count FROM documents").get() as { count: number };
     if (checkDocs.count === 0) {
       seedDefaultDocuments(sqlite);
+    }
+
+    // 5. Site Ayarlarını Kontrol Et ve Ekle
+    const checkSettings = sqlite.prepare("SELECT count(*) as count FROM site_settings").get() as { count: number };
+    if (checkSettings.count === 0) {
+      seedDefaultSettings(sqlite);
+    }
+
+    // 6. Gerekli Bağlantıları Kontrol Et ve Ekle
+    const checkBaglantilar = sqlite.prepare("SELECT count(*) as count FROM gerekli_baglantilar").get() as { count: number };
+    if (checkBaglantilar.count === 0) {
+      seedDefaultBaglantilar(sqlite);
+    }
+
+    // 7. Hizmetleri Kontrol Et ve Ekle
+    const checkServices = sqlite.prepare("SELECT count(*) as count FROM services").get() as { count: number };
+    if (checkServices.count === 0) {
+      seedDefaultServices(sqlite);
+    }
+
+    // 8. Referansları Kontrol Et ve Ekle
+    const checkReferences = sqlite.prepare("SELECT count(*) as count FROM \"references\"").get() as { count: number };
+    if (checkReferences.count === 0) {
+      seedDefaultReferences(sqlite);
     }
 
     isInitialized = true;
@@ -139,14 +212,14 @@ function seedDefaultForms(dbInstance: Database.Database) {
     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `);
 
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 1000);
 
   // 1. Fiyat Teklif Formu
   insertForm.run(
     "form_fiyat_teklifi",
     "fiyat-teklifi",
     "Hızlı Gümrükleme Fiyat Teklifi",
-    "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirlerimizden 2 saat içinde özel teklif alın.",
+    "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden 2 saat içinde özel teklif alın.",
     "quote",
     JSON.stringify([
       { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Örn: Ahmet Yılmaz" },
@@ -168,7 +241,7 @@ function seedDefaultForms(dbInstance: Database.Database) {
     JSON.stringify({
       successMessage: "Fiyat teklif talebiniz başarıyla alındı! Gümrük müşavirimiz en kısa sürede analiz ederek tarafınıza dönecektir.",
       autoEmailSubject: "Fiyat Teklifi Talebiniz Alındı | Kalem Gümrük Müşavirliği",
-      autoEmailBody: "Sayın Yetkili,\n\nKalem Gümrük Müşavirliği'ne iletmiş olduğunuz fiyat teklif talebi operasyon ekibimize iletilmiştir. Uzman müşavirlerimiz mevzuat ve tarife kontrollerini yaparak en kısa sürede dönüş sağlayacaktır.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
+      autoEmailBody: "Sayın Yetkili,\n\nKalem Gümrük Müşavirliği'ne iletmiş olduğunuz fiyat teklif talebi operasyon ekibimize iletilmiştir. Gümrük müşavirimiz mevzuat ve tarife kontrollerini yaparak en kısa sürede dönüş sağlayacaktır.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
       notificationEmail: "info@kalemgumruk.com",
     }),
     now,
@@ -276,16 +349,9 @@ function seedDefaultForms(dbInstance: Database.Database) {
   );
 }
 
-// Mevcut sirkuler-db.json dosyasını veritabanına aktar
-function seedSirkulerFromJson(dbInstance: Database.Database) {
+// Başlangıç Sirküler Verilerini Yükle
+function seedDefaultSirkuler(dbInstance: Database.Database) {
   try {
-    const jsonPath = path.join(process.cwd(), "data", "sirkuler-db.json");
-    if (!fs.existsSync(jsonPath)) return;
-
-    const content = fs.readFileSync(jsonPath, "utf-8");
-    const items = JSON.parse(content);
-    if (!Array.isArray(items) || items.length === 0) return;
-
     const insertStmt = dbInstance.prepare(`
       INSERT OR IGNORE INTO sirkuler (
         id, slug, title, category, regulation_type, official_gazette_number,
@@ -294,26 +360,25 @@ function seedSirkulerFromJson(dbInstance: Database.Database) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)
     `);
 
-    for (const item of items) {
+    for (const item of defaultSirkuler) {
       insertStmt.run(
         item.id || `sirkuler-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         item.slug,
         item.title,
         item.category || "Genel Mevzuat",
-        item.regulationType || "Gümrük Tebliği",
-        item.officialGazetteNumber || null,
-        item.relatedGtip || null,
+        (item as any).regulation_type || item.regulationType || "Gümrük Tebliği",
+        (item as any).official_gazette_number || item.officialGazetteNumber || null,
+        (item as any).related_gtip || item.relatedGtip || null,
         item.summary || item.title,
         item.content || "",
-        item.expertNote || null,
-        item.sourceUrl || null,
-        item.pdfUrl || null,
+        (item as any).expert_note || item.expertNote || null,
+        (item as any).source_url || item.sourceUrl || null,
+        (item as any).pdf_url || item.pdfUrl || null,
         item.author || "Kalem Gümrük Mevzuat Kurulu",
         item.date || new Date().toISOString().split("T")[0],
-        Date.now()
+        Math.floor(Date.now() / 1000)
       );
     }
-    console.log(`${items.length} adet sirküler başarıyla SQLite veritabanına aktarıldı.`);
   } catch (error) {
     console.error("Sirküler seed hatası:", error);
   }
@@ -326,7 +391,7 @@ function seedDefaultDocuments(dbInstance: Database.Database) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)
   `);
 
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 1000);
   const sampleDocs = [
     {
       id: "doc-iso-9001",
@@ -388,6 +453,110 @@ function seedDefaultDocuments(dbInstance: Database.Database) {
       now
     );
   }
+}
+
+// 5. Site & Firma Ayarları Seed
+function seedDefaultSettings(dbInstance: Database.Database) {
+  const insertSetting = dbInstance.prepare(`
+    INSERT OR REPLACE INTO site_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+  `);
+
+  const now = Math.floor(Date.now() / 1000);
+  const settings: Record<string, string> = {
+    name: companyInfo.name,
+    shortName: companyInfo.shortName,
+    slogan: companyInfo.slogan,
+    description: companyInfo.description,
+    address: companyInfo.address,
+    phone: companyInfo.phone,
+    phoneRaw: companyInfo.phoneRaw,
+    whatsapp: companyInfo.whatsapp,
+    whatsappDefaultMessage: companyInfo.whatsappDefaultMessage,
+    email: companyInfo.email,
+    evrimPortalUrl: companyInfo.evrimPortalUrl,
+    workingHours: companyInfo.workingHours,
+    foundedYear: String(companyInfo.foundedYear),
+    experienceYears: "25+",
+    intacRate: "%99.8",
+    supportHours: "7/24",
+    activeCustoms: JSON.stringify(companyInfo.activeCustoms),
+    stats: JSON.stringify(companyInfo.stats),
+  };
+
+  for (const [key, value] of Object.entries(settings)) {
+    insertSetting.run(key, value, now);
+  }
+}
+
+// 6. Gerekli Bağlantılar Seed
+function seedDefaultBaglantilar(dbInstance: Database.Database) {
+  const insertItem = dbInstance.prepare(`
+    INSERT OR IGNORE INTO gerekli_baglantilar (id, title, short_title, category, url, image, description, tag, order_index, is_active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  `);
+
+  const now = Math.floor(Date.now() / 1000);
+  gerekliBaglantilarData.forEach((item, index) => {
+    insertItem.run(
+      item.id,
+      item.title,
+      item.shortTitle,
+      item.category,
+      item.url,
+      item.image,
+      item.description,
+      item.tag,
+      index,
+      now
+    );
+  });
+}
+
+// 7. Hizmetlerimiz Seed
+function seedDefaultServices(dbInstance: Database.Database) {
+  const insertService = dbInstance.prepare(`
+    INSERT OR IGNORE INTO services (id, slug, title, short_desc, icon_name, category, features, detailed_content, order_index, is_active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  `);
+
+  const now = Math.floor(Date.now() / 1000);
+  servicesData.forEach((item, index) => {
+    insertService.run(
+      `service-${item.slug}`,
+      item.slug,
+      item.title,
+      item.shortDesc,
+      item.iconName || "ArrowDownToLine",
+      item.category || "gumruk",
+      JSON.stringify(item.features || []),
+      item.detailedContent,
+      index,
+      now
+    );
+  });
+}
+
+// 8. Referanslar Seed
+function seedDefaultReferences(dbInstance: Database.Database) {
+  const insertRef = dbInstance.prepare(`
+    INSERT OR IGNORE INTO "references" (id, name, sector, description, logo_url, order_index, is_active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+  `);
+
+  const now = Math.floor(Date.now() / 1000);
+  const defaultRefs = [
+    { id: "ref-1", name: "NOVA KİMYA", sector: "Kimya & Kozmetik", description: "Hammadde ve kimyasal ürünler ithalatı ve mevzuat danışmanlığı." },
+    { id: "ref-2", name: "ATLAS DIŞ TİCARET", sector: "Uluslararası Ticaret", description: "Avrupa ve Ortadoğu ihracat rejimi ve dolaşım belgeleri yönetimi." },
+    { id: "ref-3", name: "ERDEM MAKİNA", sector: "Endüstri & İmalat", description: "Yedek parça ve makine ithalatında GTİP fizibilitesi ve vergi optimizasyonu." },
+    { id: "ref-4", name: "PARS LOJİSTİK", sector: "Lojistik & Antrepo", description: "Antrepo ve transit aktarma operasyonlarında gümrükleme desteği." },
+    { id: "ref-5", name: "ZENİT TEKSTİL", sector: "Tekstil & Hazır Giyim", description: "Dahilde İşleme Rejimi (DİR) ve ihracat taahhüt kapatma operasyonları." },
+    { id: "ref-6", name: "VİTA GIDA", sector: "Gıda & Tarım", description: "Tarım Bakanlığı izinleri ve hızlı bozulabilir gıda ithalat süreçleri." },
+  ];
+
+  defaultRefs.forEach((ref, index) => {
+    insertRef.run(ref.id, ref.name, ref.sector, ref.description, "", index, now);
+  });
 }
 
 // Dosya import edildiğinde veri tabanını otomatik initialize et

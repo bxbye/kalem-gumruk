@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Award, ChevronLeft, ChevronRight, Pause, Play, ShieldCheck } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { Award, ChevronLeft, ChevronRight, Pause, Play, ShieldCheck, Building2 } from "lucide-react";
 
 interface ReferenceClient {
   id: string;
@@ -247,13 +248,47 @@ const CLIENTS: ReferenceClient[] = [
 ];
 
 const ITEMS_PER_PAGE = 6;
-const TOTAL_PAGES = Math.ceil(CLIENTS.length / ITEMS_PER_PAGE);
 const AUTO_ROTATE_INTERVAL = 3500; // 3.5 saniye
 
 export default function ReferencesSection() {
+  const { t, isRTL } = useLanguage();
+  const [clientsList, setClientsList] = useState<ReferenceClient[]>(CLIENTS);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/references")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+          const activeRefs = data.items.filter((r: any) => r.isActive !== 0 && r.isActive !== false);
+          if (activeRefs.length > 0) {
+            const mapped: ReferenceClient[] = activeRefs.map((item: any, idx: number) => {
+              const matched = CLIENTS.find(
+                (c) => c.name.toLowerCase() === item.name.toLowerCase() || c.id === item.id
+              );
+              return {
+                id: item.id || `ref-${idx}`,
+                name: item.name,
+                sector: item.sector,
+                symbol: matched ? (
+                  matched.symbol
+                ) : item.logoUrl ? (
+                  <img src={item.logoUrl} alt={item.name} className="w-8 h-8 object-contain" />
+                ) : (
+                  <Building2 className="w-8 h-8 text-[#44B9CD]" />
+                ),
+              };
+            });
+            setClientsList(mapped);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const totalPages = Math.max(1, Math.ceil(clientsList.length / ITEMS_PER_PAGE));
 
   useEffect(() => {
     if (isPaused) return;
@@ -263,7 +298,7 @@ export default function ReferencesSection() {
     }, AUTO_ROTATE_INTERVAL);
 
     return () => clearInterval(timer);
-  }, [currentPage, isPaused]);
+  }, [currentPage, isPaused, totalPages]);
 
   const changePage = (newPage: number) => {
     setIsTransitioning(true);
@@ -274,14 +309,14 @@ export default function ReferencesSection() {
   };
 
   const handleNextPage = () => {
-    changePage((currentPage + 1) % TOTAL_PAGES);
+    changePage((currentPage + 1) % totalPages);
   };
 
   const handlePrevPage = () => {
-    changePage((currentPage - 1 + TOTAL_PAGES) % TOTAL_PAGES);
+    changePage((currentPage - 1 + totalPages) % totalPages);
   };
 
-  const currentClients = CLIENTS.slice(
+  const currentClients = clientsList.slice(
     currentPage * ITEMS_PER_PAGE,
     (currentPage + 1) * ITEMS_PER_PAGE
   );
@@ -308,31 +343,30 @@ export default function ReferencesSection() {
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#44B9CD]/10 text-[#0d788a] text-[11px] font-bold tracking-wider uppercase mb-2">
               <ShieldCheck className="w-3.5 h-3.5 text-[#44B9CD]" />
-              <span>GÜVENİLİR İŞ ORTAKLIKLARI</span>
+              <span>{t.referencesSection.badge}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-              Referanslarımız
+              {t.referencesSection.title}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Türkiye&apos;nin öncü sanayi kuruluşları ve dış ticaret firmaları, gümrükleme ve lojistik
-              süreçlerinde Kalem Gümrük Müşavirliği&apos;ne güveniyor.
+              {t.referencesSection.subtitle}
             </p>
           </div>
 
           {/* Kontrol Butonları & Sayaç */}
           <div className="flex items-center gap-2 self-start md:self-end">
             <span className="text-[11px] font-medium text-slate-400 mr-1">
-              Grup {currentPage + 1} / {TOTAL_PAGES}
+              {currentPage + 1} / {totalPages}
             </span>
 
             <button
               type="button"
               onClick={handlePrevPage}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs"
-              title="Önceki Referanslar"
-              aria-label="Önceki referans grubu"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs cursor-pointer"
+              title="Previous"
+              aria-label="Previous reference group"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </button>
 
             <button
@@ -348,11 +382,11 @@ export default function ReferencesSection() {
             <button
               type="button"
               onClick={handleNextPage}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs"
-              title="Sonraki Referanslar"
-              aria-label="Sonraki referans grubu"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs cursor-pointer"
+              title="Next"
+              aria-label="Next reference group"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </button>
           </div>
         </div>
@@ -397,7 +431,7 @@ export default function ReferencesSection() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {Array.from({ length: TOTAL_PAGES }).map((_, index) => (
+            {Array.from({ length: totalPages }).map((_, index) => (
               <button
                 key={index}
                 onClick={() => changePage(index)}

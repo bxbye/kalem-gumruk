@@ -2,7 +2,7 @@ export interface GerekliBaglanti {
   id: string;
   title: string;
   shortTitle: string;
-  category: "Kargo & Hava/Deniz" | "Liman & Konteyner" | "Resmi Sistemler" | "Maliye & E-Belge";
+  category: string;
   url: string;
   image: string;
   description: string;

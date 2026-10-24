@@ -156,7 +156,7 @@ async function handleEmailDispatch(
   const customerEmail = data.email || data.eposta || data.mail;
   const customerName = data.fullName || data.adsoyad || data.name || "Sayın Yetkili";
 
-  // 1. Şirket Müşavirlerine Giden Bildirim E-postası
+  // 1. Şirket Müşavirine Giden Bildirim E-postası
   const formDetailsHtml = Object.entries(data)
     .map(
       ([key, val]) =>

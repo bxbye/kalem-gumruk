@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
-import { saveSirkuler } from "@/lib/sirkuler";
+import { saveSirkuler, getAllSirkuler } from "@/lib/sirkuler";
 import { revalidatePath } from "next/cache";
+
+export async function GET() {
+  try {
+    const all = getAllSirkuler();
+    return NextResponse.json({ success: true, sirkuler: all });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Sirkülerler alınamadı." }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {

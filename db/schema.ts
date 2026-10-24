@@ -65,6 +65,7 @@ export const sirkuler = sqliteTable("sirkuler", {
   viewsCount: integer("views_count").notNull().default(0),
   isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
   date: text("date").notNull(), // YYYY-MM-DD
+  translations: text("translations").default("{}"), // JSON: { en?: { title, summary, content, expertNote }, ar?: { ... } }
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
@@ -91,4 +92,54 @@ export const chatConversations = sqliteTable("chat_conversations", {
   isLeadCaptured: integer("is_lead_captured", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// 7. Site & Firma Genel Ayarları
+export const siteSettings = sqliteTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// 8. Müşavir Masası & Gerekli Bağlantılar Portalı
+export const gerekliBaglantilar = sqliteTable("gerekli_baglantilar", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  shortTitle: text("short_title").notNull(),
+  category: text("category").notNull(),
+  url: text("url").notNull(),
+  image: text("image").notNull(),
+  description: text("description").notNull(),
+  tag: text("tag").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// 9. Hizmetlerimiz CMS
+export const services = sqliteTable("services", {
+  id: text("id").primaryKey(),
+  slug: text("slug").unique().notNull(),
+  title: text("title").notNull(),
+  shortDesc: text("short_desc").notNull(),
+  iconName: text("icon_name").notNull().default("ArrowDownToLine"),
+  category: text("category").notNull().default("gumruk"),
+  features: text("features").notNull().default("[]"), // JSON string
+  detailedContent: text("detailed_content").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  translations: text("translations").default("{}"), // JSON: { en?: { title, shortDesc, detailedContent, features?: string[] }, ar?: { ... } }
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// 10. Müşteri Referansları & İş Ortakları
+export const references = sqliteTable("references", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  sector: text("sector").notNull(),
+  description: text("description"),
+  logoUrl: text("logo_url"),
+  orderIndex: integer("order_index").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

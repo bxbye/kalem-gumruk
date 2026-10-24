@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E2A3A" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#44B9CD" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+  <!-- Arka plan squircle kart -->
+  <rect width="100" height="100" rx="22" fill="url(#grad)" />
+  <!-- Kalem K harfi & Müşavir ikonu stilize edilmiş logo -->
+  <path d="M26 22 L38 22 L38 46 L58 22 L74 22 L51 49 L76 78 L60 78 L43 57 L38 62 L38 78 L26 78 Z" fill="#ffffff" />
+  <!-- Turkuaz aksan çizgisi -->
+  <circle cx="73" cy="26" r="5" fill="url(#cyanGrad)" />
+  <path d="M26 76 C 45 84, 65 84, 76 77" stroke="url(#cyanGrad)" stroke-width="3.5" stroke-linecap="round" fill="none" />
+</svg>

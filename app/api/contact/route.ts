@@ -120,7 +120,7 @@ export async function POST(request: Request) {
               </div>
               <div style="padding: 24px; color: #334155;">
                 <p>Sayın <strong>${fullName}</strong>,</p>
-                <p>İletmiş olduğunuz talep <strong>#${refCode}</strong> takip kodu ile operasyon birimimize iletilmiştir. Uzman gümrük müşavirlerimiz en kısa sürede sizinle irtibata geçecektir.</p>
+                <p>İletmiş olduğunuz talep <strong>#${refCode}</strong> takip kodu ile operasyon birimimize iletilmiştir. Gümrük müşavirimiz en kısa sürede sizinle irtibata geçecektir.</p>
                 <p>İlginiz için teşekkür eder, iyi çalışmalar dileriz.</p>
               </div>
             </div>

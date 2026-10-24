@@ -3,14 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SirkulerItem } from "@/lib/sirkuler";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   Calendar,
   Tag,
   ArrowRight,
   Pause,
   Play,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 
 interface CircularsVerticalTickerProps {
@@ -18,50 +17,60 @@ interface CircularsVerticalTickerProps {
 }
 
 export default function CircularsVerticalTicker({ items }: CircularsVerticalTickerProps) {
+  const { localePath, language, isRTL, t } = useLanguage();
   const [isPaused, setIsPaused] = useState(false);
+  const dw = t.deskWidgets;
 
   const safeItems = items && items.length > 0 ? items : [];
+
+  const dateLocaleMap: Record<string, string> = {
+    tr: "tr-TR",
+    en: "en-US",
+    ar: "ar-EG",
+    es: "es-ES",
+  };
+  const dateLocale = dateLocaleMap[language] || "tr-TR";
 
   const renderCard = (item: SirkulerItem, key: string) => (
     <article
       key={key}
-      className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/90 shadow-xs hover:border-[#44B9CD] hover:shadow-md transition-all duration-200 group/card relative"
+      dir={isRTL ? "rtl" : "ltr"}
+      className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/90 shadow-xs hover:border-[#44B9CD] hover:shadow-md transition-all duration-200 group/card relative text-left rtl:text-right"
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#44B9CD] bg-[#44B9CD]/10 px-2 py-0.5 rounded-md">
+      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-2">
+        <span className="inline-flex items-center gap-1 font-semibold text-[#44B9CD] bg-[#44B9CD]/10 px-2 py-0.5 rounded-md text-[11px]">
           <Tag className="w-3 h-3" />
           {item.category}
         </span>
-
-        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+        <span className="inline-flex items-center gap-1 text-slate-400 text-[11px]">
           <Calendar className="w-3 h-3" />
-          {new Date(item.date).toLocaleDateString("tr-TR")}
+          {new Date(item.date).toLocaleDateString(dateLocale, {
+            day: "numeric",
+            month: "short",
+          })}
         </span>
       </div>
 
-      <h4 className="text-sm font-bold text-[#1E2A3A] group-hover/card:text-[#44B9CD] transition-colors leading-snug mb-2 line-clamp-2">
-        <Link href={`/sirkuler/${item.slug}`}>{item.title}</Link>
-      </h4>
+      <h3 className="font-bold text-xs sm:text-sm text-slate-800 group-hover/card:text-[#44B9CD] transition-colors line-clamp-2 leading-snug">
+        <Link href={localePath(`/sirkuler/${item.slug}`)}>
+          {item.title}
+        </Link>
+      </h3>
 
-      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed mb-3">
-        {item.summary || item.content.slice(0, 120) + "..."}
+      <p className="mt-1.5 text-[11px] sm:text-xs text-slate-600 line-clamp-2 leading-relaxed">
+        {item.summary}
       </p>
 
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-        {item.relatedGtip ? (
-          <span className="text-[10px] bg-slate-100 text-slate-700 font-mono px-2 py-0.5 rounded font-medium">
-            GTİP: {item.relatedGtip}
-          </span>
-        ) : (
-          <span className="text-[10px] text-slate-400">Genel Mevzuat</span>
-        )}
-
+      <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
+        <span className="text-[10px] text-slate-400 font-mono">
+          {item.regulationType || (language === "en" ? "Decree" : language === "ar" ? "قرار" : language === "es" ? "Normativa" : "Mevzuat")}
+        </span>
         <Link
-          href={`/sirkuler/${item.slug}`}
-          className="font-bold text-[#1E2A3A] group-hover/card:text-[#44B9CD] inline-flex items-center gap-1 transition-colors text-xs"
+          href={localePath(`/sirkuler/${item.slug}`)}
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#44B9CD] hover:text-[#1E2A3A] transition-colors"
         >
-          <span>İncele</span>
-          <ArrowRight className="w-3 h-3 group-hover/card:translate-x-0.5 transition-transform" />
+          <span>{dw.examine}</span>
+          <ArrowRight className={`w-3 h-3 transition-transform ${isRTL ? "rotate-180 group-hover/card:-translate-x-0.5" : "group-hover/card:translate-x-0.5"}`} />
         </Link>
       </div>
     </article>
@@ -69,64 +78,56 @@ export default function CircularsVerticalTicker({ items }: CircularsVerticalTick
 
   return (
     <div
-      className="relative flex flex-col h-[580px] bg-slate-50/60 rounded-2xl border border-slate-200/90 overflow-hidden group"
+      className="relative flex flex-col h-full bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 shadow-xs"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Ticker Kontrol Başlığı */}
-      <div className="px-5 py-3.5 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
+      <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-200/80">
         <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#44B9CD] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#44B9CD]"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#44B9CD]"></span>
           </span>
-          <span className="text-xs font-bold text-[#1E2A3A]">
-            Mevzuat Akışı ({safeItems.length} Sirküler)
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            {dw.liveLegislationFeed}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 text-slate-400">
           <button
+            type="button"
             onClick={() => setIsPaused(!isPaused)}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-            title={isPaused ? "Akışı Başlat" : "Akışı Duraklat"}
-            aria-label={isPaused ? "Akışı Başlat" : "Akışı Duraklat"}
+            className="p-1 rounded-md hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
+            title={isPaused ? (language === "en" ? "Play" : language === "ar" ? "تشغيل" : language === "es" ? "Iniciar" : "Başlat") : (language === "en" ? "Pause" : language === "ar" ? "إيقاف مؤقت" : language === "es" ? "Pausar" : "Durdur")}
+            aria-label={isPaused ? "Play" : "Pause"}
           >
-            {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-600" /> : <Pause className="w-3.5 h-3.5" />}
+            {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-600 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
-      {/* Üst ve Alt Gradyan Yumuşatma Katmanı (Fade Mask) */}
-      <div className="pointer-events-none absolute top-12 left-0 right-0 h-8 bg-gradient-to-b from-slate-50 to-transparent z-10" />
-      <div className="pointer-events-none absolute bottom-9 left-0 right-0 h-10 bg-gradient-to-t from-slate-50 to-transparent z-10" />
-
-      {/* Donanım Hızlandırmalı GPU İpeksi Akış Konteyneri (Yukarıdan Aşağıya - Takılmasız) */}
-      <div className="flex-1 overflow-hidden p-4 select-none relative">
+      <div className="relative overflow-hidden flex-1 h-[420px] max-h-[420px]">
         <div
-          className="space-y-4 animate-scroll-down"
+          className={`space-y-3 animate-vertical-scroll`}
           style={{
-            animationDuration: `${Math.max(20, safeItems.length * 3.2)}s`,
+            animationDuration: `${Math.max(28, safeItems.length * 4.5)}s`,
             animationPlayState: isPaused ? "paused" : "running",
           }}
         >
-          {/* 1. Set */}
-          {safeItems.map((item, idx) => renderCard(item, `set1-${item.id}-${idx}`))}
-
-          {/* 2. Set (Kesintisiz döngü için tam eş kopyası) */}
-          {safeItems.map((item, idx) => renderCard(item, `set2-${item.id}-${idx}`))}
+          {safeItems.map((item, index) => renderCard(item, `orig-${item.id || index}`))}
+          {safeItems.map((item, index) => renderCard(item, `dup-${item.id || index}`))}
         </div>
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-slate-50/90 to-transparent z-10" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50/90 to-transparent z-10" />
       </div>
 
-      {/* Alt Bilgi Çubuğu */}
-      <div className="px-5 py-2.5 bg-white border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 shrink-0 z-20">
-        <span className="truncate">Fare ile üzerine gelerek akışı duraklatabilirsiniz.</span>
+      <div className="pt-3 mt-2 border-t border-slate-200/80 text-center">
         <Link
-          href="/sirkuler"
-          className="font-bold text-[#1E2A3A] hover:text-[#44B9CD] shrink-0 inline-flex items-center gap-1 transition-colors ml-2"
+          href={localePath("/sirkuler")}
+          className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-[#44B9CD] transition-colors"
         >
-          <span>Tümü</span>
-          <ArrowRight className="w-3 h-3" />
+          <span>{dw.viewAllCirculars}</span>
         </Link>
       </div>
     </div>

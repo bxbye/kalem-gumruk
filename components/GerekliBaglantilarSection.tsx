@@ -4,21 +4,45 @@ import { useState } from "react";
 import Image from "next/image";
 import { gerekliBaglantilarData, GerekliBaglanti } from "@/data/gerekliBaglantilar";
 import { ExternalLink, Globe, Search } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
-export default function GerekliBaglantilarSection() {
-  const [selectedCat, setSelectedCat] = useState<string>("Tümü");
+interface GerekliBaglantilarSectionProps {
+  initialLinks?: GerekliBaglanti[];
+}
+
+export default function GerekliBaglantilarSection({ initialLinks }: GerekliBaglantilarSectionProps = {}) {
+  const { t } = useLanguage();
+  const [selectedCat, setSelectedCat] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const categories = [
-    "Tümü",
-    "Kargo & Hava/Deniz",
-    "Liman & Konteyner",
-    "Resmi Sistemler",
-    "Maliye & E-Belge",
+  const activeData = initialLinks && initialLinks.length > 0 ? initialLinks : gerekliBaglantilarData;
+
+  const categoryDefs = [
+    { key: "all", label: t.usefulLinksSection.categories.all, filterValue: "Tümü" },
+    { key: "cargo", label: t.usefulLinksSection.categories.cargo, filterValue: "Kargo & Hava/Deniz" },
+    { key: "port", label: t.usefulLinksSection.categories.port, filterValue: "Liman & Konteyner" },
+    { key: "official", label: t.usefulLinksSection.categories.official, filterValue: "Resmi Sistemler" },
+    { key: "finance", label: t.usefulLinksSection.categories.finance, filterValue: "Maliye & E-Belge" },
   ];
 
-  const filteredLinks = gerekliBaglantilarData.filter((item) => {
-    const matchesCat = selectedCat === "Tümü" || item.category === selectedCat;
+  const getCategoryLabel = (cat: string) => {
+    switch (cat) {
+      case "Kargo & Hava/Deniz":
+        return t.usefulLinksSection.categories.cargo;
+      case "Liman & Konteyner":
+        return t.usefulLinksSection.categories.port;
+      case "Resmi Sistemler":
+        return t.usefulLinksSection.categories.official;
+      case "Maliye & E-Belge":
+        return t.usefulLinksSection.categories.finance;
+      default:
+        return cat;
+    }
+  };
+
+  const filteredLinks = activeData.filter((item) => {
+    const activeDef = categoryDefs.find((c) => c.key === selectedCat);
+    const matchesCat = selectedCat === "all" || item.category === activeDef?.filterValue;
     const matchesSearch =
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.shortTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,14 +57,13 @@ export default function GerekliBaglantilarSection() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#44B9CD]/15 text-[#1E2A3A] text-xs font-bold uppercase tracking-wider mb-2">
             <Globe className="w-3.5 h-3.5 text-[#44B9CD]" />
-            <span>Müşavir Masası & Hızlı Erişim</span>
+            <span>{t.usefulLinksSection.badge}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E2A3A]">
-            Gerekli Bağlantılar & Resmi Portallar
+            {t.usefulLinksSection.title}
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl">
-            Kargo takip, liman konteyner sorgulama, GİB e-arşiv ve GTB resmi gümrükleme sistemlerine
-            tek merkezden doğrudan erişim sağlayın.
+            {t.usefulLinksSection.desc}
           </p>
         </div>
 
@@ -51,7 +74,7 @@ export default function GerekliBaglantilarSection() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Bağlantı veya sistem ara..."
+            placeholder={t.usefulLinksSection.searchPlaceholder}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:border-[#44B9CD] focus:bg-white transition-all text-slate-800 placeholder-slate-400"
           />
         </div>
@@ -59,17 +82,17 @@ export default function GerekliBaglantilarSection() {
 
       {/* Kategori Sekmeleri */}
       <div className="flex flex-wrap items-center gap-2">
-        {categories.map((cat) => (
+        {categoryDefs.map((cat) => (
           <button
-            key={cat}
-            onClick={() => setSelectedCat(cat)}
-            className={`text-xs px-4 py-2 rounded-xl font-bold transition-all ${
-              selectedCat === cat
+            key={cat.key}
+            onClick={() => setSelectedCat(cat.key)}
+            className={`text-xs px-4 py-2 rounded-xl font-bold transition-all cursor-pointer ${
+              selectedCat === cat.key
                 ? "bg-[#1E2A3A] text-white shadow-sm"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
-            {cat}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -98,10 +121,10 @@ export default function GerekliBaglantilarSection() {
 
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#44B9CD]/15 text-[#1E2A3A]">
-                  {item.tag}
+                  {item.tag === "Resmi Sistem" ? t.usefulLinksSection.officialSystem : item.tag}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">
-                  {item.category}
+                  {getCategoryLabel(item.category)}
                 </span>
               </div>
 
@@ -115,7 +138,7 @@ export default function GerekliBaglantilarSection() {
             </div>
 
             <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#1E2A3A] group-hover:text-[#44B9CD] transition-colors">
-              <span>Sisteme Git</span>
+              <span>{t.usefulLinksSection.visitSystem}</span>
               <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </div>
           </a>

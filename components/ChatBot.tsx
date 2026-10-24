@@ -1,17 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import {
-  MessageCircle,
   X,
   Send,
   Bot,
   User,
   CheckCircle2,
-  ExternalLink,
   Phone,
-  Sparkles,
-  ArrowRight,
 } from "lucide-react";
 import { companyInfo } from "@/data/company";
 
@@ -24,6 +21,7 @@ interface Message {
 }
 
 export default function ChatBot() {
+  const { t, language, isRTL } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [inputText, setInputText] = useState("");
@@ -40,21 +38,35 @@ export default function ChatBot() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const nowText = language === "en" ? "Now" : language === "ar" ? "الآن" : language === "es" ? "Ahora" : "Şimdi";
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome-1",
       sender: "bot",
-      text: "Merhaba! Kalem Gümrük Müşavirliği dijital asistanına hoş geldiniz. 🚢\n\nİthalat, ihracat, GTİP tespiti, gümrük vergileri veya antrepo işlemleriniz hakkında sormak istediğiniz her şeyi yazabilirsiniz.",
-      time: "Şimdi",
+      text: t.chatbot.welcomeMessage,
+      time: nowText,
     },
   ]);
 
-  const quickPrompts = [
-    "İthalat gümrükleme maliyeti nedir?",
-    "İhracat için hangi evraklar gerekir?",
-    "GTİP tespiti nasıl yapılır?",
-    "Müşavir ile doğrudan görüşmek istiyorum",
-  ];
+  // Dil değiştiğinde eğer henüz kullanıcı mesaj yazmamışsa karşılama mesajını güncelle
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === "welcome-1") {
+        return [
+          {
+            id: "welcome-1",
+            sender: "bot",
+            text: t.chatbot.welcomeMessage,
+            time: nowText,
+          },
+        ];
+      }
+      return prev;
+    });
+  }, [language, t.chatbot.welcomeMessage, nowText]);
+
+  const quickPrompts = t.chatbot.quickQuestions;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,29 +79,85 @@ export default function ChatBot() {
     }
   }, [isOpen, messages]);
 
-  // Akıllı Yanıt Üretimi
+  // Akıllı Yanıt Üretimi (Çok Dilli)
   const generateBotReply = (text: string) => {
     const lower = text.toLowerCase();
     let reply = "";
 
-    if (lower.includes("ithalat") || lower.includes("getir") || lower.includes("vergi")) {
-      reply =
-        "İthalat işlemlerinde ürününüzün GTİP (Gümrük Tarife İstatistik Pozisyonu) koduna göre Gümrük Vergisi, İlave Gümrük Vergisi (İGV), KDV, ÖTV ve varsa TAREKS/TSE izinleri belirlenir. Liman ardiye ve navlun masraflarını önceden planlayarak dosyanızı sıfır gecikmeyle sonuçlandırıyoruz.";
-    } else if (lower.includes("ihracat") || lower.includes("gönder") || lower.includes("yurtdışı")) {
-      reply =
-        "İhracat operasyonlarında fatura, çeki listesi ve ATR / EUR.1 / Menşe şahadetnamesi düzenlenerek ilgili ihracatçı birliği onayı ve gümrük beyannamesi tescili ivedilikle kapatılır. KDV iadesi süreçleriniz için intaç takibini Evrim portalımızdan anlık sunuyoruz.";
-    } else if (lower.includes("gtip") || lower.includes("tarife") || lower.includes("kod")) {
-      reply =
-        "Eşyanın GTİP tespiti, ödenecek tüm vergileri ve gerekli bakanlık izinlerini belirleyen en kritik adımdır. Ürününüzün ticari tanımı, teknik özellikleri veya katalog bilgisiyle uzman müşavirlerimiz doğru GTİP tespitini yapmaktadır.";
+    if (language === "en") {
+      if (lower.includes("import") || lower.includes("duty") || lower.includes("tax")) {
+        reply =
+          "In import operations, Customs Duty, Additional Duty, VAT, SCT, and applicable TAREKS/TSE approvals are determined based on your product's HS Code. We manage your declarations with zero demurrage and strict legal compliance.";
+      } else if (lower.includes("export") || lower.includes("abroad")) {
+        reply =
+          "For export operations, we issue invoices, packing lists, A.TR, EUR.1, Certificate of Origin, and handle exporter union approvals and exit confirmation seamlessly.";
+      } else if (lower.includes("quote") || lower.includes("price") || lower.includes("cost")) {
+        reply =
+          "We offer competitive brokerage fees and precise landed duty feasibility studies for all Turkish customs ports.";
+      } else {
+        reply =
+          "Thank you for your message. Since 1997, our licensed customs brokers have provided comprehensive foreign trade solutions across all Turkish customs offices.";
+      }
+      return (
+        reply +
+        "\n\n📋 **To enable our licensed broker to examine your shipment and provide a custom duty calculation:** Please share your name, company, and phone number below."
+      );
+    } else if (language === "ar") {
+      if (lower.includes("استيراد") || lower.includes("جمارك") || lower.includes("ضريبة")) {
+        reply =
+          "في عمليات الاستيراد، يتم تحديد الرسوم الجمركية وضريبة القيمة المضافة وموافقات الفحص وفقاً للرمز الجمركي HS Code للبضاعة. نحرص على إنهاء المعاملات دون أي تأخير في الموانئ.";
+      } else if (lower.includes("تصدير") || lower.includes("شحن")) {
+        reply =
+          "في عمليات التصدير، نتولى إصدار شهادات المنشأ A.TR و EUR.1 وموافقات اتحادات المصدرين وتسجيل البيانات الجمركية بسرعة فائقة.";
+      } else if (lower.includes("سعر") || lower.includes("تكلفة")) {
+        reply =
+          "نقدم دراسة تكاليف مفصلة وأسعار تخليص تنافسية لكافة الموانئ والمنافذ الجمركية التركية.";
+      } else {
+        reply =
+          "شكراً لاستفساركم. تقدم شركة قلم خدمات التخليص والاستشارات الجمركية المتكاملة في جميع المنافذ التركية منذ عام 1997.";
+      }
+      return (
+        reply +
+        "\n\n📋 **ليتمكن مستشارنا الجمركي من دراسة شحنتكم وتزويدكم بعرض سعر مخصص:** يرجى تزويدنا بالاسم ورقم الهاتف واسم الشركة أدناه."
+      );
+    } else if (language === "es") {
+      if (lower.includes("import") || lower.includes("arancel") || lower.includes("impuesto")) {
+        reply =
+          "En despachos de importación, los aranceles, gravámenes compensatorios, IVA y controles TAREKS/TSE se calculan según la clasificación arancelaria HS de su mercancía. Gestionamos su expediente con cero demoras.";
+      } else if (lower.includes("export") || lower.includes("salida")) {
+        reply =
+          "Para operaciones de exportación, tramitamos certificados de circulación A.TR, EUR.1, certificados de origen y visados de exportación con máxima agilidad.";
+      } else if (lower.includes("precio") || lower.includes("cotiz") || lower.includes("presupuesto")) {
+        reply =
+          "Elaboramos estudios previos de costes de importación y honorarios competitivos para todas las aduanas de Turquía.";
+      } else {
+        reply =
+          "Agradecemos su consulta. Desde 1997 prestamos servicios integrales de despacho de aduanas homologado en todas las direcciones aduaneras de Turquía.";
+      }
+      return (
+        reply +
+        "\n\n📋 **Para que nuestro agente colegiado pueda evaluar su expediente y enviarle una estimación detallada:** ¿Podría facilitarnos su nombre, empresa y teléfono a continuación?"
+      );
     } else {
-      reply =
-        "Sorunuzu aldım. 1997'den bugüne A Karne yetkili gümrük müşavirlerimiz ve liman operasyon kadromuzla tüm dış ticaret rejimlerinde tam yetkiyle hizmet veriyoruz.";
+      // Türkçe
+      if (lower.includes("ithalat") || lower.includes("getir") || lower.includes("vergi")) {
+        reply =
+          "İthalat işlemlerinde ürününüzün GTİP (Gümrük Tarife İstatistik Pozisyonu) koduna göre Gümrük Vergisi, İlave Gümrük Vergisi (İGV), KDV, ÖTV ve varsa TAREKS/TSE izinleri belirlenir. Liman ardiye ve navlun masraflarını önceden planlayarak dosyanızı sıfır gecikmeyle sonuçlandırıyoruz.";
+      } else if (lower.includes("ihracat") || lower.includes("gönder") || lower.includes("yurtdışı")) {
+        reply =
+          "İhracat operasyonlarında fatura, çeki listesi ve ATR / EUR.1 / Menşe şahadetnamesi düzenlenerek ilgili ihracatçı birliği onayı ve gümrük beyannamesi tescili ivedilikle kapatılır. KDV iadesi süreçleriniz için intaç takibini Evrim portalımızdan anlık sunuyoruz.";
+      } else if (lower.includes("gtip") || lower.includes("tarife") || lower.includes("kod")) {
+        reply =
+          "Eşyanın GTİP tespiti, ödenecek tüm vergileri ve gerekli bakanlık izinlerini belirleyen en kritik adımdır. Ürününüzün ticari tanımı, teknik özellikleri veya katalog bilgisiyle uzman gümrük müşavirliğimiz doğru GTİP tespitini yapmaktadır.";
+      } else {
+        reply =
+          "Sorunuzu aldım. 1997'den bugüne yetkili gümrük müşavirliği ve liman operasyon ekibimizle tüm dış ticaret rejimlerinde tam yetkiyle hizmet veriyoruz.";
+      }
+      return (
+        reply +
+        "\n\n📋 **Gümrük müşavirimizin dosyanızı inceleyip size özel maliyet çalışmasıyla dönüş yapabilmesi için:** Lütfen adınızı, firmanızı ve telefon numaranızı paylaşabilir misiniz?"
+      );
     }
-
-    return (
-      reply +
-      "\n\n📋 **Gümrük müşavirimizin dosyanızı inceleyip size özel maliyet çalışmasıyla dönüş yapabilmesi için:** Lütfen adınızı, firmanızı ve telefon numaranızı paylaşabilir misiniz?"
-    );
   };
 
   // Kullanıcı Mesaj Gönderdiğinde
@@ -126,14 +194,14 @@ export default function ChatBot() {
     }, 900);
   };
 
-  // İletişim Bilgilerini Gönder ve Şirkete Haber Ver (Lead Submit)
+  // İletişim Bilgilerini Gönder
   const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactPhone || !contactName) return;
 
     setIsSubmittingLead(true);
 
-    const contactSummary = `${contactName} (${contactCompany || "Şahıs/Bireysel"}) - Tel: ${contactPhone}`;
+    const contactSummary = `${contactName} (${contactCompany || "Corporate"}) - Tel: ${contactPhone}`;
 
     try {
       await fetch("/api/chat-lead", {
@@ -141,7 +209,7 @@ export default function ChatBot() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contactInfo: contactSummary,
-          question: userQuestion || "Genel Danışmanlık Talebi",
+          question: userQuestion || "Customs Advisory Inquiry",
           conversationHistory: messages.map((m) => ({
             sender: m.sender,
             text: m.text,
@@ -151,12 +219,21 @@ export default function ChatBot() {
 
       setHasProvidedContact(true);
 
+      const successText =
+        language === "en"
+          ? `✅ **Thank you, ${contactName}!**\n\nYour inquiry has been relayed directly to our licensed broker. We will contact you at **${contactPhone}** shortly.`
+          : language === "ar"
+          ? `✅ **شكراً جزيلاً، ${contactName}!**\n\nتم تحويل استفساركم لمستشارنا الجمركي وسنتواصل معكم على الرقم **${contactPhone}** قريباً.`
+          : language === "es"
+          ? `✅ **¡Muchas gracias, ${contactName}!**\n\nSu consulta ha sido trasladada a nuestro agente de aduanas. Nos pondremos en contacto al teléfono **${contactPhone}** a la brevedad.`
+          : `✅ **Teşekkürler Sayın ${contactName}!**\n\nTalebiniz ve sorunuz gümrük müşavirimize anında iletildi. **${contactPhone}** numaranızdan en kısa sürede sizinle irtibata geçilecektir.`;
+
       setMessages((prev) => [
         ...prev,
         {
           id: "bot-lead-ok-" + Date.now(),
           sender: "bot",
-          text: `✅ **Teşekkürler Sayın ${contactName}!**\n\nTalebiniz ve sorunuz gümrük müşavirlerimize anında iletildi. **${contactPhone}** numaranızdan en kısa sürede sizinle irtibata geçilecektir.\n\nDilerseniz hemen aşağıdaki butonla WhatsApp üzerinden de evrak/dosya gönderebilirsiniz.`,
+          text: successText,
           time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
           action: "lead_success",
         },
@@ -170,9 +247,56 @@ export default function ChatBot() {
 
   const whatsappUrl = `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
     userQuestion
-      ? `Merhaba Kalem Gümrük, web sitenizdeki asistan üzerinden yazmıştım. Sorun şuydu: "${userQuestion}". Detaylı bilgi alabilir miyim?`
+      ? `Merhaba Kalem Gümrük: "${userQuestion}"`
       : companyInfo.whatsappDefaultMessage
   )}`;
+
+  const uiLabels = {
+    tr: {
+      askPrompt: "Müşavir Asistanına Sorun",
+      namePlaceholder: "Adınız Soyadınız *",
+      phonePlaceholder: "Telefon Numaranız *",
+      companyPlaceholder: "Firma Adı (İsteğe bağlı)",
+      submitBtn: "Müşavire İlet",
+      submittingBtn: "İletiliyor...",
+      waBtn: "WhatsApp'tan Dosya/Evrak Gönder",
+    },
+    en: {
+      askPrompt: "Ask Customs Assistant",
+      namePlaceholder: "Full Name *",
+      phonePlaceholder: "Phone Number *",
+      companyPlaceholder: "Company (Optional)",
+      submitBtn: "Contact Customs Broker",
+      submittingBtn: "Sending...",
+      waBtn: "Send Documents via WhatsApp",
+    },
+    ar: {
+      askPrompt: "اسأل المساعد الجمركي",
+      namePlaceholder: "الاسم الكامل *",
+      phonePlaceholder: "رقم الهاتف *",
+      companyPlaceholder: "اسم الشركة (اختياري)",
+      submitBtn: "إرسال للمستشار الجمركي",
+      submittingBtn: "جارٍ الإرسال...",
+      waBtn: "إرسال الوثائق عبر الواتساب",
+    },
+    es: {
+      askPrompt: "Consulte al Asistente Aduanero",
+      namePlaceholder: "Nombre y Apellidos *",
+      phonePlaceholder: "Teléfono de Contacto *",
+      companyPlaceholder: "Empresa (Opcional)",
+      submitBtn: "Consultar con el Agente",
+      submittingBtn: "Enviando...",
+      waBtn: "Enviar Documentos por WhatsApp",
+    },
+  }[language] || {
+    askPrompt: "Müşavir Asistanına Sorun",
+    namePlaceholder: "Adınız Soyadınız *",
+    phonePlaceholder: "Telefon Numaranız *",
+    companyPlaceholder: "Firma Adı (İsteğe bağlı)",
+    submitBtn: "Müşavire İlet",
+    submittingBtn: "İletiliyor...",
+    waBtn: "WhatsApp'tan Dosya/Evrak Gönder",
+  };
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -182,14 +306,14 @@ export default function ChatBot() {
           {hasUnread && (
             <div className="hidden sm:flex absolute bottom-full right-0 mb-3 items-center gap-2 bg-[#1E2A3A] text-white text-xs py-2 px-3.5 rounded-2xl shadow-2xl border border-[#44B9CD]/40 animate-bounce">
               <span className="w-2 h-2 rounded-full bg-[#44B9CD] animate-ping"></span>
-              <span className="font-semibold">Müşavir Asistanına Sorun</span>
+              <span className="font-semibold">{uiLabels.askPrompt}</span>
             </div>
           )}
 
           <button
             onClick={() => setIsOpen(true)}
             aria-label="Kalem Gümrük Asistanı"
-            className="flex items-center justify-center w-14 h-14 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] hover:text-white rounded-full shadow-2xl transition-all duration-300 border-2 border-[#44B9CD] hover:scale-105 active:scale-95"
+            className="flex items-center justify-center w-14 h-14 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] hover:text-white rounded-full shadow-2xl transition-all duration-300 border-2 border-[#44B9CD] hover:scale-105 active:scale-95 cursor-pointer"
           >
             <Bot className="w-7 h-7" />
             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white"></span>
@@ -209,11 +333,11 @@ export default function ChatBot() {
               </div>
               <div>
                 <div className="font-bold text-sm flex items-center gap-1.5 text-white">
-                  <span>Kalem Gümrük Asistanı</span>
+                  <span>{t.chatbot.assistantName}</span>
                 </div>
                 <div className="text-[11px] text-emerald-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Çevrimiçi | Gümrük Müşavirliği</span>
+                  <span>{t.chatbot.status}</span>
                 </div>
               </div>
             </div>
@@ -223,14 +347,14 @@ export default function ChatBot() {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="WhatsApp'a Geç"
+                title="WhatsApp"
                 className="p-2 text-slate-300 hover:text-emerald-400 rounded-lg hover:bg-white/10 transition-colors"
               >
                 <Phone className="w-4 h-4" />
               </a>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                 aria-label="Kapat"
               >
                 <X className="w-5 h-5" />
@@ -238,90 +362,111 @@ export default function ChatBot() {
             </div>
           </div>
 
-          {/* Mesaj Akışı */}
+          {/* Mesaj Listesi */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/70 text-xs">
-            {messages.map((msg) => (
+            {messages.map((m) => (
               <div
-                key={msg.id}
-                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+                key={m.id}
+                className={`flex gap-2.5 ${m.sender === "user" ? "justify-end" : "justify-start"}`}
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl p-3.5 shadow-xs leading-relaxed whitespace-pre-line ${
-                    msg.sender === "user"
-                      ? "bg-[#1E2A3A] text-white rounded-br-xs"
-                      : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs"
-                  }`}
-                >
-                  {msg.text}
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 px-1">{msg.time}</span>
+                {m.sender === "bot" && (
+                  <div className="w-7 h-7 rounded-full bg-[#1E2A3A] text-[#44B9CD] flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                )}
 
-                {/* Eğer İletişim Bilgisi İsteniyorsa Dahili Mini Form Göster */}
-                {msg.action === "ask_contact" && !hasProvidedContact && (
-                  <div className="w-full mt-2 bg-white rounded-2xl p-3.5 border border-[#44B9CD]/40 shadow-sm space-y-2.5">
-                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1 text-[#1E2A3A]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
-                      <span>Müşavirimizin Dönüş Yapması İçin İletişim Formu:</span>
-                    </div>
+                <div className="max-w-[85%] space-y-1">
+                  <div
+                    className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-line ${
+                      m.sender === "user"
+                        ? "bg-[#1E2A3A] text-white rounded-tr-xs"
+                        : "bg-white text-slate-800 border border-slate-200/90 shadow-2xs rounded-tl-xs"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
 
-                    <form onSubmit={handleLeadSubmit} className="space-y-2">
+                  {/* İletişim Formu (Müşavir Bilgi Toplama) */}
+                  {m.action === "ask_contact" && !hasProvidedContact && (
+                    <form
+                      onSubmit={handleLeadSubmit}
+                      className="mt-2.5 p-3.5 bg-white border border-[#44B9CD]/40 rounded-2xl shadow-sm space-y-2.5 animate-in fade-in"
+                    >
                       <input
                         type="text"
                         required
-                        placeholder="Adınız Soyadınız *"
+                        placeholder={uiLabels.namePlaceholder}
                         value={contactName}
                         onChange={(e) => setContactName(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#44B9CD]"
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
                       />
                       <input
                         type="tel"
                         required
-                        placeholder="Telefon Numaranız (Örn: 05xx) *"
+                        placeholder={uiLabels.phonePlaceholder}
                         value={contactPhone}
                         onChange={(e) => setContactPhone(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#44B9CD]"
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
                       />
                       <input
                         type="text"
-                        placeholder="Firma Adı (İsteğe bağlı)"
+                        placeholder={uiLabels.companyPlaceholder}
                         value={contactCompany}
                         onChange={(e) => setContactCompany(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#44B9CD]"
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
                       />
-
                       <button
                         type="submit"
                         disabled={isSubmittingLead}
-                        className="w-full bg-[#1E2A3A] hover:bg-slate-800 text-[#44B9CD] font-bold py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                        className="w-full py-2 bg-[#1E2A3A] hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{isSubmittingLead ? "İletiliyor..." : "Müşavir Beni Arasın"}</span>
+                        {isSubmittingLead ? uiLabels.submittingBtn : uiLabels.submitBtn}
                       </button>
                     </form>
-                  </div>
-                )}
+                  )}
 
-                {/* Başarı Durumunda Doğrudan WhatsApp Butonu */}
-                {msg.action === "lead_success" && (
-                  <div className="w-full mt-2">
-                    <a
-                      href={whatsappUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>WhatsApp Üzerinden Evrak / Dosya Gönder</span>
-                    </a>
+                  {/* Başarılı Lead Durumunda WhatsApp Aksiyonu */}
+                  {m.action === "lead_success" && (
+                    <div className="pt-1">
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>{uiLabels.waBtn}</span>
+                      </a>
+                    </div>
+                  )}
+
+                  <div
+                    className={`text-[10px] text-slate-400 px-1 ${
+                      m.sender === "user" ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {m.time}
+                  </div>
+                </div>
+
+                {m.sender === "user" && (
+                  <div className="w-7 h-7 rounded-full bg-[#44B9CD] text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="w-4 h-4" />
                   </div>
                 )}
               </div>
             ))}
 
             {isTyping && (
-              <div className="flex items-center gap-1 text-slate-400 text-xs p-2">
-                <Bot className="w-4 h-4 text-[#44B9CD]" />
-                <span className="animate-pulse">Müşavirlik asistanı yazıyor...</span>
+              <div className="flex items-center gap-2 text-slate-400 text-xs">
+                <div className="w-7 h-7 rounded-full bg-[#1E2A3A] text-[#44B9CD] flex items-center justify-center">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#44B9CD] animate-bounce"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#44B9CD] animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#44B9CD] animate-bounce [animation-delay:0.4s]"></span>
+                </div>
               </div>
             )}
 
@@ -329,13 +474,14 @@ export default function ChatBot() {
           </div>
 
           {/* Hızlı Soru Çipleri */}
-          {messages.length <= 2 && (
-            <div className="p-2.5 bg-slate-100 border-t border-slate-200/70 overflow-x-auto flex gap-2 shrink-0">
-              {quickPrompts.map((q, i) => (
+          {messages.length <= 3 && (
+            <div className="px-4 py-2 bg-white border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {quickPrompts.map((q, idx) => (
                 <button
-                  key={i}
+                  key={idx}
+                  type="button"
                   onClick={() => handleSendMessage(q)}
-                  className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white text-slate-700 hover:bg-[#1E2A3A] hover:text-[#44B9CD] border border-slate-200 text-[11px] font-medium transition-colors shadow-2xs"
+                  className="shrink-0 px-3 py-1.5 bg-slate-100 hover:bg-[#44B9CD]/15 hover:text-[#1E2A3A] text-slate-700 rounded-full text-[11px] font-medium transition cursor-pointer border border-slate-200"
                 >
                   {q}
                 </button>
@@ -343,43 +489,30 @@ export default function ChatBot() {
             </div>
           )}
 
-          {/* Mesaj Giriş Alanı */}
-          <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="flex items-center gap-2"
+          {/* Mesaj Yazma Alanı */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }}
+            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={t.chatbot.inputPlaceholder}
+              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#44B9CD] transition"
+            />
+            <button
+              type="submit"
+              disabled={!inputText.trim()}
+              className="p-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition cursor-pointer"
+              aria-label={t.chatbot.send}
             >
-              <input
-                type="text"
-                placeholder="Gümrükleme veya mevzuat hakkında soru yazın..."
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#44B9CD] focus:border-transparent"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim()}
-                className="p-2.5 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] hover:text-white rounded-xl transition-colors disabled:opacity-40"
-                aria-label="Gönder"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-            <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400 px-1">
-              <span>Hızlı İletişim: {companyInfo.phone}</span>
-              <a
-                href={companyInfo.evrimPortalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#44B9CD] hover:underline"
-              >
-                Evrim Girişi →
-              </a>
-            </div>
-          </div>
+              <Send className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
+            </button>
+          </form>
         </div>
       )}
     </div>

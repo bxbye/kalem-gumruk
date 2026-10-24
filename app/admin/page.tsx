@@ -29,6 +29,13 @@ import {
   RefreshCw,
   X,
   FileDown,
+  Building2,
+  Globe,
+  Layers,
+  Award,
+  Phone,
+  Edit3,
+  Save,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -36,7 +43,16 @@ export default function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "submissions" | "forms" | "documents" | "sirkuler" | "feedbacks" | "chat"
+    | "dashboard"
+    | "submissions"
+    | "settings"
+    | "baglantilar"
+    | "services"
+    | "references"
+    | "forms"
+    | "documents"
+    | "sirkuler"
+    | "feedbacks"
   >("dashboard");
 
   // Veri Stateleri
@@ -45,7 +61,77 @@ export default function AdminPage() {
   const [documentsList, setDocumentsList] = useState<any[]>([]);
   const [sirkulerList, setSirkulerList] = useState<any[]>([]);
   const [feedbacksList, setFeedbacksList] = useState<any[]>([]);
+  const [baglantilarList, setBaglantilarList] = useState<any[]>([]);
+  const [servicesList, setServicesList] = useState<any[]>([]);
+  const [referencesList, setReferencesList] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  // 1. Site Ayarları Form State
+  const [siteSettings, setSiteSettings] = useState<Record<string, any>>({
+    name: "Kalem Gümrük Müşavirliği Ltd. Şti.",
+    shortName: "Kalem Gümrük",
+    slogan: "1997'den Bugüne Güven, Hız ve Mevzuata Tam Uyum",
+    description: "25 yılı aşkın tecrübemiz, yetkili gümrük müşavirliği güvencemiz ve güçlü dijital altyapımızla dış ticaret operasyonlarınızı sorunsuz yönetiyoruz.",
+    address: "Atatürk Mah. Alemdağ Cad. Gaffar Efendi Sok. Güler Han No:5 Kat:4 Ümraniye / İstanbul",
+    phone: "0544 972 29 57",
+    phoneRaw: "+905449722957",
+    whatsapp: "905449722957",
+    whatsappDefaultMessage: "Merhaba Kalem Gümrük, web siteniz üzerinden ulaşıyorum. Gümrükleme ve dış ticaret danışmanlığı hakkında bilgi almak istiyorum.",
+    email: "info@kalemgumruk.com",
+    evrimPortalUrl: "https://webgumruk.com",
+    workingHours: "Hafta İçi: 08:30 - 18:00 | Cumartesi: 09:00 - 13:00",
+    foundedYear: "1997",
+    experienceYears: "25+",
+    intacRate: "%99.8",
+    supportHours: "7/24",
+  });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsResult, setSettingsResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // 2. Müşavir Masası / Bağlantı Form State
+  const [baglantiModalOpen, setBaglantiModalOpen] = useState(false);
+  const [editingBaglanti, setEditingBaglanti] = useState<any | null>(null);
+  const [baglantiForm, setBaglantiForm] = useState({
+    id: "",
+    title: "",
+    shortTitle: "",
+    category: "Resmi Sistemler",
+    url: "",
+    image: "/images/baglantilar/beyanname-sorgulama.png",
+    description: "",
+    tag: "Bakanlık Sistemi",
+    orderIndex: 0,
+    isActive: true,
+  });
+
+  // 3. Hizmet Form State
+  const [serviceModalOpen, setServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<any | null>(null);
+  const [serviceForm, setServiceForm] = useState({
+    id: "",
+    slug: "",
+    title: "",
+    shortDesc: "",
+    iconName: "ArrowDownToLine",
+    category: "gumruk",
+    featuresText: "",
+    detailedContent: "",
+    orderIndex: 0,
+    isActive: true,
+  });
+
+  // 4. Referans Form State
+  const [refModalOpen, setRefModalOpen] = useState(false);
+  const [editingRef, setEditingRef] = useState<any | null>(null);
+  const [refForm, setRefForm] = useState({
+    id: "",
+    name: "",
+    sector: "",
+    description: "",
+    logoUrl: "",
+    orderIndex: 0,
+    isActive: true,
+  });
 
   // Modal ve Seçim Stateleri
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
@@ -126,17 +212,297 @@ export default function AdminPage() {
       if (docData.success) setDocumentsList(docData.documents);
 
       // 4. Sirkülerleri Çek
-      const sirkulerRes = await fetch("/api/forms/fiyat-teklifi"); // ping
-      // sirkuler listesi için lib veya API
-      // Doğrudan sayfadan çekebilir veya API
+      const sirkulerRes = await fetch("/api/admin/sirkuler");
+      const sirkulerData = await sirkulerRes.json();
+      if (sirkulerData.success) setSirkulerList(sirkulerData.sirkuler);
+
       // 5. Müşteri Yorumlarını Çek
       const fbRes = await fetch("/api/feedbacks");
       const fbData = await fbRes.json();
       if (fbData.success) setFeedbacksList(fbData.feedbacks);
+
+      // 6. Site ve Firma Ayarlarını Çek
+      const settingsRes = await fetch("/api/admin/settings");
+      const settingsData = await settingsRes.json();
+      if (settingsData.success && settingsData.settings) {
+        setSiteSettings((prev) => ({ ...prev, ...settingsData.settings }));
+      }
+
+      // 7. Gerekli Bağlantıları Çek
+      const baglantilarRes = await fetch("/api/admin/baglantilar");
+      const baglantilarData = await baglantilarRes.json();
+      if (baglantilarData.success) setBaglantilarList(baglantilarData.items);
+
+      // 8. Hizmetleri Çek
+      const servicesRes = await fetch("/api/admin/services");
+      const servicesData = await servicesRes.json();
+      if (servicesData.success) setServicesList(servicesData.items);
+
+      // 9. Referansları Çek
+      const refsRes = await fetch("/api/admin/references");
+      const refsData = await refsRes.json();
+      if (refsData.success) setReferencesList(refsData.items);
     } catch (err) {
       console.error("Veri yükleme hatası:", err);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  // Site Ayarlarını Kaydet
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSaving(true);
+    setSettingsResult(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, settings: siteSettings }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingsResult({
+          success: true,
+          message: "Site ve firma bilgileri başarıyla güncellendi ve tüm siteye uygulandı!",
+        });
+      } else {
+        setSettingsResult({
+          success: false,
+          message: data.error || "Güncelleme sırasında hata oluştu.",
+        });
+      }
+    } catch {
+      setSettingsResult({ success: false, message: "Ağ bağlantı hatası." });
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  // Müşavir Masası Bağlantı İşlemleri
+  const openNewBaglanti = () => {
+    setEditingBaglanti(null);
+    setBaglantiForm({
+      id: "",
+      title: "",
+      shortTitle: "",
+      category: "Resmi Sistemler",
+      url: "",
+      image: "/images/baglantilar/beyanname-sorgulama.png",
+      description: "",
+      tag: "Bakanlık Sistemi",
+      orderIndex: baglantilarList.length,
+      isActive: true,
+    });
+    setBaglantiModalOpen(true);
+  };
+
+  const openEditBaglanti = (item: any) => {
+    setEditingBaglanti(item);
+    setBaglantiForm({
+      id: item.id,
+      title: item.title,
+      shortTitle: item.shortTitle || item.title,
+      category: item.category,
+      url: item.url,
+      image: item.image,
+      description: item.description,
+      tag: item.tag,
+      orderIndex: item.orderIndex || 0,
+      isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
+    });
+    setBaglantiModalOpen(true);
+  };
+
+  const handleSaveBaglanti = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/admin/baglantilar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, ...baglantiForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBaglantiModalOpen(false);
+        const bRes = await fetch("/api/admin/baglantilar");
+        const bData = await bRes.json();
+        if (bData.success) setBaglantilarList(bData.items);
+      } else {
+        alert(data.error || "Hata oluştu.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteBaglanti = async (id: string) => {
+    if (!confirm("Bu bağlantıyı silmek istediğinize emin misiniz?")) return;
+    try {
+      const res = await fetch(
+        `/api/admin/baglantilar?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setBaglantilarList((prev) => prev.filter((b) => b.id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Hizmet İşlemleri
+  const openNewService = () => {
+    setEditingService(null);
+    setServiceForm({
+      id: "",
+      slug: "",
+      title: "",
+      shortDesc: "",
+      iconName: "ArrowDownToLine",
+      category: "gumruk",
+      featuresText: "",
+      detailedContent: "",
+      orderIndex: servicesList.length,
+      isActive: true,
+    });
+    setServiceModalOpen(true);
+  };
+
+  const openEditService = (item: any) => {
+    setEditingService(item);
+    let featuresStr = "";
+    try {
+      const parsed = typeof item.features === "string" ? JSON.parse(item.features) : item.features;
+      featuresStr = Array.isArray(parsed) ? parsed.join("\n") : "";
+    } catch {
+      featuresStr = "";
+    }
+    setServiceForm({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      shortDesc: item.shortDesc || "",
+      iconName: item.iconName || "ArrowDownToLine",
+      category: item.category || "gumruk",
+      featuresText: featuresStr,
+      detailedContent: item.detailedContent || "",
+      orderIndex: item.orderIndex || 0,
+      isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
+    });
+    setServiceModalOpen(true);
+  };
+
+  const handleSaveService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const featuresArray = serviceForm.featuresText
+        ? serviceForm.featuresText.split("\n").map((f) => f.trim()).filter(Boolean)
+        : [];
+      const res = await fetch("/api/admin/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password,
+          ...serviceForm,
+          features: featuresArray,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setServiceModalOpen(false);
+        const sRes = await fetch("/api/admin/services");
+        const sData = await sRes.json();
+        if (sData.success) setServicesList(sData.items);
+      } else {
+        alert(data.error || "Hata oluştu.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    if (!confirm("Bu hizmeti silmek istediğinize emin misiniz?")) return;
+    try {
+      const res = await fetch(
+        `/api/admin/services?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setServicesList((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Referans İşlemleri
+  const openNewRef = () => {
+    setEditingRef(null);
+    setRefForm({
+      id: "",
+      name: "",
+      sector: "",
+      description: "",
+      logoUrl: "",
+      orderIndex: referencesList.length,
+      isActive: true,
+    });
+    setRefModalOpen(true);
+  };
+
+  const openEditRef = (item: any) => {
+    setEditingRef(item);
+    setRefForm({
+      id: item.id,
+      name: item.name,
+      sector: item.sector,
+      description: item.description || "",
+      logoUrl: item.logoUrl || "",
+      orderIndex: item.orderIndex || 0,
+      isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
+    });
+    setRefModalOpen(true);
+  };
+
+  const handleSaveReference = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/admin/references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, ...refForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRefModalOpen(false);
+        const rRes = await fetch("/api/admin/references");
+        const rData = await rRes.json();
+        if (rData.success) setReferencesList(rData.items);
+      } else {
+        alert(data.error || "Hata oluştu.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteReference = async (id: string) => {
+    if (!confirm("Bu referansı silmek istediğinize emin misiniz?")) return;
+    try {
+      const res = await fetch(
+        `/api/admin/references?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setReferencesList((prev) => prev.filter((r) => r.id !== id));
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -460,6 +826,54 @@ export default function AdminPage() {
                 {submissions.filter((s) => s.status === "NEW").length}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "settings"
+                ? "bg-[#1E2A3A] text-[#44B9CD]"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Site & Firma Ayarları</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("baglantilar")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "baglantilar"
+                ? "bg-[#1E2A3A] text-[#44B9CD]"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Müşavir Masası & Portallar ({baglantilarList.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("services")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "services"
+                ? "bg-[#1E2A3A] text-[#44B9CD]"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Hizmet Yönetimi ({servicesList.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("references")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "references"
+                ? "bg-[#1E2A3A] text-[#44B9CD]"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            <span>Referanslar ({referencesList.length})</span>
           </button>
 
           <button
@@ -1147,6 +1561,464 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* 7. SITE & FIRMA GENEL AYARLARI */}
+        {activeTab === "settings" && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#1E2A3A]">Site & Firma Genel Ayarları</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Buradan güncelleyeceğiniz tüm iletişim, telefon, adres ve kurumsal bilgiler tüm web sitesinde (Navbar, Footer, Hero, İletişim vb.) otomatik yansır.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                disabled={settingsSaving}
+                className="px-5 py-2.5 bg-[#44B9CD] hover:bg-[#389eb0] text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>{settingsSaving ? "Kaydediliyor..." : "Ayarları Kaydet"}</span>
+              </button>
+            </div>
+
+            {settingsResult && (
+              <div
+                className={`p-4 rounded-xl text-xs flex items-center gap-2 ${
+                  settingsResult.success ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800"
+                }`}
+              >
+                {settingsResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{settingsResult.message}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              {/* Kurumsal Bilgiler */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#44B9CD]" />
+                  <span>Kurumsal Tanıtım</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Firma Resmi Adı</label>
+                    <input
+                      type="text"
+                      value={siteSettings.name || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Kısa Ad (Logo Yanı / Başlık)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.shortName || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, shortName: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Slogan / Başlık</label>
+                  <input
+                    type="text"
+                    value={siteSettings.slogan || ""}
+                    onChange={(e) => setSiteSettings({ ...siteSettings, slogan: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Firma Tanıtım Açıklaması</label>
+                  <textarea
+                    rows={2}
+                    value={siteSettings.description || ""}
+                    onChange={(e) => setSiteSettings({ ...siteSettings, description: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* İletişim Bilgileri */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-[#44B9CD]" />
+                  <span>İletişim & Lokasyon</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Telefon (Görünen)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.phone || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, phone: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      placeholder="0544 972 29 57"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Telefon (Tıklanabilir Tel Bağlantısı)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.phoneRaw || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, phoneRaw: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      placeholder="+905449722957"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">WhatsApp Numarası (Boşluksuz)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.whatsapp || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, whatsapp: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      placeholder="905449722957"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">E-Posta Adresi</label>
+                    <input
+                      type="email"
+                      value={siteSettings.email || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      placeholder="info@kalemgumruk.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">WhatsApp Karşılama Mesajı</label>
+                  <input
+                    type="text"
+                    value={siteSettings.whatsappDefaultMessage || ""}
+                    onChange={(e) => setSiteSettings({ ...siteSettings, whatsappDefaultMessage: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Açık Ofis Adresi</label>
+                    <textarea
+                      rows={2}
+                      value={siteSettings.address || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, address: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Çalışma Saatleri</label>
+                    <textarea
+                      rows={2}
+                      value={siteSettings.workingHours || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, workingHours: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Evrim Web Gümrük Müşteri Giriş Portalı URL</label>
+                  <input
+                    type="url"
+                    value={siteSettings.evrimPortalUrl || ""}
+                    onChange={(e) => setSiteSettings({ ...siteSettings, evrimPortalUrl: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    placeholder="https://webgumruk.com"
+                  />
+                </div>
+              </div>
+
+              {/* İstatistikler */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#44B9CD]" />
+                  <span>Güven Sayaçları & Rakamlar</span>
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Kuruluş Yılı</label>
+                    <input
+                      type="text"
+                      value={siteSettings.foundedYear || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, foundedYear: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Tecrübe (Metin)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.experienceYears || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, experienceYears: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">İntaç Oranı</label>
+                    <input
+                      type="text"
+                      value={siteSettings.intacRate || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, intacRate: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Destek Saatleri</label>
+                    <input
+                      type="text"
+                      value={siteSettings.supportHours || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, supportHours: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={settingsSaving}
+                  className="px-6 py-3 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] font-bold rounded-xl text-xs flex items-center gap-2 shadow transition cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{settingsSaving ? "Kaydediliyor..." : "Tüm Değişiklikleri Kaydet"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 8. MÜŞAVİR MASASI & GEREKLİ BAĞLANTILAR */}
+        {activeTab === "baglantilar" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div>
+                <h3 className="text-lg font-bold text-[#1E2A3A]">Müşavir Masası & Gerekli Bağlantılar Portalı</h3>
+                <p className="text-xs text-slate-500">
+                  Bu bağlantılar hem <code className="bg-slate-100 px-1 py-0.5 rounded text-sky-700">/araclar</code> sayfasında hem de sitenin altındaki Footer Müşavir Masası ve anasayfa kayan bandında görüntülenir.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openNewBaglanti}
+                className="px-4 py-2 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] font-bold rounded-xl text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yeni Bağlantı Ekle</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {baglantilarList.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-[#44B9CD] transition shadow-xs flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                        {item.tag || item.category}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        Sıra: #{item.orderIndex}
+                      </span>
+                    </div>
+
+                    <h4 className="font-bold text-xs text-slate-900 leading-snug">{item.title}</h4>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      {item.description}
+                    </p>
+
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#44B9CD] hover:underline flex items-center gap-1 font-medium truncate"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{item.url}</span>
+                    </a>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${item.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      {item.isActive ? "Aktif (Sitede)" : "Pasif"}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditBaglanti(item)}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Düzenle</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBaglanti(item.id)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 9. HİZMET YÖNETİMİ CMS */}
+        {activeTab === "services" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div>
+                <h3 className="text-lg font-bold text-[#1E2A3A]">Hizmet Yönetimi (Hizmetlerimiz CMS)</h3>
+                <p className="text-xs text-slate-500">
+                  Gümrükleme rejimleri ve danışmanlık hizmetlerinin detay içeriklerini, özellik maddelerini ve başlıklarını yönetin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openNewService}
+                className="px-4 py-2 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] font-bold rounded-xl text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yeni Hizmet Ekle</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {servicesList.map((srv) => (
+                <div
+                  key={srv.id || srv.slug}
+                  className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-[#44B9CD] transition shadow-xs flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {srv.category}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">/{srv.slug}</span>
+                    </div>
+
+                    <h4 className="font-bold text-sm text-slate-900">{srv.title}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                      {srv.shortDesc}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <Link
+                      href={`/hizmetlerimiz/${srv.slug}`}
+                      target="_blank"
+                      className="text-[#44B9CD] hover:underline flex items-center gap-1 font-medium"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Sayfayı Gör</span>
+                    </Link>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditService(srv)}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Düzenle</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteService(srv.id)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 10. REFERANS YÖNETİMİ */}
+        {activeTab === "references" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div>
+                <h3 className="text-lg font-bold text-[#1E2A3A]">Müşteri Referansları & Partner Yönetimi</h3>
+                <p className="text-xs text-slate-500">
+                  Ana sayfadaki Referanslar bölümünde dönen kurumsal iş ortakları ve çalıştığınız firmalar.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openNewRef}
+                className="px-4 py-2 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] font-bold rounded-xl text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yeni Referans Ekle</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {referencesList.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-[#44B9CD] transition shadow-xs flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                      {ref.sector}
+                    </span>
+                    <h4 className="font-bold text-sm text-slate-900 mt-1">{ref.name}</h4>
+                    {ref.description && (
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                        {ref.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditRef(ref)}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Düzenle</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReference(ref.id)}
+                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                      title="Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* BAŞVURU DETAY MODALI */}
@@ -1284,6 +2156,452 @@ export default function AdminPage() {
                 Kapat
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Müşavir Masası Bağlantı Modalı */}
+      {baglantiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-[#44B9CD]">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    {editingBaglanti ? "Müşavir Portalını Düzenle" : "Yeni Müşavir Portalı / Bağlantı Ekle"}
+                  </h3>
+                  <p className="text-xs text-slate-500">Müşavir masası, araçlar ve footer linklerini yönetin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBaglantiModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBaglanti} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Tam Başlık</label>
+                  <input
+                    type="text"
+                    required
+                    value={baglantiForm.title}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, title: e.target.value })}
+                    placeholder="Örn: UPS Kargo Takip & Gümrük"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Kısa Menü Başlığı</label>
+                  <input
+                    type="text"
+                    required
+                    value={baglantiForm.shortTitle}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, shortTitle: e.target.value })}
+                    placeholder="Örn: UPS Kargo Takip"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Kategori</label>
+                  <select
+                    value={baglantiForm.category}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, category: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  >
+                    <option value="Kargo & Hava/Deniz">Kargo & Hava/Deniz</option>
+                    <option value="Liman & Konteyner">Liman & Konteyner</option>
+                    <option value="Resmi Sistemler">Resmi Sistemler</option>
+                    <option value="Maliye & E-Belge">Maliye & E-Belge</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Rozet / Etiket</label>
+                  <input
+                    type="text"
+                    value={baglantiForm.tag}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, tag: e.target.value })}
+                    placeholder="Örn: Kargo Takip, Liman Sistemi..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Hedef URL (Web Bağlantısı)</label>
+                <input
+                  type="url"
+                  required
+                  value={baglantiForm.url}
+                  onChange={(e) => setBaglantiForm({ ...baglantiForm, url: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Görsel / Logo Yolu</label>
+                <input
+                  type="text"
+                  value={baglantiForm.image}
+                  onChange={(e) => setBaglantiForm({ ...baglantiForm, image: e.target.value })}
+                  placeholder="/images/baglantilar/ups.png veya web URL"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Açıklama</label>
+                <textarea
+                  rows={2}
+                  value={baglantiForm.description}
+                  onChange={(e) => setBaglantiForm({ ...baglantiForm, description: e.target.value })}
+                  placeholder="Portalın ne amaçla kullanıldığı hakkında kısa bilgi..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-center pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Sıralama Önceliği</label>
+                  <input
+                    type="number"
+                    value={baglantiForm.orderIndex}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, orderIndex: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-6">
+                  <input
+                    type="checkbox"
+                    id="baglantiActive"
+                    checked={baglantiForm.isActive}
+                    onChange={(e) => setBaglantiForm({ ...baglantiForm, isActive: e.target.checked })}
+                    className="w-5 h-5 rounded text-[#1E2A3A] focus:ring-[#44B9CD] border-slate-300"
+                  />
+                  <label htmlFor="baglantiActive" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                    Yayında / Aktif
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBaglantiModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-slate-900/10 transition-colors"
+                >
+                  <Save className="w-4 h-4 text-[#44B9CD]" />
+                  <span>{editingBaglanti ? "Değişiklikleri Kaydet" : "Bağlantıyı Ekle"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Hizmet Modalı */}
+      {serviceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-[#44B9CD]">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    {editingService ? "Gümrük Hizmetini Düzenle" : "Yeni Gümrük Hizmeti Ekle"}
+                  </h3>
+                  <p className="text-xs text-slate-500">Hizmetlerimiz sayfası ve anasayfa kartlarını yönetin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setServiceModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveService} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Hizmet Başlığı</label>
+                  <input
+                    type="text"
+                    required
+                    value={serviceForm.title}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      const slug = title
+                        .toLowerCase()
+                        .replace(/ğ/g, "g")
+                        .replace(/ü/g, "u")
+                        .replace(/ş/g, "s")
+                        .replace(/ı/g, "i")
+                        .replace(/ö/g, "o")
+                        .replace(/ç/g, "c")
+                        .replace(/[^a-z0-9]/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-|-$/g, "");
+                      setServiceForm({
+                        ...serviceForm,
+                        title,
+                        slug: serviceForm.slug ? serviceForm.slug : slug,
+                      });
+                    }}
+                    placeholder="Örn: İthalat Gümrükleme Hizmetleri"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">URL Slug</label>
+                  <input
+                    type="text"
+                    required
+                    value={serviceForm.slug}
+                    onChange={(e) => setServiceForm({ ...serviceForm, slug: e.target.value })}
+                    placeholder="ithalat-gumrukleme"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Hizmet Kategorisi</label>
+                  <select
+                    value={serviceForm.category}
+                    onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  >
+                    <option value="gumruk">Gümrük İşlemleri</option>
+                    <option value="rejim">Özel Rejimler</option>
+                    <option value="danismanlik">Mevzuat & Danışmanlık</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Lucide İkon Adı</label>
+                  <input
+                    type="text"
+                    value={serviceForm.iconName}
+                    onChange={(e) => setServiceForm({ ...serviceForm, iconName: e.target.value })}
+                    placeholder="ArrowDownToLine, ArrowUpFromLine, RefreshCw..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Kısa Açıklama / Özet</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={serviceForm.shortDesc}
+                  onChange={(e) => setServiceForm({ ...serviceForm, shortDesc: e.target.value })}
+                  placeholder="Hizmetin temel kapsamını anlatan kısa özet cümle..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Öne Çıkan Özellikler / Maddeler <span className="font-normal text-slate-400">(Her satıra bir madde yazın)</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={serviceForm.featuresText}
+                  onChange={(e) => setServiceForm({ ...serviceForm, featuresText: e.target.value })}
+                  placeholder="GTİP Tespiti ve Tarife Analizi&#10;Mevzuat ve İzin Uygunluk Kontrolü&#10;TAREKS ve DTS Başvuruları&#10;Hızlı ve Güvenli Beyanname Tescili"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Detaylı İçerik / Süreç Açıklaması</label>
+                <textarea
+                  rows={4}
+                  value={serviceForm.detailedContent}
+                  onChange={(e) => setServiceForm({ ...serviceForm, detailedContent: e.target.value })}
+                  placeholder="Hizmetin operasyonel akışını, yasal dayanaklarını ve müşteriye sağlanan katma değeri anlatan detaylı metin..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-center pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Sıralama Önceliği</label>
+                  <input
+                    type="number"
+                    value={serviceForm.orderIndex}
+                    onChange={(e) => setServiceForm({ ...serviceForm, orderIndex: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-6">
+                  <input
+                    type="checkbox"
+                    id="serviceActive"
+                    checked={serviceForm.isActive}
+                    onChange={(e) => setServiceForm({ ...serviceForm, isActive: e.target.checked })}
+                    className="w-5 h-5 rounded text-[#1E2A3A] focus:ring-[#44B9CD] border-slate-300"
+                  />
+                  <label htmlFor="serviceActive" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                    Yayında / Aktif
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setServiceModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-slate-900/10 transition-colors"
+                >
+                  <Save className="w-4 h-4 text-[#44B9CD]" />
+                  <span>{editingService ? "Değişiklikleri Kaydet" : "Hizmeti Ekle"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Referans Modalı */}
+      {refModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-[#44B9CD]">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    {editingRef ? "Referansı Düzenle" : "Yeni Referans Ekle"}
+                  </h3>
+                  <p className="text-xs text-slate-500">Müşteri portföyü ve kurumsal referansları yönetin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRefModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveReference} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Firma / Marka Adı</label>
+                <input
+                  type="text"
+                  required
+                  value={refForm.name}
+                  onChange={(e) => setRefForm({ ...refForm, name: e.target.value })}
+                  placeholder="Örn: NOVA Kimya San. Tic. A.Ş."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Faaliyet Sektörü</label>
+                  <input
+                    type="text"
+                    required
+                    value={refForm.sector}
+                    onChange={(e) => setRefForm({ ...refForm, sector: e.target.value })}
+                    placeholder="Örn: Kimya & Polimer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Logo URL (İsteğe Bağlı)</label>
+                  <input
+                    type="text"
+                    value={refForm.logoUrl}
+                    onChange={(e) => setRefForm({ ...refForm, logoUrl: e.target.value })}
+                    placeholder="/images/references/logo.svg"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Açıklama / Sağlanan Hizmet Kapsamı</label>
+                <textarea
+                  rows={3}
+                  value={refForm.description}
+                  onChange={(e) => setRefForm({ ...refForm, description: e.target.value })}
+                  placeholder="Örn: Hammadde ithalatı ve dahilde işleme rejimi operasyonları..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-center pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Sıralama Önceliği</label>
+                  <input
+                    type="number"
+                    value={refForm.orderIndex}
+                    onChange={(e) => setRefForm({ ...refForm, orderIndex: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-6">
+                  <input
+                    type="checkbox"
+                    id="refActive"
+                    checked={refForm.isActive}
+                    onChange={(e) => setRefForm({ ...refForm, isActive: e.target.checked })}
+                    className="w-5 h-5 rounded text-[#1E2A3A] focus:ring-[#44B9CD] border-slate-300"
+                  />
+                  <label htmlFor="refActive" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                    Yayında / Aktif
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRefModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-slate-900/10 transition-colors"
+                >
+                  <Save className="w-4 h-4 text-[#44B9CD]" />
+                  <span>{editingRef ? "Değişiklikleri Kaydet" : "Referansı Ekle"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -19,9 +19,18 @@ export interface SirkulerItem {
   author?: string;
   viewsCount?: number;
   isPublished?: boolean;
+  translations?: Record<
+    string,
+    {
+      title?: string;
+      summary?: string;
+      content?: string;
+      expertNote?: string;
+    }
+  >;
 }
 
-export function getAllSirkuler(): SirkulerItem[] {
+export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {
   try {
     const records = db
       .select()
@@ -30,52 +39,82 @@ export function getAllSirkuler(): SirkulerItem[] {
       .orderBy(desc(sirkuler.date))
       .all();
 
-    return records.map((r) => ({
-      id: r.id,
-      title: r.title,
-      slug: r.slug,
-      date: r.date,
-      category: r.category,
-      regulationType: r.regulationType || undefined,
-      officialGazetteNumber: r.officialGazetteNumber || undefined,
-      relatedGtip: r.relatedGtip || undefined,
-      summary: r.summary,
-      content: r.content,
-      expertNote: r.expertNote || undefined,
-      sourceUrl: r.sourceUrl || undefined,
-      pdfUrl: r.pdfUrl || undefined,
-      author: r.author || undefined,
-      viewsCount: r.viewsCount,
-      isPublished: r.isPublished,
-    }));
+    return records.map((r) => {
+      let parsedTranslations: Record<string, any> = {};
+      try {
+        parsedTranslations = JSON.parse(r.translations || "{}");
+      } catch {
+        parsedTranslations = {};
+      }
+
+      const langTrans = lang !== "tr" ? parsedTranslations[lang] : undefined;
+      const title = langTrans?.title || r.title;
+      const summary = langTrans?.summary || r.summary;
+      const content = langTrans?.content || r.content;
+      const expertNote = langTrans?.expertNote || r.expertNote || undefined;
+
+      return {
+        id: r.id,
+        title,
+        slug: r.slug,
+        date: r.date,
+        category: r.category,
+        regulationType: r.regulationType || undefined,
+        officialGazetteNumber: r.officialGazetteNumber || undefined,
+        relatedGtip: r.relatedGtip || undefined,
+        summary,
+        content,
+        expertNote,
+        sourceUrl: r.sourceUrl || undefined,
+        pdfUrl: r.pdfUrl || undefined,
+        author: r.author || undefined,
+        viewsCount: r.viewsCount,
+        isPublished: r.isPublished,
+        translations: parsedTranslations,
+      };
+    });
   } catch (error) {
     console.error("Veritabanından sirküler okuma hatası:", error);
     return [];
   }
 }
 
-export function getSirkulerBySlug(slug: string): SirkulerItem | undefined {
+export function getSirkulerBySlug(slug: string, lang: string = "tr"): SirkulerItem | undefined {
   try {
     const r = db.select().from(sirkuler).where(eq(sirkuler.slug, slug)).get();
     if (!r) return undefined;
 
+    let parsedTranslations: Record<string, any> = {};
+    try {
+      parsedTranslations = JSON.parse(r.translations || "{}");
+    } catch {
+      parsedTranslations = {};
+    }
+
+    const langTrans = lang !== "tr" ? parsedTranslations[lang] : undefined;
+    const title = langTrans?.title || r.title;
+    const summary = langTrans?.summary || r.summary;
+    const content = langTrans?.content || r.content;
+    const expertNote = langTrans?.expertNote || r.expertNote || undefined;
+
     return {
       id: r.id,
-      title: r.title,
+      title,
       slug: r.slug,
       date: r.date,
       category: r.category,
       regulationType: r.regulationType || undefined,
       officialGazetteNumber: r.officialGazetteNumber || undefined,
       relatedGtip: r.relatedGtip || undefined,
-      summary: r.summary,
-      content: r.content,
-      expertNote: r.expertNote || undefined,
+      summary,
+      content,
+      expertNote,
       sourceUrl: r.sourceUrl || undefined,
       pdfUrl: r.pdfUrl || undefined,
       author: r.author || undefined,
       viewsCount: r.viewsCount,
       isPublished: r.isPublished,
+      translations: parsedTranslations,
     };
   } catch (error) {
     console.error("Sirküler slug okuma hatası:", error);

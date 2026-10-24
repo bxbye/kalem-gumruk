@@ -10,5 +10,6 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: "https://kalemgumruk.com/sitemap.xml",
+    host: "https://kalemgumruk.com",
   };
 }

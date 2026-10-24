@@ -5,7 +5,7 @@ export const companyInfo = {
   experienceYears: new Date().getFullYear() - 1997,
   slogan: "1997'den Bugüne Güven, Hız ve Mevzuata Tam Uyum",
   description:
-    "25 yılı aşkın tecrübemiz, A karne yetkili gümrük müşavirlerimiz ve güçlü dijital altyapımızla dış ticaret operasyonlarınızı sorunsuz yönetiyoruz.",
+    "25 yılı aşkın tecrübemiz, yetkili gümrük müşavirliği güvencemiz ve güçlü dijital altyapımızla dış ticaret operasyonlarınızı sorunsuz yönetiyoruz.",
   address: "Atatürk Mah. Alemdağ Cad. Gaffar Efendi Sok. Güler Han No:5 Kat:4 Ümraniye / İstanbul",
   phone: "0544 972 29 57",
   phoneRaw: "+905449722957",
