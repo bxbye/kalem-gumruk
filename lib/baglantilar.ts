@@ -44,7 +44,7 @@ export function getAllGerekliBaglantilar(): GerekliBaglanti[] {
       return getFallbackBaglantilar();
     }
 
-    return records.map((r) => ({
+    return (records as any[]).map((r: any) => ({
       id: r.id,
       title: r.title,
       shortTitle: r.shortTitle,

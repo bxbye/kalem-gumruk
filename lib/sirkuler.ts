@@ -65,7 +65,7 @@ export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {
       return getFallbackSirkuler();
     }
 
-    return records.map((r) => {
+    return (records as any[]).map((r: any) => {
       let parsedTranslations: Record<string, any> = {};
       try {
         parsedTranslations = JSON.parse(r.translations || "{}");

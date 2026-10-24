@@ -53,7 +53,7 @@ export function getAllServices(lang: string = "tr"): ServiceItem[] {
       return getFallbackServices();
     }
 
-    return records.map((r) => {
+    return (records as any[]).map((r: any) => {
       let parsedFeatures: string[] = [];
       try {
         parsedFeatures = JSON.parse(r.features || "[]");
