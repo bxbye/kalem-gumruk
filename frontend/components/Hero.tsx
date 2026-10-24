@@ -322,15 +322,32 @@ export default function Hero() {
       {/* 1. GÖRSEL ARKA PLAN (Net Görünür, Sinematik ve Yumuşak Işık) */}
       {/* ------------------------------------------------------------- */}
       <div className="absolute inset-0 z-0">
-        <Image
-          src="/kalem-gumruk-hero.webp"
-          alt="Kalem Gümrük Müşavirliği — İstanbul Merkez ve Liman Gümrükleme Operasyonları"
-          fill
-          priority
-          sizes="100vw"
-          quality={85}
-          className="object-cover object-center filter brightness-95"
-        />
+        {/* Mobil Görsel (< sm / mobil ekranlar) */}
+        <div className="sm:hidden absolute inset-0">
+          <Image
+            src="/kalem-gumruk-hero-mobile.webp"
+            alt="Kalem Gümrük Müşavirliği — İstanbul Merkez ve Liman Gümrükleme Operasyonları"
+            fill
+            priority
+            sizes="100vw"
+            quality={85}
+            className="object-cover object-center filter brightness-95"
+          />
+        </div>
+
+        {/* Masaüstü ve Tablet Görsel (>= sm) */}
+        <div className="hidden sm:block absolute inset-0">
+          <Image
+            src="/kalem-gumruk-hero.webp"
+            alt="Kalem Gümrük Müşavirliği — İstanbul Merkez ve Liman Gümrükleme Operasyonları"
+            fill
+            priority
+            sizes="100vw"
+            quality={85}
+            className="object-cover object-center filter brightness-95"
+          />
+        </div>
+
         {/* Yumuşak karartıcı yarı saydam perde */}
         <div className="absolute inset-0 bg-slate-950/40"></div>
         {/* Yazıların soft ve berrak okunması için sol/sağ tarafta sinematik gradyan */}
