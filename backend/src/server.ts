@@ -35,8 +35,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Sunucudan sunucuya veya Next.js rewrites isteklerinde origin undefined olabilir
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      // Sunucudan sunucuya, Next.js rewrites veya Cloudflare tünellerinde izin ver
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".trycloudflare.com") ||
+        origin.includes("trycloudflare.com") ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
       }
       return callback(new Error("CORS policy violation"), false);

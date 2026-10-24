@@ -8,6 +8,11 @@ const __dirname = path.dirname(__filename);
 const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
 
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["*.trycloudflare.com", "localhost:3000", "127.0.0.1:3000"],
+    },
+  },
   turbopack: {
     root: path.resolve(__dirname, ".."),
   },
