@@ -1,83 +1,89 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { ChevronLeft, ChevronRight, Pause, Play, ShieldCheck, Building2 } from "lucide-react";
 
-interface ReferenceClient {
+export interface ReferenceClient {
   id: string;
   name: string;
   sector: string;
-  symbol: React.ReactNode;
+  logoUrl?: string | null;
+  symbol?: React.ReactNode;
 }
 
-const CLIENTS: ReferenceClient[] = [
-  {
-    id: "nova-kimya",
-    name: "NOVA KİMYA",
-    sector: "Kimya & Kozmetik",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-[#44B9CD]">
+// Sektöre veya isme göre kurumsal vektörel sembol üretici
+function getReferenceSymbol(name: string, sector: string): React.ReactNode {
+  const n = (name || "").toLowerCase();
+  const s = (sector || "").toLowerCase();
+
+  // 1. Kimya & Kozmetik
+  if (s.includes("kimya") || s.includes("kozmetik") || n.includes("kimya")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-[#44B9CD]">
         <path d="M20 4L34 12V28L20 36L6 28V12L20 4Z" fillOpacity="0.15" stroke="currentColor" strokeWidth="2.5" />
         <circle cx="20" cy="20" r="5" fill="currentColor" />
         <line x1="20" y1="15" x2="20" y2="4" stroke="currentColor" strokeWidth="2" />
         <line x1="24" y1="23" x2="34" y2="28" stroke="currentColor" strokeWidth="2" />
         <line x1="16" y1="23" x2="6" y2="28" stroke="currentColor" strokeWidth="2" />
       </svg>
-    ),
-  },
-  {
-    id: "atlas-ticaret",
-    name: "ATLAS DIŞ TİCARET",
-    sector: "Uluslararası Ticaret",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-indigo-600">
+    );
+  }
+
+  // 2. Dış Ticaret & Uluslararası
+  if (s.includes("ticaret") || n.includes("ticaret") || n.includes("atlas")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-indigo-600">
         <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <ellipse cx="20" cy="20" rx="7" ry="15" stroke="currentColor" strokeWidth="2" fill="none" />
         <line x1="5" y1="20" x2="35" y2="20" stroke="currentColor" strokeWidth="2" />
         <line x1="8" y1="12" x2="32" y2="12" stroke="currentColor" strokeWidth="1.5" />
         <line x1="8" y1="28" x2="32" y2="28" stroke="currentColor" strokeWidth="1.5" />
       </svg>
-    ),
-  },
-  {
-    id: "erdem-makina",
-    name: "ERDEM MAKİNA",
-    sector: "Endüstri & İmalat",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-amber-600">
+    );
+  }
+
+  // 3. Makine, İmalat & Endüstri
+  if (s.includes("makine") || s.includes("endüstri") || s.includes("imalat") || n.includes("makina") || n.includes("erdem")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-amber-600">
         <path
           d="M20 12C15.58 12 12 15.58 12 20C12 24.42 15.58 28 20 28C24.42 28 28 24.42 28 20C28 15.58 24.42 12 20 12ZM20 24C17.79 24 16 22.21 16 20C16 17.79 17.79 16 20 16C22.21 16 24 17.79 24 20C24 22.21 22.21 24 20 24Z"
           fill="currentColor"
         />
-        <path
-          d="M32 18V14L28.2 13.4C27.8 12.3 27.2 11.2 26.4 10.3L28.6 7.2L25.8 4.4L22.7 6.6C21.8 5.8 20.7 5.2 19.6 4.8L19 1H15L14.4 4.8C13.3 5.2 12.2 5.8 11.3 6.6L8.2 4.4L5.4 7.2L7.6 10.3C6.8 11.2 6.2 12.3 5.8 13.4L2 14V18L5.8 18.6C6.2 19.7 6.8 20.8 7.6 21.7L5.4 24.8L8.2 27.6L11.3 25.4C12.2 26.2 13.3 26.8 14.4 27.2L15 31H19L19.6 27.2C20.7 26.8 21.8 26.2 22.7 25.4L25.8 27.6L28.6 24.8L26.4 21.7C27.2 20.8 27.8 19.7 28.2 18.6L32 18Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-          transform="scale(0.85) translate(3, 4)"
-        />
+        <circle cx="20" cy="20" r="13" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="3 3" />
       </svg>
-    ),
-  },
-  {
-    id: "trendline-tekstil",
-    name: "TRENDLINE",
-    sector: "Tekstil & Hazır Giyim",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-rose-600">
+    );
+  }
+
+  // 4. Lojistik, Antrepo & Taşımacılık
+  if (s.includes("lojistik") || s.includes("antrepo") || s.includes("tasima") || n.includes("pars") || n.includes("logistics")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-sky-600">
+        <rect x="8" y="14" width="24" height="14" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
+        <line x1="14" y1="14" x2="14" y2="28" stroke="currentColor" strokeWidth="1.5" />
+        <line x1="20" y1="14" x2="20" y2="28" stroke="currentColor" strokeWidth="1.5" />
+        <line x1="26" y1="14" x2="26" y2="28" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 9L20 5L28 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+      </svg>
+    );
+  }
+
+  // 5. Tekstil & Konfeksiyon
+  if (s.includes("tekstil") || s.includes("giyim") || n.includes("zenit") || n.includes("trendline")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-rose-600">
         <path d="M10 20C10 13 15 8 20 8C25 8 30 13 30 20C30 27 25 32 20 32C15 32 10 27 10 20Z" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <path d="M14 20Q20 12 26 20Q20 28 14 20Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.5" />
         <circle cx="20" cy="20" r="3" fill="currentColor" />
       </svg>
-    ),
-  },
-  {
-    id: "viva-gida",
-    name: "VİVA GIDA",
-    sector: "Gıda & Tarım İhracatı",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-emerald-600">
+    );
+  }
+
+  // 6. Gıda & Tarım
+  if (s.includes("gıda") || s.includes("gida") || s.includes("tarım") || s.includes("tarim") || n.includes("vita") || n.includes("viva")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-emerald-600">
         <path
           d="M20 7C20 7 28 10 30 18C32 26 25 33 20 33C15 33 8 26 10 18C12 10 20 7 20 7Z"
           stroke="currentColor"
@@ -86,25 +92,33 @@ const CLIENTS: ReferenceClient[] = [
         />
         <path d="M20 12V28M20 18C23 16 26 18 26 18M20 22C17 20 14 22 14 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
-    ),
-  },
-  {
-    id: "argos-otomotiv",
-    name: "ARGOS OTO",
-    sector: "Otomotiv Yan Sanayi",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-cyan-600">
+    );
+  }
+
+  // 7. Otomotiv
+  if (s.includes("otomotiv") || s.includes("oto") || n.includes("demir") || n.includes("argos")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-cyan-600">
         <polygon points="20,6 34,14 34,26 20,34 6,26 6,14" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <polygon points="20,12 28,17 28,23 20,28 12,23 12,17" fill="currentColor" fillOpacity="0.3" stroke="currentColor" strokeWidth="1.5" />
       </svg>
-    ),
-  },
-  {
-    id: "solis-elektronik",
-    name: "SOLIS TECH",
-    sector: "Tüketici Elektroniği",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-blue-600">
+    );
+  }
+
+  // 8. Medikal & Sağlık & İlaç
+  if (s.includes("medikal") || s.includes("sağlık") || s.includes("saglik") || s.includes("ilaç") || s.includes("ilac") || n.includes("tekno")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-teal-600">
+        <circle cx="20" cy="20" r="14" stroke="currentColor" strokeWidth="2.5" fill="none" />
+        <path d="M17 11H23V17H29V23H23V29H17V23H11V17H17V11Z" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  // 9. Elektronik & Teknoloji
+  if (s.includes("elektronik") || s.includes("teknoloji") || n.includes("solis")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-blue-600">
         <rect x="10" y="10" width="20" height="20" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <circle cx="20" cy="20" r="4" fill="currentColor" />
         <line x1="20" y1="5" x2="20" y2="10" stroke="currentColor" strokeWidth="2" />
@@ -112,147 +126,152 @@ const CLIENTS: ReferenceClient[] = [
         <line x1="5" y1="20" x2="10" y2="20" stroke="currentColor" strokeWidth="2" />
         <line x1="30" y1="20" x2="35" y2="20" stroke="currentColor" strokeWidth="2" />
       </svg>
-    ),
-  },
-  {
-    id: "medtech-saglik",
-    name: "MEDTECH",
-    sector: "Medikal & Sağlık",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-teal-600">
-        <circle cx="20" cy="20" r="14" stroke="currentColor" strokeWidth="2.5" fill="none" />
-        <path d="M17 11H23V17H29V23H23V29H17V23H11V17H17V11Z" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: "promet-metal",
-    name: "PROMET ÇELİK",
-    sector: "Metal & Ağır Sanayi",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-slate-700">
-        <path d="M20 5L33 13V27L20 35L7 27V13L20 5Z" stroke="currentColor" strokeWidth="2" fill="none" />
-        <path d="M20 5V35M7 13L33 27M7 27L33 13" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
-  },
-  {
-    id: "kent-enerji",
-    name: "KENT ENERJİ",
-    sector: "Yenilenebilir Enerji",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-emerald-500">
+    );
+  }
+
+  // 10. Enerji & İletim
+  if (s.includes("enerji") || n.includes("enerji") || n.includes("kent")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-emerald-500">
         <circle cx="20" cy="20" r="13" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" fill="none" />
         <polygon points="21,7 13,21 19,21 17,33 27,17 21,17" fill="currentColor" />
       </svg>
-    ),
+    );
+  }
+
+  // 11. Metal, Çelik & Ağır Sanayi
+  if (s.includes("metal") || s.includes("çelik") || s.includes("celik") || n.includes("promet")) {
+    return (
+      <svg viewBox="0 0 40 40" className="w-6 h-6 fill-current text-slate-700">
+        <path d="M20 5L33 13V27L20 35L7 27V13L20 5Z" stroke="currentColor" strokeWidth="2" fill="none" />
+        <path d="M20 5V35M7 13L33 27M7 27L33 13" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  // Varsayılan Kurumsal Logo Simgesi
+  return <Building2 className="w-6 h-6 text-[#44B9CD]" />;
+}
+
+// Başlangıç Referans Verileri
+const INITIAL_CLIENTS: ReferenceClient[] = [
+  {
+    id: "ref-1",
+    name: "NOVA KİMYA",
+    sector: "Kimya & Kozmetik",
+    symbol: getReferenceSymbol("NOVA KİMYA", "Kimya & Kozmetik"),
   },
   {
-    id: "terra-lojistik",
-    name: "TERRA LOG",
-    sector: "Uluslararası Taşımacılık",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-orange-600">
-        <rect x="8" y="14" width="24" height="14" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
-        <line x1="14" y1="14" x2="14" y2="28" stroke="currentColor" strokeWidth="1.5" />
-        <line x1="20" y1="14" x2="20" y2="28" stroke="currentColor" strokeWidth="1.5" />
-        <line x1="26" y1="14" x2="26" y2="28" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M12 9L20 5L28 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
-      </svg>
-    ),
+    id: "ref-2",
+    name: "ATLAS DIŞ TİCARET",
+    sector: "Uluslararası Ticaret",
+    symbol: getReferenceSymbol("ATLAS DIŞ TİCARET", "Uluslararası Ticaret"),
   },
   {
-    id: "vista-yapi",
-    name: "VİSTA YAPI",
-    sector: "İnşaat Malzemeleri",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-violet-600">
-        <path d="M8 32V16L20 8L32 16V32H8Z" stroke="currentColor" strokeWidth="2.5" fill="none" />
-        <rect x="13" y="19" width="4" height="4" fill="currentColor" />
-        <rect x="23" y="19" width="4" height="4" fill="currentColor" />
-        <rect x="17" y="26" width="6" height="6" fill="currentColor" />
-      </svg>
-    ),
+    id: "ref-3",
+    name: "ERDEM MAKİNA",
+    sector: "Endüstri & İmalat",
+    symbol: getReferenceSymbol("ERDEM MAKİNA", "Endüstri & İmalat"),
   },
   {
-    id: "aerotech",
-    name: "AEROTECH",
-    sector: "Havacılık & Savunma",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-sky-600">
-        <path d="M20 6L33 30L20 24L7 30L20 6Z" stroke="currentColor" strokeWidth="2.5" fill="currentColor" fillOpacity="0.2" />
-        <circle cx="20" cy="20" r="2.5" fill="currentColor" />
-      </svg>
-    ),
+    id: "ref-4",
+    name: "PARS LOJİSTİK",
+    sector: "Lojistik & Antrepo",
+    symbol: getReferenceSymbol("PARS LOJİSTİK", "Lojistik & Antrepo"),
   },
   {
-    id: "marina-deniz",
-    name: "MARİNA GEMİ",
-    sector: "Denizcilik & Konteyner",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-blue-700">
-        <circle cx="20" cy="11" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
-        <line x1="20" y1="14" x2="20" y2="31" stroke="currentColor" strokeWidth="2.5" />
-        <line x1="14" y1="18" x2="26" y2="18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M10 24C12 30 28 30 30 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-      </svg>
-    ),
+    id: "ref-5",
+    name: "ZENİT TEKSTİL",
+    sector: "Tekstil & Hazır Giyim",
+    symbol: getReferenceSymbol("ZENİT TEKSTİL", "Tekstil & Hazır Giyim"),
   },
   {
-    id: "bella-kozmetik",
-    name: "BELLA BEAUTY",
-    sector: "Kozmetik & Bakım",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-pink-600">
-        <path d="M20 7C20 7 29 17 29 24C29 28.97 24.97 33 20 33C15.03 33 11 28.97 11 24C11 17 20 7 20 7Z" stroke="currentColor" strokeWidth="2.5" fill="currentColor" fillOpacity="0.15" />
-        <circle cx="20" cy="24" r="3" fill="currentColor" />
-      </svg>
-    ),
+    id: "ref-6",
+    name: "VİTA GIDA",
+    sector: "Gıda & Tarım",
+    symbol: getReferenceSymbol("VİTA GIDA", "Gıda & Tarım"),
   },
   {
-    id: "greenpack",
-    name: "GREENPACK",
-    sector: "Endüstriyel Ambalaj",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-lime-600">
-        <rect x="9" y="11" width="22" height="18" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
-        <path d="M9 17H31M20 17V29" stroke="currentColor" strokeWidth="2" />
-        <circle cx="20" cy="8" r="2" fill="currentColor" />
-      </svg>
-    ),
+    id: "ref-7",
+    name: "GLOBAL LOGISTICS GROUP",
+    sector: "Lojistik & Antrepo",
+    symbol: getReferenceSymbol("GLOBAL LOGISTICS GROUP", "Lojistik & Antrepo"),
   },
   {
-    id: "apex-kablo",
-    name: "APEX ELEKTRİK",
-    sector: "Enerji & İletim",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-amber-500">
-        <circle cx="13" cy="20" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-        <circle cx="27" cy="20" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-        <path d="M18 20H22M15 15Q20 10 25 15M15 25Q20 30 25 25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    ),
+    id: "ref-8",
+    name: "DEMİR OTOMOTİV YAN SANAYİ",
+    sector: "Otomotiv",
+    symbol: getReferenceSymbol("DEMİR OTOMOTİV YAN SANAYİ", "Otomotiv"),
   },
   {
-    id: "lotus-mobilya",
-    name: "LOTUS DİZAYN",
-    sector: "Mobilya & Ağaç Sanayi",
-    symbol: (
-      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-rose-500">
-        <path d="M20 28C20 28 12 24 10 16C16 16 19 22 20 28Z" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M20 28C20 28 28 24 30 16C24 16 21 22 20 28Z" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M20 28V10C22 15 23 22 20 28Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    id: "ref-9",
+    name: "MEGA KİMYA SANAYİ",
+    sector: "Kimya & Hammadde",
+    symbol: getReferenceSymbol("MEGA KİMYA SANAYİ", "Kimya & Hammadde"),
+  },
+  {
+    id: "ref-10",
+    name: "TEKNOMED SAĞLIK ÜRÜNLERİ",
+    sector: "Medikal & İlaç",
+    symbol: getReferenceSymbol("TEKNOMED SAĞLIK ÜRÜNLERİ", "Medikal & İlaç"),
   },
 ];
 
+// Tekil Referans Kartı Bileşeni
+function ReferenceCard({ client }: { client: ReferenceClient }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const hasValidLogo = Boolean(client.logoUrl && client.logoUrl.trim() !== "" && !imgFailed);
+
+  return (
+    <div
+      className="group relative shrink-0 w-[220px] sm:w-[250px] h-[138px] bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-[#44B9CD] rounded-2xl p-4 shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center justify-center text-center cursor-default select-none"
+    >
+      {/* Logo veya Vektörel Sektör İşareti */}
+      <div className="h-12 w-full flex items-center justify-center mb-2">
+        {hasValidLogo ? (
+          <img
+            src={client.logoUrl!}
+            alt={client.name}
+            className="max-h-10 max-w-[130px] w-auto h-auto object-contain filter grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+            onError={() => setImgFailed(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-slate-50 group-hover:bg-[#44B9CD]/10 border border-slate-100 group-hover:border-[#44B9CD]/30 flex items-center justify-center transition-all group-hover:scale-105 shadow-2xs">
+            {client.symbol || <Building2 className="w-5 h-5 text-[#44B9CD]" />}
+          </div>
+        )}
+      </div>
+
+      {/* Firma İsmi */}
+      <h3
+        title={client.name}
+        className="font-extrabold text-xs sm:text-[13px] tracking-wide text-slate-800 group-hover:text-[#0d788a] transition-colors leading-tight line-clamp-1 mb-1 max-w-full px-1"
+      >
+        {client.name}
+      </h3>
+
+      {/* Sektör Etiketi */}
+      <p
+        title={client.sector}
+        className="text-[11px] text-slate-500 font-medium line-clamp-1 max-w-full px-1"
+      >
+        {client.sector}
+      </p>
+
+      {/* Alt ince aktif çizgi efekti */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 group-hover:w-16 h-[2px] bg-[#44B9CD] rounded-full transition-all duration-300" />
+    </div>
+  );
+}
+
 export default function ReferencesSection() {
   const { t, isRTL } = useLanguage();
-  const [clientsList, setClientsList] = useState<ReferenceClient[]>(CLIENTS);
+  const [clientsList, setClientsList] = useState<ReferenceClient[]>(INITIAL_CLIENTS);
   const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Veritabanından dinamik referansları çek ve sembolleriyle eşle
   useEffect(() => {
     fetch("/api/admin/references")
       .then((res) => res.json())
@@ -261,23 +280,12 @@ export default function ReferencesSection() {
           const activeRefs = data.items.filter((r: any) => r.isActive !== 0 && r.isActive !== false);
           if (activeRefs.length > 0) {
             const mapped: ReferenceClient[] = activeRefs.map((item: any, idx: number) => {
-              const matched = CLIENTS.find(
-                (c) =>
-                  c.name.toLowerCase().includes(item.name.toLowerCase()) ||
-                  item.name.toLowerCase().includes(c.name.toLowerCase()) ||
-                  c.id === item.id
-              );
               return {
                 id: item.id || `ref-${idx}`,
                 name: item.name,
                 sector: item.sector,
-                symbol: matched ? (
-                  matched.symbol
-                ) : item.logoUrl ? (
-                  <img src={item.logoUrl} alt={item.name} className="w-7 h-7 object-contain" />
-                ) : (
-                  <Building2 className="w-7 h-7 text-[#44B9CD]" />
-                ),
+                logoUrl: item.logoUrl && item.logoUrl.trim() !== "" ? item.logoUrl.trim() : null,
+                symbol: getReferenceSymbol(item.name, item.sector),
               };
             });
             setClientsList(mapped);
@@ -287,18 +295,26 @@ export default function ReferencesSection() {
       .catch(() => {});
   }, []);
 
-  // Sonsuz ve kesintisiz akış için kart listesini çift katlı (2 eşit yarı) olarak tekrarlıyoruz
-  const repeatCount = Math.max(4, Math.ceil(16 / Math.max(1, clientsList.length)) * 2);
-  const marqueeClients = Array.from({ length: repeatCount }).flatMap(() => clientsList);
+  // Listenin her yarısının en az 12 kart içermesini sağlayarak her ekran boyutunda (4K dahil)
+  // boşluksuz, pürüzsüz ve asla kaybolmayan kesintisiz bir döngü kuruyoruz
+  const displayList = useMemo(() => {
+    if (!clientsList || clientsList.length === 0) return [];
+    let singleHalf = [...clientsList];
+    while (singleHalf.length < 12) {
+      singleHalf = [...singleHalf, ...clientsList];
+    }
+    // İki özdeş yarı (Half 1 ve Half 2)
+    return [...singleHalf, ...singleHalf];
+  }, [clientsList]);
 
   const handlePrev = () => {
     if (!containerRef.current) return;
-    containerRef.current.scrollBy({ left: -300, behavior: "smooth" });
+    containerRef.current.scrollBy({ left: -320, behavior: "smooth" });
   };
 
   const handleNext = () => {
     if (!containerRef.current) return;
-    containerRef.current.scrollBy({ left: 300, behavior: "smooth" });
+    containerRef.current.scrollBy({ left: 320, behavior: "smooth" });
   };
 
   return (
@@ -377,35 +393,20 @@ export default function ReferencesSection() {
         {/* Kesintisiz Yavaş Kayan Kart Grubu (Daima LTR ekseninde akar) */}
         <div
           dir="ltr"
-          className="animate-marquee-slow flex items-stretch gap-4 sm:gap-5 px-4"
+          className="animate-marquee-slow flex items-stretch gap-4 sm:gap-5"
           style={{
-            animationDuration: "60s",
+            animationDuration: `${Math.max(45, Math.round(displayList.length * 1.8))}s`,
             animationPlayState: isPaused ? "paused" : "running",
+            WebkitBackfaceVisibility: "hidden",
+            backfaceVisibility: "hidden",
+            transform: "translate3d(0, 0, 0)",
           }}
         >
-          {marqueeClients.map((client, index) => (
-            <div
+          {displayList.map((client, index) => (
+            <ReferenceCard
               key={`${client.id}-${index}`}
-              className="group relative shrink-0 w-[230px] sm:w-[260px] bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-[#44B9CD] rounded-2xl p-5 shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col items-center justify-center text-center cursor-default select-none"
-            >
-              {/* Vektörel Logo / İkon */}
-              <div className="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-[#44B9CD]/10 border border-slate-100 group-hover:border-[#44B9CD]/30 text-[#0d788a] flex items-center justify-center mb-3 group-hover:scale-105 transition-all shadow-2xs">
-                {client.symbol}
-              </div>
-
-              {/* Firma İsmi */}
-              <div className="font-extrabold text-xs sm:text-sm tracking-wide text-slate-800 group-hover:text-[#0d788a] transition-colors leading-tight line-clamp-1 mb-1">
-                {client.name}
-              </div>
-
-              {/* Sektör Etiketi */}
-              <div className="text-[11px] text-slate-500 font-medium line-clamp-1">
-                {client.sector}
-              </div>
-
-              {/* Alt ince aktif çizgi efekti */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 group-hover:w-16 h-[2px] bg-[#44B9CD] rounded-full transition-all duration-300" />
-            </div>
+              client={client}
+            />
           ))}
         </div>
       </div>
@@ -422,4 +423,3 @@ export default function ReferencesSection() {
     </section>
   );
 }
-
