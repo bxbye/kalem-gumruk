@@ -26,30 +26,102 @@ const PORT = process.env.BACKEND_PORT || 5001;
 ensureDatabaseInitialized();
 
 // 2. Güvenlik ve CORS Yapılandırması
-const allowedOrigins = [
+function parseOrigins(raw?: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((o) => o.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+}
+
+const configuredOrigins = new Set<string>([
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
+  "http://localhost:5001",
+  "http://127.0.0.1:5001",
+  "https://kalemgumruk.com",
+  "https://www.kalemgumruk.com",
+  "http://kalemgumruk.com",
+  "http://www.kalemgumruk.com",
+  "https://kalem-gumruk.onrender.com",
+  "http://kalem-gumruk.onrender.com",
+  ...parseOrigins(process.env.RENDER_EXTERNAL_URL),
+  ...parseOrigins(process.env.FRONTEND_URL),
+  ...parseOrigins(process.env.ALLOWED_ORIGINS),
+]);
+
+function isOriginAllowed(origin: string | undefined, req: express.Request): boolean {
+  // 1. Origin başlığı yoksa izin ver (aynı sunucu, curl, healthcheck, Next.js server component)
+  if (!origin) return true;
+
+  // 2. Geliştirme ortamında serbest
+  if (process.env.NODE_ENV !== "production") return true;
+
+  const normalized = origin.trim().replace(/\/$/, "");
+
+  // 3. Önceden yapılandırılmış origin listesi
+  if (configuredOrigins.has(normalized)) return true;
+
+  // 4. Hostname tabanlı dinamik kontroller
+  try {
+    const url = new URL(normalized);
+    const host = url.hostname.toLowerCase();
+
+    // Localhost veya loopback
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return true;
+    }
+
+    // Kalem Gümrük ana alan adı veya alt alan adları
+    if (host === "kalemgumruk.com" || host.endsWith(".kalemgumruk.com")) {
+      return true;
+    }
+
+    // Cloudflare tünelleri, Render ve Vercel önizleme URL'leri
+    if (
+      host.endsWith(".trycloudflare.com") ||
+      host.endsWith(".onrender.com") ||
+      host.endsWith(".vercel.app")
+    ) {
+      return true;
+    }
+
+    // Next.js reverse-proxy üzerinden iletilen x-forwarded-host ile eşleşme
+    const forwardedHost = (req.headers["x-forwarded-host"] as string)?.split(":")[0]?.toLowerCase();
+    if (forwardedHost && host === forwardedHost) {
+      return true;
+    }
+
+    // İstek yapılan sunucu Host başlığı ile eşleşme
+    const reqHost = req.headers.host?.split(":")[0]?.toLowerCase();
+    if (reqHost && host === reqHost) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
 
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Sunucudan sunucuya, Next.js rewrites veya Cloudflare tünellerinde izin ver
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".trycloudflare.com") ||
-        origin.includes("trycloudflare.com") ||
-        process.env.NODE_ENV !== "production"
-      ) {
-        return callback(null, true);
-      }
-      return callback(new Error("CORS policy violation"), false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-admin-password"],
+  cors((req, callback) => {
+    const originHeader = req.headers.origin;
+    const allowed = isOriginAllowed(originHeader, req as express.Request);
+
+    callback(null, {
+      origin: allowed,
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-admin-password",
+        "x-requested-with",
+        "accept",
+        "origin",
+      ],
+    });
   })
 );
 

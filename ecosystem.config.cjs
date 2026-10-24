@@ -11,6 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 5001,
+        FRONTEND_URL: "https://kalemgumruk.com,https://www.kalemgumruk.com,http://localhost:3000",
       },
     },
     {
