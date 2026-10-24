@@ -20,7 +20,7 @@ import { publicDataRouter } from "./routes/publicData.js";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.BACKEND_PORT || 5001;
 
 // 1. Veritabanını başlat ve tabloları/seed verilerini kontrol et
 ensureDatabaseInitialized();
