@@ -1,7 +1,23 @@
+import fs from "fs";
 import nodemailer, { type Transporter } from "nodemailer";
 
 let cachedTransporter: Transporter | null = null;
 let lastSmtpConfigHash = "";
+
+export interface MailAttachment {
+  filename: string;
+  path?: string;
+  content?: Buffer | string;
+}
+
+export interface SendMailOptions {
+  from?: string;
+  to: string | string[];
+  replyTo?: string;
+  subject: string;
+  html: string;
+  attachments?: MailAttachment[];
+}
 
 export function getMailer(): Transporter | null {
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
@@ -46,12 +62,125 @@ export function getMailer(): Transporter | null {
   return cachedTransporter;
 }
 
-export async function verifySmtp(): Promise<{ ok: boolean; message: string; host?: string; user?: string }> {
+/**
+ * Birleşik E-Posta Gönderim Fonksiyonu:
+ * 1. Eğer RESEND_API_KEY tanımlıysa standart HTTPS (Port 443) üzerinden Resend API kullanır (Render vb. port kısıtlamalarından etkilenmez).
+ * 2. Tanımlı değilse klasik SMTP (Nodemailer) kullanır.
+ */
+export async function sendEmailUnified(options: SendMailOptions): Promise<{ success: boolean; messageId?: string }> {
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+
+  // 1. Resend HTTP API (Render Free port kısıtlamasını baypas eder)
+  if (resendApiKey) {
+    const defaultFrom = process.env.RESEND_FROM?.trim() || "Kalem Gümrük <onboarding@resend.dev>";
+    // options.from @gmail.com içeriyorsa ve henüz özel domain doğrulanmadıysa defaultFrom kullan
+    const from = options.from && !options.from.includes("@gmail.com") ? options.from : defaultFrom;
+    const to = Array.isArray(options.to) ? options.to : [options.to];
+
+    const attachments = options.attachments
+      ?.map((att) => {
+        try {
+          if (att.path && fs.existsSync(att.path)) {
+            return {
+              filename: att.filename,
+              content: fs.readFileSync(att.path).toString("base64"),
+            };
+          }
+          if (att.content) {
+            const base64 = Buffer.isBuffer(att.content)
+              ? att.content.toString("base64")
+              : Buffer.from(att.content).toString("base64");
+            return {
+              filename: att.filename,
+              content: base64,
+            };
+          }
+        } catch (e) {
+          console.warn("[Mailer] Ek dosya base64 dönüştürülemedi:", att.filename, e);
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    const payload: Record<string, any> = {
+      from,
+      to,
+      subject: options.subject,
+      html: options.html,
+    };
+    if (options.replyTo) payload.reply_to = options.replyTo;
+    if (attachments && attachments.length > 0) payload.attachments = attachments;
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data: any = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const errDetail = data?.message || JSON.stringify(data);
+      throw new Error(`Resend API Hatası [${res.status}]: ${errDetail}`);
+    }
+
+    return { success: true, messageId: data.id };
+  }
+
+  // 2. Klasik Nodemailer SMTP Fallback
+  const transporter = getMailer();
+  const smtpUser = process.env.SMTP_USER;
+  if (!transporter || !smtpUser) {
+    throw new Error("E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS tanımlı değil).");
+  }
+
+  const info = await transporter.sendMail({
+    from: options.from || `"Kalem Gümrük" <${smtpUser}>`,
+    to: options.to,
+    replyTo: options.replyTo,
+    subject: options.subject,
+    html: options.html,
+    attachments: options.attachments?.map((a) => ({
+      filename: a.filename,
+      path: a.path,
+      content: a.content,
+    })),
+  });
+
+  return { success: true, messageId: info.messageId };
+}
+
+export async function verifySmtp(): Promise<{ ok: boolean; message: string; host?: string; user?: string; provider?: "resend" | "smtp" }> {
+  // 1. Resend Kontrolü
+  if (process.env.RESEND_API_KEY) {
+    const key = process.env.RESEND_API_KEY.trim();
+    if (!key.startsWith("re_")) {
+      return {
+        ok: false,
+        message: "RESEND_API_KEY formatı geçersiz ('re_' ile başlamalıdır).",
+        host: "api.resend.com",
+        user: "Resend",
+        provider: "resend",
+      };
+    }
+    return {
+      ok: true,
+      message: "Resend HTTP API aktif (Port kısıtlamasından bağımsız güvenli HTTPS).",
+      host: "api.resend.com",
+      user: process.env.RESEND_FROM || "onboarding@resend.dev",
+      provider: "resend",
+    };
+  }
+
+  // 2. Standart SMTP Kontrolü
   const transporter = getMailer();
   if (!transporter) {
     return {
       ok: false,
-      message: "SMTP kullanıcı adı (SMTP_USER) veya şifresi (SMTP_PASS) .env dosyasında tanımlı değil.",
+      message: "E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS .env dosyasında tanımlı değil).",
     };
   }
 
@@ -62,6 +191,7 @@ export async function verifySmtp(): Promise<{ ok: boolean; message: string; host
       message: "SMTP bağlantısı ve kimlik doğrulama başarılı.",
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       user: process.env.SMTP_USER,
+      provider: "smtp",
     };
   } catch (error: any) {
     return {
@@ -69,6 +199,7 @@ export async function verifySmtp(): Promise<{ ok: boolean; message: string; host
       message: `SMTP doğrulama hatası: ${error?.message || String(error)}`,
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       user: process.env.SMTP_USER,
+      provider: "smtp",
     };
   }
 }
@@ -227,16 +358,16 @@ export async function sendContactEmail({
   message: string;
   lang?: string;
 }) {
-  const transporter = getMailer();
   const receiverEmail = process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
   const smtpUser = process.env.SMTP_USER;
+  const hasResend = Boolean(process.env.RESEND_API_KEY);
 
   const cleanLang = (lang || "tr").toLowerCase();
   const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
   const langLabel = langDisplayMap[cleanLang] || cleanLang;
 
-  if (!transporter || !smtpUser) {
-    console.warn(`[Mailer] ⚠️ SMTP yapılandırması eksik (SMTP_USER veya SMTP_PASS yok). Form bildirimi e-postası iletilemedi: [${refCode}] ${fullName} (${phone}) -> ${receiverEmail}`);
+  if (!hasResend && (!getMailer() || !smtpUser)) {
+    console.warn(`[Mailer] ⚠️ E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS yok). Form bildirimi iletilemedi: [${refCode}] ${fullName} (${phone}) -> ${receiverEmail}`);
     return;
   }
 
@@ -298,14 +429,14 @@ export async function sendContactEmail({
 
   // Şirkete / Kadir Bey'e bildirim
   try {
-    const info = await transporter.sendMail({
-      from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
+    const res = await sendEmailUnified({
+      from: `"Kalem Gümrük Web Formu" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
       to: receiverEmail,
       replyTo: email || undefined,
       subject: mailSubject,
       html: emailHtml,
     });
-    console.log(`[Mailer] ✅ İletişim e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${info.messageId})`);
+    console.log(`[Mailer] ✅ İletişim e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${res.messageId})`);
   } catch (err: any) {
     console.error(`[Mailer] ❌ İletişim e-postası gönderim hatası: [${refCode}] -> ${receiverEmail}:`, err?.message || err);
   }
@@ -320,13 +451,13 @@ export async function sendContactEmail({
         lang,
       });
 
-      const custInfo = await transporter.sendMail({
-        from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+      const custRes = await sendEmailUnified({
+        from: `"Kalem Gümrük Müşavirliği" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
         to: email,
         subject: conf.subject,
         html: conf.html,
       });
-      console.log(`[Mailer] ✅ Müşteri otomatik onay e-postası iletildi: [${refCode}] -> ${email} (MsgID: ${custInfo.messageId})`);
+      console.log(`[Mailer] ✅ Müşteri otomatik onay e-postası iletildi: [${refCode}] -> ${email} (MsgID: ${custRes.messageId})`);
     } catch (err: any) {
       console.warn(`[Mailer] ⚠️ Müşteri onay e-postası gönderilemedi (${email}):`, err?.message || err);
     }
@@ -349,9 +480,9 @@ export async function sendChatLeadEmail({
   messages: Array<{ sender: string; text: string; time?: string }>;
   lang?: string;
 }) {
-  const transporter = getMailer();
   const receiverEmail = process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
   const smtpUser = process.env.SMTP_USER;
+  const hasResend = Boolean(process.env.RESEND_API_KEY);
 
   const cleanLang = (lang || "tr").toLowerCase();
   const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
@@ -371,8 +502,8 @@ export async function sendChatLeadEmail({
 
   const mailSubject = `[${refCode}] [${langBadge}] Chatbot: ${clientDisplay}`;
 
-  if (!transporter || !smtpUser) {
-    console.warn(`[Mailer] ⚠️ SMTP yapılandırması eksik. Chatbot mesajı e-postası iletilemedi: [${refCode}] ${mailSubject} -> ${receiverEmail}`);
+  if (!hasResend && (!getMailer() || !smtpUser)) {
+    console.warn(`[Mailer] ⚠️ E-posta yapılandırması eksik. Chatbot mesajı iletilemedi: [${refCode}] ${mailSubject} -> ${receiverEmail}`);
     return;
   }
 
@@ -433,13 +564,13 @@ export async function sendChatLeadEmail({
   `;
 
   try {
-    const info = await transporter.sendMail({
-      from: `"Kalem Gümrük Web Chatbot" <${smtpUser}>`,
+    const res = await sendEmailUnified({
+      from: `"Kalem Gümrük Web Chatbot" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
       to: receiverEmail,
       subject: mailSubject,
       html: emailHtml,
     });
-    console.log(`[Mailer] ✅ Chatbot e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${info.messageId})`);
+    console.log(`[Mailer] ✅ Chatbot e-postası başarıyla iletildi: [${refCode}] -> ${receiverEmail} (MsgID: ${res.messageId})`);
   } catch (err: any) {
     console.error(`[Mailer] ❌ Chatbot e-postası gönderim hatası: [${refCode}] -> ${receiverEmail}:`, err?.message || err);
   }
@@ -447,23 +578,23 @@ export async function sendChatLeadEmail({
 
 // 3. Test E-postası Gönderimi
 export async function sendTestEmail(targetEmail?: string): Promise<{ success: boolean; message: string; messageId?: string }> {
-  const transporter = getMailer();
-  const smtpUser = process.env.SMTP_USER;
   const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
+  const smtpUser = process.env.SMTP_USER;
+  const hasResend = Boolean(process.env.RESEND_API_KEY);
 
-  if (!transporter || !smtpUser) {
+  if (!hasResend && (!getMailer() || !smtpUser)) {
     return {
       success: false,
-      message: "SMTP yapılandırması eksik (SMTP_USER veya SMTP_PASS tanımlı değil).",
+      message: "E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS tanımlı değil).",
     };
   }
 
   const testRef = `TEST-${Date.now().toString().slice(-4)}`;
   try {
-    const info = await transporter.sendMail({
-      from: `"Kalem Gümrük Sistem Doğrulama" <${smtpUser}>`,
+    const res = await sendEmailUnified({
+      from: `"Kalem Gümrük Sistem Doğrulama" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
       to: receiverEmail,
-      subject: `[${testRef}] SMTP Sistem Test Bildirimi | Kalem Gümrük`,
+      subject: `[${testRef}] E-Posta Sistem Test Bildirimi | Kalem Gümrük`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
           <div style="background-color: #1E2A3A; padding: 18px; text-align: center; color: #ffffff;">
@@ -472,25 +603,25 @@ export async function sendTestEmail(targetEmail?: string): Promise<{ success: bo
           </div>
           <div style="padding: 20px; color: #334155; line-height: 1.6; font-size: 14px;">
             <p>Merhaba,</p>
-            <p>Bu e-posta, web sitesi SMTP e-posta bildirim servisinin eksiksiz çalıştığını doğrulamak amacıyla gönderilmiştir.</p>
+            <p>Bu e-posta, web sitesi e-posta bildirim servisinin eksiksiz çalıştığını doğrulamak amacıyla gönderilmiştir.</p>
             <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 6px; margin: 14px 0;">
               <p style="margin: 0; font-size: 13px; color: #166534;">
-                ✅ <strong>Durum:</strong> SMTP Sunucusu Aktif ve Yetkili<br/>
+                ✅ <strong>Durum:</strong> ${hasResend ? "Resend HTTPS API Aktif" : "SMTP Sunucusu Aktif"}<br/>
                 🕒 <strong>Tarih:</strong> ${new Date().toLocaleString("tr-TR")}<br/>
                 🎯 <strong>Alıcı:</strong> ${receiverEmail}
               </p>
             </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #64748b;">Tüm iletişim formları ve chatbot lead bildirimleri bu yapılandırma üzerinden iletilecektir.</p>
+            <p style="margin-top: 15px; font-size: 12px; color: #64748b;">Tüm iletişim formları ve chatbot lead bildirimleri bu servis üzerinden iletilecektir.</p>
           </div>
         </div>
       `,
     });
 
-    console.log(`[Mailer] ✅ Test e-postası başarıyla gönderildi: -> ${receiverEmail} (MsgID: ${info.messageId})`);
+    console.log(`[Mailer] ✅ Test e-postası başarıyla gönderildi: -> ${receiverEmail} (MsgID: ${res.messageId})`);
     return {
       success: true,
       message: `Test e-postası başarıyla gönderildi (${receiverEmail})`,
-      messageId: info.messageId,
+      messageId: res.messageId,
     };
   } catch (err: any) {
     console.error(`[Mailer] ❌ Test e-postası gönderilemedi: -> ${receiverEmail}:`, err?.message || err);

@@ -32,4 +32,4 @@ if (process.env.SMTP_PASS) {
   process.env.SMTP_PASS = process.env.SMTP_PASS.replace(/\s+/g, "").trim();
 }
 
-console.log(`[Env] Çevre değişkenleri yüklendi. (SMTP_USER: ${process.env.SMTP_USER || "YOK"}, RECEIVER: ${process.env.CONTACT_RECEIVER || "YOK"})`);
+console.log(`[Env] Çevre değişkenleri yüklendi. (RESEND: ${process.env.RESEND_API_KEY ? "AKTİF" : "YOK"}, SMTP_USER: ${process.env.SMTP_USER || "YOK"}, RECEIVER: ${process.env.CONTACT_RECEIVER || "YOK"})`);

@@ -4,7 +4,7 @@ import fs from "fs";
 import { db } from "../db/index.js";
 import { forms, formSubmissions } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
-import { getMailer, getCustomerConfirmationEmail, langBadgeMap } from "../services/mailer.js";
+import { getMailer, getCustomerConfirmationEmail, langBadgeMap, sendEmailUnified } from "../services/mailer.js";
 import { uploadsDir } from "../services/storage.js";
 
 export const formsRouter = Router();
@@ -259,6 +259,7 @@ async function handleFormSubmissionEmail(
 ) {
   const transporter = getMailer();
   const smtpUser = process.env.SMTP_USER;
+  const hasResend = Boolean(process.env.RESEND_API_KEY);
   // Hedef e-posta: Öncelik kadir.kaya@kayapermit.com (CONTACT_RECEIVER)
   const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || "kadir.kaya@kayapermit.com";
 
@@ -270,8 +271,8 @@ async function handleFormSubmissionEmail(
   };
   const langLabel = langLabels[lang] || lang;
 
-  if (!transporter || !smtpUser) {
-    console.warn(`[Form Mailer] ⚠️ SMTP yapılandırması eksik. Form e-postası gönderilemedi: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
+  if (!hasResend && (!transporter || !smtpUser)) {
+    console.warn(`[Form Mailer] ⚠️ E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS yok). Form e-postası gönderilemedi: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
     return;
   }
 
@@ -356,15 +357,15 @@ async function handleFormSubmissionEmail(
   const mailSubject = `[${refCode}] [${langBadge}] ${shortTitle}: ${customerName}${companyTag}`;
 
   try {
-    const info = await transporter.sendMail({
-      from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
+    const res = await sendEmailUnified({
+      from: `"Kalem Gümrük Web Formu" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
       to: companyEmail,
       replyTo: customerEmail || undefined,
       subject: mailSubject,
       html: adminHtml,
       attachments: mailAttachments,
     });
-    console.log(`[Form Mailer] ✅ Form bildirimi başarıyla iletildi: [${refCode}] -> ${companyEmail} (MsgID: ${info.messageId})`);
+    console.log(`[Form Mailer] ✅ Form bildirimi başarıyla iletildi: [${refCode}] -> ${companyEmail} (MsgID: ${res.messageId})`);
   } catch (err: any) {
     console.error(`[Form Mailer] ❌ Form bildirimi e-postası iletilemedi: [${refCode}] -> ${companyEmail}:`, err?.message || err);
   }
@@ -379,13 +380,13 @@ async function handleFormSubmissionEmail(
           lang,
         });
 
-        const custInfo = await transporter.sendMail({
-          from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+        const custRes = await sendEmailUnified({
+          from: `"Kalem Gümrük Müşavirliği" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
           to: customerEmail,
           subject: conf.subject,
           html: conf.html,
         });
-        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custInfo.messageId})`);
+        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custRes.messageId})`);
       } else if (settings.autoEmailSubject && settings.autoEmailBody) {
         const personalizedBody = settings.autoEmailBody
           .replace(/{{fullName}}/g, customerName)
@@ -410,13 +411,13 @@ async function handleFormSubmissionEmail(
           </div>
         `;
 
-        const custInfo = await transporter.sendMail({
-          from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+        const custRes = await sendEmailUnified({
+          from: `"Kalem Gümrük Müşavirliği" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
           to: customerEmail,
           subject: (settings.autoEmailSubject || "").replace(/{{refNo}}/g, refCode),
           html: customerHtml,
         });
-        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custInfo.messageId})`);
+        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custRes.messageId})`);
       }
     } catch (err: any) {
       console.warn(`[Form Mailer] ⚠️ Müşteri onay e-postası gönderilemedi (${customerEmail}):`, err?.message || err);

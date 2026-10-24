@@ -183,12 +183,13 @@ app.listen(Number(PORT), "0.0.0.0", async () => {
   console.log(`📁 Uploads: ${uploadsDir}`);
   console.log(`🩺 Health: http://localhost:${PORT}/health`);
 
-  // SMTP Bildirim Bağlantısını Doğrula
+  // E-Posta Bildirim Bağlantısını Doğrula (Resend HTTPS veya SMTP)
   const smtpStatus = await verifySmtp();
   if (smtpStatus.ok) {
-    console.log(`📧 SMTP: ✅ Hazır (${smtpStatus.user} -> ${process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com"})`);
+    const providerLabel = (smtpStatus as any).provider === "resend" ? "Resend HTTPS API" : "SMTP";
+    console.log(`📧 E-Posta Servisi [${providerLabel}]: ✅ Hazır (${smtpStatus.user} -> ${process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com"})`);
   } else {
-    console.warn(`📧 SMTP: ⚠️ ${smtpStatus.message}`);
+    console.warn(`📧 E-Posta Servisi: ⚠️ ${smtpStatus.message}`);
   }
   console.log(`=================================================`);
 });
