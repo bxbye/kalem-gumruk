@@ -15,8 +15,11 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const sqlitePath = path.join(dataDir, "kalem.sqlite");
-const sqlite = new Database(sqlitePath);
-sqlite.pragma("journal_mode = WAL");
+const sqlite = new Database(sqlitePath, { timeout: 30000 });
+sqlite.pragma("busy_timeout = 30000");
+try {
+  sqlite.pragma("journal_mode = WAL");
+} catch {}
 
 export const db = drizzle(sqlite, { schema });
 
@@ -27,6 +30,13 @@ export function ensureDatabaseInitialized() {
   if (isInitialized) return;
 
   try {
+    const tableCheck = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='services'")
+      .get();
+    if (tableCheck) {
+      isInitialized = true;
+      return;
+    }
     // 1. Tabloları oluştur
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS forms (
@@ -85,6 +95,7 @@ export function ensureDatabaseInitialized() {
         views_count INTEGER NOT NULL DEFAULT 0,
         is_published INTEGER NOT NULL DEFAULT 1,
         date TEXT NOT NULL,
+        translations TEXT DEFAULT '{}',
         created_at INTEGER
       );
 
@@ -142,6 +153,7 @@ export function ensureDatabaseInitialized() {
         detailed_content TEXT NOT NULL,
         order_index INTEGER NOT NULL DEFAULT 0,
         is_active INTEGER NOT NULL DEFAULT 1,
+        translations TEXT DEFAULT '{}',
         created_at INTEGER
       );
 
@@ -156,6 +168,10 @@ export function ensureDatabaseInitialized() {
         created_at INTEGER
       );
     `);
+
+    // Kolon Eksikliği Güvenlik Kontrolleri (Migration Fallback)
+    try { sqlite.exec("ALTER TABLE sirkuler ADD COLUMN translations TEXT DEFAULT '{}';"); } catch {}
+    try { sqlite.exec("ALTER TABLE services ADD COLUMN translations TEXT DEFAULT '{}';"); } catch {}
 
     // 2. Başlangıç Formlarını (Seed Forms) Kontrol Et ve Ekle
     const checkForms = sqlite.prepare("SELECT count(*) as count FROM forms").get() as { count: number };
@@ -208,7 +224,7 @@ export function ensureDatabaseInitialized() {
 // Varsayılan Form Tanımları
 function seedDefaultForms(dbInstance: Database.Database) {
   const insertForm = dbInstance.prepare(`
-    INSERT INTO forms (id, slug, title, description, category, fields, settings, is_active, created_at, updated_at)
+    INSERT OR IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `);
 
@@ -356,8 +372,8 @@ function seedDefaultSirkuler(dbInstance: Database.Database) {
       INSERT OR IGNORE INTO sirkuler (
         id, slug, title, category, regulation_type, official_gazette_number,
         related_gtip, summary, content, expert_note, source_url, pdf_url,
-        author, views_count, is_published, date, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)
+        author, views_count, is_published, date, translations, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, '{}', ?)
     `);
 
     for (const item of defaultSirkuler) {
@@ -387,7 +403,7 @@ function seedDefaultSirkuler(dbInstance: Database.Database) {
 // Başlangıç Belgeleri ve Sertifikaları Ekle
 function seedDefaultDocuments(dbInstance: Database.Database) {
   const insertDoc = dbInstance.prepare(`
-    INSERT INTO documents (id, title, description, category, file_url, file_key, file_size, file_type, download_count, is_public, created_at)
+    INSERT OR IGNORE INTO documents (id, title, description, category, file_url, file_key, file_size, file_type, download_count, is_public, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)
   `);
 
@@ -516,8 +532,8 @@ function seedDefaultBaglantilar(dbInstance: Database.Database) {
 // 7. Hizmetlerimiz Seed
 function seedDefaultServices(dbInstance: Database.Database) {
   const insertService = dbInstance.prepare(`
-    INSERT OR IGNORE INTO services (id, slug, title, short_desc, icon_name, category, features, detailed_content, order_index, is_active, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+    INSERT OR IGNORE INTO services (id, slug, title, short_desc, icon_name, category, features, detailed_content, order_index, is_active, translations, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '{}', ?)
   `);
 
   const now = Math.floor(Date.now() / 1000);
