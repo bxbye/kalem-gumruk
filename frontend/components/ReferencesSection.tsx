@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import { Award, ChevronLeft, ChevronRight, Pause, Play, ShieldCheck, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, ShieldCheck, Building2 } from "lucide-react";
 
 interface ReferenceClient {
   id: string;
@@ -17,7 +17,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "NOVA KİMYA",
     sector: "Kimya & Kozmetik",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-[#44B9CD]">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-[#44B9CD]">
         <path d="M20 4L34 12V28L20 36L6 28V12L20 4Z" fillOpacity="0.15" stroke="currentColor" strokeWidth="2.5" />
         <circle cx="20" cy="20" r="5" fill="currentColor" />
         <line x1="20" y1="15" x2="20" y2="4" stroke="currentColor" strokeWidth="2" />
@@ -31,7 +31,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "ATLAS DIŞ TİCARET",
     sector: "Uluslararası Ticaret",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-indigo-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-indigo-600">
         <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <ellipse cx="20" cy="20" rx="7" ry="15" stroke="currentColor" strokeWidth="2" fill="none" />
         <line x1="5" y1="20" x2="35" y2="20" stroke="currentColor" strokeWidth="2" />
@@ -45,7 +45,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "ERDEM MAKİNA",
     sector: "Endüstri & İmalat",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-amber-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-amber-600">
         <path
           d="M20 12C15.58 12 12 15.58 12 20C12 24.42 15.58 28 20 28C24.42 28 28 24.42 28 20C28 15.58 24.42 12 20 12ZM20 24C17.79 24 16 22.21 16 20C16 17.79 17.79 16 20 16C22.21 16 24 17.79 24 20C24 22.21 22.21 24 20 24Z"
           fill="currentColor"
@@ -65,7 +65,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "TRENDLINE",
     sector: "Tekstil & Hazır Giyim",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-rose-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-rose-600">
         <path d="M10 20C10 13 15 8 20 8C25 8 30 13 30 20C30 27 25 32 20 32C15 32 10 27 10 20Z" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <path d="M14 20Q20 12 26 20Q20 28 14 20Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.5" />
         <circle cx="20" cy="20" r="3" fill="currentColor" />
@@ -77,7 +77,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "VİVA GIDA",
     sector: "Gıda & Tarım İhracatı",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-emerald-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-emerald-600">
         <path
           d="M20 7C20 7 28 10 30 18C32 26 25 33 20 33C15 33 8 26 10 18C12 10 20 7 20 7Z"
           stroke="currentColor"
@@ -93,7 +93,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "ARGOS OTO",
     sector: "Otomotiv Yan Sanayi",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-cyan-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-cyan-600">
         <polygon points="20,6 34,14 34,26 20,34 6,26 6,14" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <polygon points="20,12 28,17 28,23 20,28 12,23 12,17" fill="currentColor" fillOpacity="0.3" stroke="currentColor" strokeWidth="1.5" />
       </svg>
@@ -104,7 +104,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "SOLIS TECH",
     sector: "Tüketici Elektroniği",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-blue-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-blue-600">
         <rect x="10" y="10" width="20" height="20" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <circle cx="20" cy="20" r="4" fill="currentColor" />
         <line x1="20" y1="5" x2="20" y2="10" stroke="currentColor" strokeWidth="2" />
@@ -119,7 +119,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "MEDTECH",
     sector: "Medikal & Sağlık",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-teal-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-teal-600">
         <circle cx="20" cy="20" r="14" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <path d="M17 11H23V17H29V23H23V29H17V23H11V17H17V11Z" fill="currentColor" />
       </svg>
@@ -130,7 +130,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "PROMET ÇELİK",
     sector: "Metal & Ağır Sanayi",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-slate-700">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-slate-700">
         <path d="M20 5L33 13V27L20 35L7 27V13L20 5Z" stroke="currentColor" strokeWidth="2" fill="none" />
         <path d="M20 5V35M7 13L33 27M7 27L33 13" stroke="currentColor" strokeWidth="1.5" />
       </svg>
@@ -141,7 +141,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "KENT ENERJİ",
     sector: "Yenilenebilir Enerji",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-emerald-500">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-emerald-500">
         <circle cx="20" cy="20" r="13" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" fill="none" />
         <polygon points="21,7 13,21 19,21 17,33 27,17 21,17" fill="currentColor" />
       </svg>
@@ -152,7 +152,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "TERRA LOG",
     sector: "Uluslararası Taşımacılık",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-orange-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-orange-600">
         <rect x="8" y="14" width="24" height="14" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <line x1="14" y1="14" x2="14" y2="28" stroke="currentColor" strokeWidth="1.5" />
         <line x1="20" y1="14" x2="20" y2="28" stroke="currentColor" strokeWidth="1.5" />
@@ -166,7 +166,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "VİSTA YAPI",
     sector: "İnşaat Malzemeleri",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-violet-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-violet-600">
         <path d="M8 32V16L20 8L32 16V32H8Z" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <rect x="13" y="19" width="4" height="4" fill="currentColor" />
         <rect x="23" y="19" width="4" height="4" fill="currentColor" />
@@ -179,7 +179,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "AEROTECH",
     sector: "Havacılık & Savunma",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-sky-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-sky-600">
         <path d="M20 6L33 30L20 24L7 30L20 6Z" stroke="currentColor" strokeWidth="2.5" fill="currentColor" fillOpacity="0.2" />
         <circle cx="20" cy="20" r="2.5" fill="currentColor" />
       </svg>
@@ -190,7 +190,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "MARİNA GEMİ",
     sector: "Denizcilik & Konteyner",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-blue-700">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-blue-700">
         <circle cx="20" cy="11" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
         <line x1="20" y1="14" x2="20" y2="31" stroke="currentColor" strokeWidth="2.5" />
         <line x1="14" y1="18" x2="26" y2="18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
@@ -203,7 +203,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "BELLA BEAUTY",
     sector: "Kozmetik & Bakım",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-pink-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-pink-600">
         <path d="M20 7C20 7 29 17 29 24C29 28.97 24.97 33 20 33C15.03 33 11 28.97 11 24C11 17 20 7 20 7Z" stroke="currentColor" strokeWidth="2.5" fill="currentColor" fillOpacity="0.15" />
         <circle cx="20" cy="24" r="3" fill="currentColor" />
       </svg>
@@ -214,7 +214,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "GREENPACK",
     sector: "Endüstriyel Ambalaj",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-lime-600">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-lime-600">
         <rect x="9" y="11" width="22" height="18" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
         <path d="M9 17H31M20 17V29" stroke="currentColor" strokeWidth="2" />
         <circle cx="20" cy="8" r="2" fill="currentColor" />
@@ -226,7 +226,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "APEX ELEKTRİK",
     sector: "Enerji & İletim",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-amber-500">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-amber-500">
         <circle cx="13" cy="20" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
         <circle cx="27" cy="20" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
         <path d="M18 20H22M15 15Q20 10 25 15M15 25Q20 30 25 25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -238,7 +238,7 @@ const CLIENTS: ReferenceClient[] = [
     name: "LOTUS DİZAYN",
     sector: "Mobilya & Ağaç Sanayi",
     symbol: (
-      <svg viewBox="0 0 40 40" className="w-8 h-8 fill-current text-rose-500">
+      <svg viewBox="0 0 40 40" className="w-7 h-7 fill-current text-rose-500">
         <path d="M20 28C20 28 12 24 10 16C16 16 19 22 20 28Z" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" />
         <path d="M20 28C20 28 28 24 30 16C24 16 21 22 20 28Z" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" />
         <path d="M20 28V10C22 15 23 22 20 28Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" />
@@ -247,15 +247,11 @@ const CLIENTS: ReferenceClient[] = [
   },
 ];
 
-const ITEMS_PER_PAGE = 6;
-const AUTO_ROTATE_INTERVAL = 3500; // 3.5 saniye
-
 export default function ReferencesSection() {
   const { t, isRTL } = useLanguage();
   const [clientsList, setClientsList] = useState<ReferenceClient[]>(CLIENTS);
-  const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/references")
@@ -266,7 +262,10 @@ export default function ReferencesSection() {
           if (activeRefs.length > 0) {
             const mapped: ReferenceClient[] = activeRefs.map((item: any, idx: number) => {
               const matched = CLIENTS.find(
-                (c) => c.name.toLowerCase() === item.name.toLowerCase() || c.id === item.id
+                (c) =>
+                  c.name.toLowerCase().includes(item.name.toLowerCase()) ||
+                  item.name.toLowerCase().includes(c.name.toLowerCase()) ||
+                  c.id === item.id
               );
               return {
                 id: item.id || `ref-${idx}`,
@@ -275,9 +274,9 @@ export default function ReferencesSection() {
                 symbol: matched ? (
                   matched.symbol
                 ) : item.logoUrl ? (
-                  <img src={item.logoUrl} alt={item.name} className="w-8 h-8 object-contain" />
+                  <img src={item.logoUrl} alt={item.name} className="w-7 h-7 object-contain" />
                 ) : (
-                  <Building2 className="w-8 h-8 text-[#44B9CD]" />
+                  <Building2 className="w-7 h-7 text-[#44B9CD]" />
                 ),
               };
             });
@@ -288,164 +287,139 @@ export default function ReferencesSection() {
       .catch(() => {});
   }, []);
 
-  const totalPages = Math.max(1, Math.ceil(clientsList.length / ITEMS_PER_PAGE));
+  // Sonsuz ve kesintisiz akış için kart listesini çift katlı (2 eşit yarı) olarak tekrarlıyoruz
+  const repeatCount = Math.max(4, Math.ceil(16 / Math.max(1, clientsList.length)) * 2);
+  const marqueeClients = Array.from({ length: repeatCount }).flatMap(() => clientsList);
 
-  useEffect(() => {
-    if (isPaused) return;
-
-    const timer = setInterval(() => {
-      handleNextPage();
-    }, AUTO_ROTATE_INTERVAL);
-
-    return () => clearInterval(timer);
-  }, [currentPage, isPaused, totalPages]);
-
-  const changePage = (newPage: number) => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentPage(newPage);
-      setIsTransitioning(false);
-    }, 200);
+  const handlePrev = () => {
+    if (!containerRef.current) return;
+    containerRef.current.scrollBy({ left: -300, behavior: "smooth" });
   };
 
-  const handleNextPage = () => {
-    changePage((currentPage + 1) % totalPages);
+  const handleNext = () => {
+    if (!containerRef.current) return;
+    containerRef.current.scrollBy({ left: 300, behavior: "smooth" });
   };
-
-  const handlePrevPage = () => {
-    changePage((currentPage - 1 + totalPages) % totalPages);
-  };
-
-  const currentClients = clientsList.slice(
-    currentPage * ITEMS_PER_PAGE,
-    (currentPage + 1) * ITEMS_PER_PAGE
-  );
 
   return (
     <section
       aria-label="Referanslarımız"
-      className="py-12 bg-gradient-to-b from-slate-50 via-white to-slate-50 border-t border-slate-200/90 relative overflow-hidden select-none"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      className="py-14 sm:py-20 bg-gradient-to-b from-slate-50 via-slate-100/50 to-slate-50 border-t border-slate-200/90 relative select-none overflow-hidden"
     >
-      {/* Arka plan dekoratif hafif ızgara deseni */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `radial-gradient(#0F172A 1px, transparent 1px)`,
-          backgroundSize: "20px 20px",
-        }}
-      />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Üst Başlık & Kontroller */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#44B9CD]/10 text-[#0d788a] text-[11px] font-bold tracking-wider uppercase mb-2">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#44B9CD]/15 border border-[#44B9CD]/30 text-[#1E2A3A] text-xs font-bold uppercase tracking-wider">
               <ShieldCheck className="w-3.5 h-3.5 text-[#44B9CD]" />
               <span>{t.referencesSection.badge}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1E2A3A] tracking-tight">
               {t.referencesSection.title}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
               {t.referencesSection.subtitle}
             </p>
           </div>
 
-          {/* Kontrol Butonları & Sayaç */}
-          <div className="flex items-center gap-2 self-start md:self-end">
-            <span className="text-[11px] font-medium text-slate-400 mr-1">
-              {currentPage + 1} / {totalPages}
-            </span>
-
+          <div className="flex items-center gap-2.5 shrink-0 self-start md:self-end">
+            {/* Duraklat / Oynat Düğmesi */}
             <button
-              type="button"
-              onClick={handlePrevPage}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs cursor-pointer"
-              title="Previous"
-              aria-label="Previous reference group"
+              onClick={() => setIsPaused((prev) => !prev)}
+              aria-label={isPaused ? "Play" : "Pause"}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold shadow-2xs transition-all hover:scale-105 cursor-pointer"
+            >
+              {isPaused ? (
+                <>
+                  <Play className="w-3.5 h-3.5 text-[#44B9CD] fill-current" />
+                  <span className="hidden sm:inline">Play</span>
+                </>
+              ) : (
+                <>
+                  <Pause className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Pause</span>
+                </>
+              )}
+            </button>
+
+            {/* Manuel Önceki / Sonraki Kontroller */}
+            <button
+              onClick={handlePrev}
+              aria-label="Previous"
+              className="p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </button>
-
             <button
-              type="button"
-              onClick={() => setIsPaused(!isPaused)}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs"
-              title={isPaused ? "Otomatik Geçişi Başlat" : "Otomatik Geçişi Duraklat"}
-              aria-label={isPaused ? "Başlat" : "Duraklat"}
-            >
-              {isPaused ? <Play className="w-4 h-4 text-emerald-600" /> : <Pause className="w-4 h-4" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleNextPage}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors shadow-xs cursor-pointer"
-              title="Next"
-              aria-label="Next reference group"
+              onClick={handleNext}
+              aria-label="Next"
+              className="p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer"
             >
               <ChevronRight className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Küçük Logolar Izgarası (Birkaç saniyede bir değişen grup) */}
+      {/* Yatay Kayan Kart Bandı (Marquee Taşıyıcı + Kenar Degrade Maskeleri) */}
+      <div
+        ref={containerRef}
+        dir="ltr"
+        className="relative w-full overflow-hidden marquee-container py-3"
+        style={{ direction: "ltr" }}
+      >
+        {/* Sol yumuşak solma degrade maskesi */}
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-r from-slate-50 via-slate-50/90 to-transparent z-10" />
+
+        {/* Sağ yumuşak solma degrade maskesi */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-l from-slate-50 via-slate-50/90 to-transparent z-10" />
+
+        {/* Kesintisiz Yavaş Kayan Kart Grubu (Daima LTR ekseninde akar) */}
         <div
-          className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 transition-all duration-300 transform ${
-            isTransitioning ? "opacity-0 scale-[0.98]" : "opacity-100 scale-100"
-          }`}
+          dir="ltr"
+          className="animate-marquee-slow flex items-stretch gap-4 sm:gap-5 px-4"
+          style={{
+            animationDuration: "60s",
+            animationPlayState: isPaused ? "paused" : "running",
+          }}
         >
-          {currentClients.map((client) => (
+          {marqueeClients.map((client, index) => (
             <div
-              key={client.id}
-              className="group relative bg-white rounded-xl border border-slate-200/90 hover:border-[#44B9CD]/50 p-4 flex flex-col items-center justify-center text-center shadow-xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 min-h-[110px]"
+              key={`${client.id}-${index}`}
+              className="group relative shrink-0 w-[230px] sm:w-[260px] bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-[#44B9CD] rounded-2xl p-5 shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col items-center justify-center text-center cursor-default select-none"
             >
-              {/* Küçük Vektörel Logo İkonu */}
-              <div className="shrink-0 mb-2 p-1.5 rounded-lg bg-slate-50 group-hover:bg-[#44B9CD]/10 transition-colors duration-300 flex items-center justify-center">
+              {/* Vektörel Logo / İkon */}
+              <div className="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-[#44B9CD]/10 border border-slate-100 group-hover:border-[#44B9CD]/30 text-[#0d788a] flex items-center justify-center mb-3 group-hover:scale-105 transition-all shadow-2xs">
                 {client.symbol}
               </div>
 
               {/* Firma İsmi */}
-              <div className="font-extrabold text-[12px] tracking-wide text-slate-800 group-hover:text-[#0d788a] transition-colors leading-tight line-clamp-1">
+              <div className="font-extrabold text-xs sm:text-sm tracking-wide text-slate-800 group-hover:text-[#0d788a] transition-colors leading-tight line-clamp-1 mb-1">
                 {client.name}
               </div>
 
               {/* Sektör Etiketi */}
-              <div className="text-[10px] text-slate-600 mt-0.5 line-clamp-1">
+              <div className="text-[11px] text-slate-500 font-medium line-clamp-1">
                 {client.sector}
               </div>
 
               {/* Alt ince aktif çizgi efekti */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 group-hover:w-12 h-[2px] bg-[#44B9CD] rounded-full transition-all duration-300" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 group-hover:w-16 h-[2px] bg-[#44B9CD] rounded-full transition-all duration-300" />
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Sayfa Nokta Göstergeleri (Dots) & Gizlilik Notu */}
-        <div className="mt-8 pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+      {/* Alt Bilgi & Gizlilik Notu */}
+      <div className="mt-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="pt-4 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Müşteri gizlilik protokollerimiz uyarınca seçili referanslarımız gösterilmektedir.</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: totalPages }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => changePage(index)}
-                aria-label={`Referans sayfası ${index + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  currentPage === index
-                    ? "w-6 bg-[#44B9CD]"
-                    : "w-2 bg-slate-300 hover:bg-slate-400"
-                }`}
-              />
-            ))}
           </div>
         </div>
       </div>
     </section>
   );
 }
+
