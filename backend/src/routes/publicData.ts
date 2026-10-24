@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { sirkuler, services, gerekliBaglantilar, references } from "../db/schema.js";
-import { eq, desc, asc, and } from "drizzle-orm";
+import { eq, desc, asc, and, or } from "drizzle-orm";
 
 export const publicDataRouter = Router();
 
@@ -74,6 +74,7 @@ publicDataRouter.get("/services/:slug", async (req, res) => {
 
     const langTrans = lang !== "tr" ? parsedTranslations[lang] : undefined;
 
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({
       success: true,
       service: {
@@ -133,7 +134,7 @@ publicDataRouter.get("/sirkuler", async (req, res) => {
       };
     });
 
-    res.setHeader("Cache-Control", "public, max-age=60");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, sirkuler: formatted });
   } catch (error) {
     console.error("[Public Sirkuler Error]:", error);
@@ -143,12 +144,18 @@ publicDataRouter.get("/sirkuler", async (req, res) => {
 
 publicDataRouter.get("/sirkuler/:slug", async (req, res) => {
   try {
-    const { slug } = req.params;
+    const rawSlug = req.params.slug;
+    const decodedSlug = decodeURIComponent(rawSlug);
     const lang = (req.query.lang as string) || "tr";
     const record = await db
       .select()
       .from(sirkuler)
-      .where(and(eq(sirkuler.slug, slug), eq(sirkuler.isPublished, true)))
+      .where(
+        and(
+          or(eq(sirkuler.slug, rawSlug), eq(sirkuler.slug, decodedSlug)),
+          eq(sirkuler.isPublished, true)
+        )
+      )
       .get();
 
     if (!record) {
@@ -160,6 +167,7 @@ publicDataRouter.get("/sirkuler/:slug", async (req, res) => {
 
     const langTrans = lang !== "tr" ? parsedTranslations[lang] : undefined;
 
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({
       success: true,
       sirkuler: {

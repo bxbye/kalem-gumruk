@@ -50,21 +50,49 @@ function getFallbackSirkuler(lang: string = "tr"): SirkulerItem[] {
 }
 
 export async function getAllSirkulerAsync(lang: string = "tr"): Promise<SirkulerItem[]> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
+  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
   try {
     const res = await fetch(`${backendUrl}/api/public/sirkuler?lang=${lang}`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.sirkuler && data.sirkuler.length > 0) {
+      if (data && data.success && Array.isArray(data.sirkuler)) {
         return data.sirkuler;
       }
     }
-  } catch {
-    // Backend erişilemezse fallback
+  } catch (error) {
+    console.error("[getAllSirkulerAsync] Backend fetch failed, using fallback:", error);
   }
   return getFallbackSirkuler(lang);
+}
+
+export async function getSirkulerBySlugAsync(
+  slug: string,
+  lang: string = "tr"
+): Promise<SirkulerItem | undefined> {
+  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
+  try {
+    const res = await fetch(
+      `${backendUrl}/api/public/sirkuler/${encodeURIComponent(slug)}?lang=${lang}`,
+      {
+        cache: "no-store",
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.sirkuler) {
+        return data.sirkuler;
+      }
+    }
+    if (res.status === 404) {
+      return undefined;
+    }
+  } catch (error) {
+    console.error("[getSirkulerBySlugAsync] Backend fetch failed, checking fallback:", error);
+  }
+  const fallbackAll = getFallbackSirkuler(lang);
+  return fallbackAll.find((s) => s.slug === slug);
 }
 
 export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {

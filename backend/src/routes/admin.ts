@@ -11,6 +11,26 @@ import { eq, desc, asc } from "drizzle-orm";
 
 export const adminRouter = Router();
 
+function slugify(text: string): string {
+  const trMap: Record<string, string> = {
+    ç: "c", Ç: "c",
+    ğ: "g", Ğ: "g",
+    ı: "i", I: "i", İ: "i",
+    ö: "o", Ö: "o",
+    ş: "s", Ş: "s",
+    ü: "u", Ü: "u",
+  };
+  let str = text;
+  for (const [key, val] of Object.entries(trMap)) {
+    str = str.replaceAll(key, val);
+  }
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function checkAdminPassword(req: any, res: any): boolean {
   const password = req.body?.password || req.query?.password || req.headers["x-admin-password"];
   const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
@@ -62,13 +82,7 @@ adminRouter.post("/sirkuler", async (req, res) => {
       return res.status(400).json({ error: "Başlık, özet ve içerik alanları zorunludur." });
     }
 
-    const sirkulerSlug =
-      slug ||
-      title
-        .toLowerCase()
-        .replace(/[^a-z0-9ğüşıöç-]/gi, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "");
+    const sirkulerSlug = slug ? slugify(slug) : slugify(title);
 
     const sirkulerId = id || `sirkuler-${Date.now()}`;
     const now = new Date();

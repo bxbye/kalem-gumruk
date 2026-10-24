@@ -164,7 +164,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 // 8. Sunucuyu Başlat
-app.listen(PORT, () => {
+app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`=================================================`);
   console.log(`🚀 Kalem Gümrük Backend Servisi Hazır!`);
   console.log(`📡 URL: http://localhost:${PORT}`);

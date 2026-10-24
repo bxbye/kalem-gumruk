@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAllSirkuler, getSirkulerBySlug } from "@/lib/sirkuler";
+import { getAllSirkulerAsync, getSirkulerBySlugAsync } from "@/lib/sirkuler";
 import { companyInfo } from "@/data/company";
 import {
   Calendar,
@@ -16,12 +16,15 @@ import {
 } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
 
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+
 interface Props {
   params: Promise<{ slug: string; lang: string }>;
 }
 
-export function generateStaticParams() {
-  const items = getAllSirkuler("tr");
+export async function generateStaticParams() {
+  const items = await getAllSirkulerAsync("tr");
   const locales = availableLanguages.map((l) => l.code);
   const paramsList: { slug: string; lang: string }[] = [];
   for (const lang of locales) {
@@ -34,7 +37,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, lang } = await params;
-  const item = getSirkulerBySlug(slug, lang);
+  const item = await getSirkulerBySlugAsync(slug, lang);
   if (!item) return {};
 
   return {
@@ -70,7 +73,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SirkulerDetailPage({ params }: Props) {
   const { slug, lang } = await params;
-  const item = getSirkulerBySlug(slug, lang);
+  const item = await getSirkulerBySlugAsync(slug, lang);
 
   if (!item) {
     notFound();

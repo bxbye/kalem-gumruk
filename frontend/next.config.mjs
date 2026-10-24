@@ -101,6 +101,16 @@ const nextConfig = {
         destination: "/tr/hizmetlerimiz#teklif",
         permanent: false,
       },
+      {
+        source: "/mevzuat",
+        destination: "/tr/sirkuler",
+        permanent: true,
+      },
+      {
+        source: "/mevzuatlar",
+        destination: "/tr/sirkuler",
+        permanent: true,
+      },
       // Eski WordPress linkleri için SEO 301 doğrudan yönlendirmeleri
       {
         source: "/ithalat-islemleri",

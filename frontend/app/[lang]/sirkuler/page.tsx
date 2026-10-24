@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAllSirkuler } from "@/lib/sirkuler";
+import { getAllSirkulerAsync } from "@/lib/sirkuler";
 import { Calendar, Tag, ArrowRight } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -57,7 +59,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SirkulerListPage({ params }: Props) {
   const { lang } = await params;
-  const items = getAllSirkuler(lang);
+  const items = await getAllSirkulerAsync(lang);
 
   const isEn = lang === "en";
   const isAr = lang === "ar";

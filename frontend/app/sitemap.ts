@@ -1,11 +1,11 @@
 import { MetadataRoute } from "next";
 import { getAllServices } from "@/lib/services";
-import { getAllSirkuler } from "@/lib/sirkuler";
+import { getAllSirkulerAsync } from "@/lib/sirkuler";
 import { availableLanguages } from "@/data/translations";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://kalemgumruk.com";
   const currentDate = new Date();
   const languages = availableLanguages.map((l) => l.code);
@@ -50,7 +50,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
 
   // Sirküler Sayfaları (Tüm diller)
-  const sirkulerItems = getAllSirkuler("tr");
+  const sirkulerItems = await getAllSirkulerAsync("tr");
   const sirkulerPages: MetadataRoute.Sitemap = [];
   for (const lang of languages) {
     for (const item of sirkulerItems) {

@@ -4,8 +4,10 @@ import StatsBar from "@/components/StatsBar";
 import ServicesCarousel from "@/components/ServicesCarousel";
 import CircularsCarousel from "@/components/CircularsCarousel";
 import ReferencesSection from "@/components/ReferencesSection";
-import { getAllSirkuler } from "@/lib/sirkuler";
+import { getAllSirkulerAsync } from "@/lib/sirkuler";
 import { availableLanguages } from "@/data/translations";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -61,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function HomePage({ params }: Props) {
   const { lang } = await params;
-  const allSirkuler = getAllSirkuler(lang);
+  const allSirkuler = await getAllSirkulerAsync(lang);
 
   return (
     <>
