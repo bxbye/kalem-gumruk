@@ -1,43 +1,20 @@
 {
-  "name": "kalem-gumruk",
+  "name": "kalem-gumruk-monorepo",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Kalem Gümrük Müşavirliği - Bağımsız Frontend & Backend Mimarisi",
+  "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "opennextjs-cloudflare build",
-    "build:next": "next build --webpack",
-    "build:worker": "opennextjs-cloudflare build",
-    "start": "next start",
-    "deploy": "opennextjs-cloudflare deploy"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "dependencies": {
-    "@opennextjs/cloudflare": "^1.20.13",
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^26.6.5",
-    "@types/nodemailer": "^8.0.2",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "autoprefixer": "^10.6.1",
-    "better-sqlite3": "^13.0.3",
-    "clsx": "^2.1.1",
-    "drizzle-orm": "^0.45.4",
-    "lucide-react": "^1.60.0",
-    "next": "^16.4.2",
-    "nodemailer": "^10.1.7",
-    "postcss": "^8.5.31",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "start": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run start --prefix backend\" \"npm run start --prefix frontend\"",
+    "start:backend": "npm run start --prefix backend",
+    "start:frontend": "npm run start --prefix frontend"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
-    "drizzle-kit": "^0.31.11",
-    "wrangler": "^4.152.0"
+    "concurrently": "^9.2.5"
   }
 }
