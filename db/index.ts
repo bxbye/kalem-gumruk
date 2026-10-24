@@ -8,19 +8,32 @@ import { gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
 import { servicesData } from "@/data/services";
 import { defaultSirkuler } from "@/data/sirkuler";
 
-// Veritabanı dosya yolu: data/kalem.sqlite
-const dataDir = path.join(process.cwd(), "data");
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+function initSqlite(): Database.Database {
+  try {
+    const dataDir = path.join(process.cwd(), "data");
+    try {
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+    } catch {}
+
+    const sqlitePath = path.join(dataDir, "kalem.sqlite");
+    const instance = new Database(sqlitePath, { timeout: 30000 });
+    try { instance.pragma("busy_timeout = 30000"); } catch {}
+    try { instance.pragma("journal_mode = WAL"); } catch {}
+    return instance;
+  } catch (error) {
+    console.warn("Dosya tabanlı SQLite açılamadı, bellek içi (:memory:) SQLite başlatılıyor:", error);
+    try {
+      return new Database(":memory:");
+    } catch (e) {
+      console.error("SQLite başlatma hatası:", e);
+      throw e;
+    }
+  }
 }
 
-const sqlitePath = path.join(dataDir, "kalem.sqlite");
-const sqlite = new Database(sqlitePath, { timeout: 30000 });
-sqlite.pragma("busy_timeout = 30000");
-try {
-  sqlite.pragma("journal_mode = WAL");
-} catch {}
-
+const sqlite = initSqlite();
 export const db = drizzle(sqlite, { schema });
 
 // Otomatik Tablo Oluşturma ve Başlangıç Verilerini (Seed) Yükleme

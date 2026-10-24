@@ -52,7 +52,7 @@ function detectLocale(request: NextRequest): Locale {
   return DEFAULT_LOCALE;
 }
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   // Statik dosyaları, Next.js iç rotalarını, admin panelini ve API uç noktalarını atla
@@ -99,6 +99,8 @@ export function proxy(request: NextRequest) {
 
   return response;
 }
+
+export const proxy = middleware;
 
 export const config = {
   matcher: [

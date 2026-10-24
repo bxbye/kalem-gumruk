@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { sirkuler } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { defaultSirkuler } from "@/data/sirkuler";
 
 export interface SirkulerItem {
   id: string;
@@ -8,12 +9,12 @@ export interface SirkulerItem {
   slug: string;
   date: string;
   category: string;
-  regulationType?: string; // Tebliğ, Karar, Genelge, Yönetmelik
-  officialGazetteNumber?: string; // Resmi Gazete Sayısı (Örn: 32700)
-  relatedGtip?: string; // İlgili GTİP veya Fasıllar (Örn: 84. ve 85. Fasıllar)
+  regulationType?: string;
+  officialGazetteNumber?: string;
+  relatedGtip?: string;
   summary: string;
   content: string;
-  expertNote?: string; // Kalem Gümrük Müşavirlik Uzman Tavsiyesi / Yorumu
+  expertNote?: string;
   sourceUrl?: string;
   pdfUrl?: string;
   author?: string;
@@ -30,6 +31,27 @@ export interface SirkulerItem {
   >;
 }
 
+function getFallbackSirkuler(): SirkulerItem[] {
+  return defaultSirkuler.map((item) => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    date: item.date,
+    category: item.category,
+    regulationType: item.regulationType || undefined,
+    officialGazetteNumber: item.officialGazetteNumber || undefined,
+    relatedGtip: item.relatedGtip || undefined,
+    summary: item.summary,
+    content: item.content,
+    expertNote: item.expertNote || undefined,
+    sourceUrl: item.sourceUrl || undefined,
+    pdfUrl: item.pdfUrl || undefined,
+    author: item.author || "Kalem Gümrük Mevzuat Kurulu",
+    viewsCount: 0,
+    isPublished: true,
+  }));
+}
+
 export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {
   try {
     const records = db
@@ -38,6 +60,10 @@ export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {
       .where(eq(sirkuler.isPublished, true))
       .orderBy(desc(sirkuler.date))
       .all();
+
+    if (!records || records.length === 0) {
+      return getFallbackSirkuler();
+    }
 
     return records.map((r) => {
       let parsedTranslations: Record<string, any> = {};
@@ -74,15 +100,17 @@ export function getAllSirkuler(lang: string = "tr"): SirkulerItem[] {
       };
     });
   } catch (error) {
-    console.error("Veritabanından sirküler okuma hatası:", error);
-    return [];
+    console.warn("Veritabanından sirküler okunamadı, statik fallback kullanılıyor:", error);
+    return getFallbackSirkuler();
   }
 }
 
 export function getSirkulerBySlug(slug: string, lang: string = "tr"): SirkulerItem | undefined {
   try {
     const r = db.select().from(sirkuler).where(eq(sirkuler.slug, slug)).get();
-    if (!r) return undefined;
+    if (!r) {
+      return getFallbackSirkuler().find((item) => item.slug === slug);
+    }
 
     let parsedTranslations: Record<string, any> = {};
     try {
@@ -117,8 +145,8 @@ export function getSirkulerBySlug(slug: string, lang: string = "tr"): SirkulerIt
       translations: parsedTranslations,
     };
   } catch (error) {
-    console.error("Sirküler slug okuma hatası:", error);
-    return undefined;
+    console.warn("Sirküler slug okunamadı, statik fallback kullanılıyor:", error);
+    return getFallbackSirkuler().find((item) => item.slug === slug);
   }
 }
 
@@ -154,6 +182,7 @@ export function saveSirkuler(item: Omit<SirkulerItem, "id" | "slug">): SirkulerI
     viewsCount: 0,
     isPublished: true,
     date: dateStr,
+    translations: "{}",
     createdAt: new Date(),
   }).run();
 

@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { servicesData } from "@/data/services";
 
 export interface ServiceItem {
   id: string;
@@ -24,6 +25,21 @@ export interface ServiceItem {
   >;
 }
 
+function getFallbackServices(): ServiceItem[] {
+  return servicesData.map((item, idx) => ({
+    id: `service-${item.slug}`,
+    slug: item.slug,
+    title: item.title,
+    shortDesc: item.shortDesc,
+    iconName: item.iconName,
+    category: item.category,
+    features: item.features,
+    detailedContent: item.detailedContent,
+    orderIndex: idx,
+    isActive: true,
+  }));
+}
+
 export function getAllServices(lang: string = "tr"): ServiceItem[] {
   try {
     const records = db
@@ -32,6 +48,10 @@ export function getAllServices(lang: string = "tr"): ServiceItem[] {
       .where(eq(services.isActive, true))
       .orderBy(asc(services.orderIndex))
       .all();
+
+    if (!records || records.length === 0) {
+      return getFallbackServices();
+    }
 
     return records.map((r) => {
       let parsedFeatures: string[] = [];
@@ -48,7 +68,6 @@ export function getAllServices(lang: string = "tr"): ServiceItem[] {
         parsedTranslations = {};
       }
 
-      // Dil desteği (Fallback mantığı: Çeviri varsa al, yoksa TR varsayılanını koru)
       const langTrans = lang !== "tr" ? parsedTranslations[lang] : undefined;
 
       const title = langTrans?.title || r.title;
@@ -74,15 +93,18 @@ export function getAllServices(lang: string = "tr"): ServiceItem[] {
       };
     });
   } catch (error) {
-    console.error("Veritabanından hizmetler okuma hatası:", error);
-    return [];
+    console.warn("Veritabanından hizmetler okunamadı, statik fallback kullanılıyor:", error);
+    return getFallbackServices();
   }
 }
 
 export function getServiceBySlug(slug: string, lang: string = "tr"): ServiceItem | undefined {
   try {
     const r = db.select().from(services).where(eq(services.slug, slug)).get();
-    if (!r) return undefined;
+    if (!r) {
+      const fallback = getFallbackServices().find((s) => s.slug === slug);
+      return fallback;
+    }
 
     let parsedFeatures: string[] = [];
     try {
@@ -122,7 +144,7 @@ export function getServiceBySlug(slug: string, lang: string = "tr"): ServiceItem
       translations: parsedTranslations,
     };
   } catch (error) {
-    console.error("Hizmet slug okuma hatası:", error);
-    return undefined;
+    console.warn("Hizmet slug okunamadı, statik fallback kullanılıyor:", error);
+    return getFallbackServices().find((s) => s.slug === slug);
   }
 }

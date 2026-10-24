@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { gerekliBaglantilar } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
 
 export interface GerekliBaglanti {
   id: string;
@@ -15,6 +16,21 @@ export interface GerekliBaglanti {
   isActive: boolean;
 }
 
+function getFallbackBaglantilar(): GerekliBaglanti[] {
+  return gerekliBaglantilarData.map((item, index) => ({
+    id: item.id,
+    title: item.title,
+    shortTitle: item.shortTitle,
+    category: item.category,
+    url: item.url,
+    image: item.image,
+    description: item.description,
+    tag: item.tag,
+    orderIndex: index,
+    isActive: true,
+  }));
+}
+
 export function getAllGerekliBaglantilar(): GerekliBaglanti[] {
   try {
     const records = db
@@ -23,6 +39,10 @@ export function getAllGerekliBaglantilar(): GerekliBaglanti[] {
       .where(eq(gerekliBaglantilar.isActive, true))
       .orderBy(asc(gerekliBaglantilar.orderIndex))
       .all();
+
+    if (!records || records.length === 0) {
+      return getFallbackBaglantilar();
+    }
 
     return records.map((r) => ({
       id: r.id,
@@ -37,7 +57,7 @@ export function getAllGerekliBaglantilar(): GerekliBaglanti[] {
       isActive: r.isActive,
     }));
   } catch (error) {
-    console.error("Veritabanından gerekli bağlantılar okuma hatası:", error);
-    return [];
+    console.warn("Veritabanından gerekli bağlantılar okunamadı, statik fallback kullanılıyor:", error);
+    return getFallbackBaglantilar();
   }
 }
