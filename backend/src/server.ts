@@ -22,6 +22,9 @@ import { publicDataRouter } from "./routes/publicData.js";
 const app = express();
 const PORT = process.env.BACKEND_PORT || 5001;
 
+// Render, Cloudflare vb. reverse proxy arkasında gerçek istemci IP'sini tespit edebilmek için
+app.set("trust proxy", 1);
+
 // 1. Veritabanını başlat ve tabloları/seed verilerini kontrol et
 ensureDatabaseInitialized();
 
