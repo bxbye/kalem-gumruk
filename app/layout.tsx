@@ -1,18 +1,10 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import { companyInfo } from "@/data/company";
 import { LanguageProvider } from "@/context/LanguageContext";
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin", "latin-ext"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-sans",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -180,8 +172,14 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="tr" className={plusJakartaSans.variable}>
+    <html lang="tr">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
