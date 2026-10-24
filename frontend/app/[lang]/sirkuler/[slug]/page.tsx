@@ -15,6 +15,7 @@ import {
   Layers,
 } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
@@ -283,9 +284,11 @@ export default async function SirkulerDetailPage({ params }: Props) {
                 <span dir="ltr">{companyInfo.phone}</span>
               </a>
               <a
-                href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                  `Hola / Merhaba, "${item.title}"`
-                )}`}
+                href={getWhatsAppUrl({
+                  type: "circular",
+                  lang,
+                  serviceTitle: item.title,
+                })}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-500 transition-colors"

@@ -1,8 +1,11 @@
 import { Router } from "express";
+import path from "path";
+import fs from "fs";
 import { db } from "../db/index.js";
 import { forms, formSubmissions } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
-import { getMailer } from "../services/mailer.js";
+import { getMailer, getCustomerConfirmationEmail, langBadgeMap } from "../services/mailer.js";
+import { uploadsDir } from "../services/storage.js";
 
 export const formsRouter = Router();
 
@@ -161,10 +164,22 @@ formsRouter.get("/:slug", async (req, res) => {
 formsRouter.post("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const { formData, files, honeypot } = req.body || {};
+    const { formData, files, honeypot, formLoadedAt, lang = "tr" } = req.body || {};
+    const visitorLang = String(lang || formData?.lang || "tr").toLowerCase();
 
+    // 1. Anti-Spam: Honeypot kontrolü
     if (honeypot) {
+      console.warn(`[Anti-Spam] Dinamik Form Honeypot tetiklendi. IP: ${req.ip}`);
       return res.json({ success: true, message: "İşlem başarılı." });
+    }
+
+    // 2. Anti-Spam: Time-trap kontrolü
+    if (formLoadedAt) {
+      const elapsedMs = Date.now() - Number(formLoadedAt);
+      if (elapsedMs < 1200) {
+        console.warn(`[Anti-Spam] Dinamik Form insan hızından çok hızlı dolduruldu (${elapsedMs}ms). Bot şüphesi.`);
+        return res.json({ success: true, message: "İşlem başarılı." });
+      }
     }
 
     const formRecord = await db.select().from(forms).where(eq(forms.slug, slug)).get();
@@ -186,26 +201,43 @@ formsRouter.post("/:slug", async (req, res) => {
     const submissionId = `SUB-${refCode}`;
     const now = new Date();
 
+    const submissionData = {
+      ...(formData || {}),
+      _lang: visitorLang,
+    };
+
     await db.insert(formSubmissions).values({
       id: submissionId,
       formSlug: slug,
-      data: JSON.stringify(formData || {}),
+      data: JSON.stringify(submissionData),
       files: JSON.stringify(files || []),
       status: "NEW",
       createdAt: now,
       updatedAt: now,
     });
 
-    // Otomatik E-Posta Bildirimi
-    handleFormSubmissionEmail(slug, formRecord.title, formData || {}, files || [], refCode, settings).catch((err) =>
+    // Otomatik E-Posta Bildirimi (Ziyaretçinin Seçtiği Dilde)
+    handleFormSubmissionEmail(slug, formRecord.title, submissionData, files || [], refCode, settings, visitorLang).catch((err) =>
       console.error("[Form Email Error]:", err)
     );
+
+    const localizedSuccessMsgs: Record<string, string> = {
+      en: "Your quote request has been received successfully. Our customs broker will contact you shortly.",
+      ar: "تم استلام طلبكم بنجاح. سيتواصل معكم مستشارنا الجمركي في أقرب وقت.",
+      es: "Su solicitud ha sido recibida con éxito. Nuestro agente de aduanas se pondrá en contacto en breve.",
+      tr: settings.successMessage || "Talebiniz başarıyla alınmıştır. En kısa sürede sizinle iletişime geçilecektir.",
+    };
+
+    const finalClientMessage =
+      visitorLang !== "tr"
+        ? localizedSuccessMsgs[visitorLang] || localizedSuccessMsgs.en
+        : settings.successMessage || localizedSuccessMsgs.tr;
 
     return res.json({
       success: true,
       refCode,
       submissionId,
-      message: settings.successMessage || "Talebiniz başarıyla alınmıştır. En kısa sürede sizinle iletişime geçilecektir.",
+      message: finalClientMessage,
     });
   } catch (error) {
     console.error("[Form Submit Error]:", error);
@@ -219,13 +251,28 @@ async function handleFormSubmissionEmail(
   data: Record<string, any>,
   files: any[],
   refCode: string,
-  settings: any
+  settings: any,
+  lang: string = "tr"
 ) {
   const transporter = getMailer();
   const smtpUser = process.env.SMTP_USER;
-  const companyEmail = settings.notificationEmail || process.env.CONTACT_RECEIVER || "info@kalemgumruk.com";
+  // Hedef e-posta: Öncelik kadir.kaya@kayapermit.com (CONTACT_RECEIVER)
+  const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || "kadir.kaya@kayapermit.com";
 
-  if (!transporter || !smtpUser) return;
+  const langLabels: Record<string, string> = {
+    tr: "🇹🇷 Türkçe",
+    en: "🇬🇧 English (İngilizce)",
+    ar: "🇸🇦 العربية (Arapça)",
+    es: "🇪🇸 Español (İspanyolca)",
+  };
+  const langLabel = langLabels[lang] || lang;
+
+  if (!transporter || !smtpUser) {
+    console.warn(`[Form Mailer] SMTP yapılandırması eksik. Form e-postası gönderilemedi: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
+    return;
+  }
+
+  console.log(`[Form Mailer] Form e-posta bildirimi gönderiliyor: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
 
   const customerEmail = data.email || data.eposta || data.mail;
   const customerName = data.fullName || data.adsoyad || data.name || "Sayın Yetkili";
@@ -237,12 +284,34 @@ async function handleFormSubmissionEmail(
     )
     .join("");
 
+  const siteBaseUrl = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "https://kalemgumruk.com";
+
+  // Gerçek e-posta eki (Attachments) oluştur
+  const mailAttachments: Array<{ filename: string; path: string }> = [];
+  if (Array.isArray(files) && files.length > 0) {
+    for (const f of files) {
+      const filenameOnDisk = f.key || path.basename(f.url);
+      const absPath = path.join(uploadsDir, filenameOnDisk);
+      if (fs.existsSync(absPath)) {
+        mailAttachments.push({
+          filename: f.name || filenameOnDisk,
+          path: absPath,
+        });
+      }
+    }
+  }
+
   const filesHtml =
     files && files.length > 0
       ? `<div style="margin-top: 15px; padding: 12px; background-color: #f1f5f9; border-radius: 6px;">
-          <strong>Ekli Dosyalar:</strong>
+          <strong>Ekli Dosyalar (Doğrudan e-posta ekinde de mevcuttur):</strong>
           <ul style="margin: 6px 0 0 0; padding-left: 20px;">
-            ${files.map((f: any) => `<li><a href="${f.url}" target="_blank">${f.name} (${f.size || "Dosya"})</a></li>`).join("")}
+            ${files
+              .map((f: any) => {
+                const fullUrl = f.url?.startsWith("http") ? f.url : `${siteBaseUrl.replace(/\/$/, "")}${f.url}`;
+                return `<li><a href="${fullUrl}" target="_blank">${f.name} (${f.size || "Dosya"})</a></li>`;
+              })
+              .join("")}
           </ul>
         </div>`
       : "";
@@ -252,6 +321,9 @@ async function handleFormSubmissionEmail(
       <div style="background-color: #1E2A3A; padding: 18px; color: #ffffff;">
         <h3 style="margin: 0; font-size: 18px;">📋 Yeni Form Yanıtı: ${formTitle}</h3>
         <p style="margin: 4px 0 0 0; color: #44B9CD; font-size: 13px;">Referans Kodu: <strong>${refCode}</strong></p>
+        <div style="display: inline-block; margin-top: 8px; background: rgba(68,185,205,0.2); border: 1px solid rgba(68,185,205,0.5); padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #44B9CD;">
+          🌐 Ziyaretçi Dili: <strong>${langLabel}</strong>
+        </div>
       </div>
       <div style="padding: 20px; background-color: #ffffff;">
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -265,43 +337,71 @@ async function handleFormSubmissionEmail(
     </div>
   `;
 
+  const cleanLang = (lang || "tr").toLowerCase();
+  const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
+  const shortTitle = formTitle
+    .replace(/Hızlı Gümrükleme Fiyat Teklifi/gi, "Fiyat Teklifi")
+    .replace(/Genel İletişim & Danışma Formu/gi, "İletişim")
+    .replace(/Gümrükleme/gi, "")
+    .replace(/İşlemleri/gi, "")
+    .trim() || "Form";
+  const companyTag = data.company && data.company !== "Bireysel" && data.company !== "-" ? ` (${data.company})` : "";
+  const mailSubject = `[${refCode}] [${langBadge}] ${shortTitle}: ${customerName}${companyTag}`;
+
   await transporter.sendMail({
     from: `"Kalem Gümrük Web Formu" <${smtpUser}>`,
     to: companyEmail,
     replyTo: customerEmail || undefined,
-    subject: `[${refCode}] Yeni ${formTitle} - ${customerName}`,
+    subject: mailSubject,
     html: adminHtml,
+    attachments: mailAttachments,
   });
 
-  if (customerEmail && settings.autoEmailSubject && settings.autoEmailBody) {
-    const personalizedBody = settings.autoEmailBody
-      .replace(/{{fullName}}/g, customerName)
-      .replace(/{{refNo}}/g, refCode)
-      .replace(/{{formTitle}}/g, formTitle)
-      .replace(/\n/g, "<br/>");
+  if (customerEmail) {
+    if (lang && lang !== "tr") {
+      const conf = getCustomerConfirmationEmail({
+        refCode,
+        fullName: customerName,
+        serviceOrTitle: formTitle,
+        lang,
+      });
 
-    const customerHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #1E2A3A; padding: 20px; text-align: center; color: #ffffff;">
-          <h2 style="margin: 0; font-size: 20px; color: #ffffff;">Kalem Gümrük Müşavirliği</h2>
-          <p style="margin: 6px 0 0 0; color: #44B9CD; font-size: 13px;">1997'den Beri Güvenle Dış Ticaretin Hizmetinde</p>
-        </div>
-        <div style="padding: 24px; background-color: #ffffff; color: #334155; line-height: 1.6; font-size: 14px;">
-          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-            <p style="margin: 0; font-size: 13px; color: #166534;">
-              <strong>Talep Referans Numaranız:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: bold;">${refCode}</span>
-            </p>
+      await transporter.sendMail({
+        from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+        to: customerEmail,
+        subject: conf.subject,
+        html: conf.html,
+      });
+    } else if (settings.autoEmailSubject && settings.autoEmailBody) {
+      const personalizedBody = settings.autoEmailBody
+        .replace(/{{fullName}}/g, customerName)
+        .replace(/{{refNo}}/g, refCode)
+        .replace(/{{formTitle}}/g, formTitle)
+        .replace(/\n/g, "<br/>");
+
+      const customerHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #1E2A3A; padding: 20px; text-align: center; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px; color: #ffffff;">Kalem Gümrük Müşavirliği</h2>
+            <p style="margin: 6px 0 0 0; color: #44B9CD; font-size: 13px;">1997'den Beri Güvenle Dış Ticaretin Hizmetinde</p>
           </div>
-          <div>${personalizedBody}</div>
+          <div style="padding: 24px; background-color: #ffffff; color: #334155; line-height: 1.6; font-size: 14px;">
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+              <p style="margin: 0; font-size: 13px; color: #166534;">
+                <strong>Talep Referans Numaranız:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: bold;">${refCode}</span>
+              </p>
+            </div>
+            <div>${personalizedBody}</div>
+          </div>
         </div>
-      </div>
-    `;
+      `;
 
-    await transporter.sendMail({
-      from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
-      to: customerEmail,
-      subject: settings.autoEmailSubject.replace(/{{refNo}}/g, refCode),
-      html: customerHtml,
-    });
+      await transporter.sendMail({
+        from: `"Kalem Gümrük Müşavirliği" <${smtpUser}>`,
+        to: customerEmail,
+        subject: settings.autoEmailSubject.replace(/{{refNo}}/g, refCode),
+        html: customerHtml,
+      });
+    }
   }
 }

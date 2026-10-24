@@ -3,6 +3,7 @@ import { companyInfo } from "@/data/company";
 import ContactForm from "@/components/ContactForm";
 import { MapPin, Phone, Mail, ExternalLink, Navigation } from "lucide-react";
 import { translations, availableLanguages, Language } from "@/data/translations";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -109,7 +110,7 @@ export default async function IletisimPage({ params }: Props) {
               </div>
               <div>
                 <a
-                  href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(companyInfo.whatsappDefaultMessage)}`}
+                  href={getWhatsAppUrl({ type: "general", lang })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-600 font-bold hover:text-emerald-500 inline-flex items-center gap-1"

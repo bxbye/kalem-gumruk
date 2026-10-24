@@ -28,6 +28,7 @@ import {
   getTranslatedOption,
   getFormUIStrings,
 } from "@/lib/formTranslations";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 
 interface FormField {
   name: string;
@@ -140,6 +141,7 @@ export default function ContactForm({
   const [refCode, setRefCode] = useState("");
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formLoadedAtRef = useRef<number>(Date.now());
 
   // İstemci tarafında veritabanından dinamik formu çekme / tazeleme
   useEffect(() => {
@@ -165,9 +167,17 @@ export default function ContactForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
+    if (uploadedFiles.length >= 2) {
       setStatus("error");
-      setResponseMsg("Dosya boyutu 20 MB'dan küçük olmalıdır.");
+      setResponseMsg("En fazla 2 adet dosya yükleyebilirsiniz.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus("error");
+      setResponseMsg("Dosya boyutu en fazla 5 MB olabilir.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -238,6 +248,8 @@ export default function ContactForm({
           formData,
           files: uploadedFiles,
           honeypot: formData.honeypot,
+          formLoadedAt: formLoadedAtRef.current,
+          lang: language,
         }),
       });
 
@@ -320,9 +332,7 @@ export default function ContactForm({
                   <div>
                     <div className="text-[11px] text-slate-400">{cf.waTitle}</div>
                     <a
-                      href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                        companyInfo.whatsappDefaultMessage
-                      )}`}
+                      href={getWhatsAppUrl({ type: "general", lang: language })}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs sm:text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -409,7 +419,29 @@ export default function ContactForm({
                 <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
                   {responseMsg || form.settings?.successMessage || cf.defaultSuccessMsg}
                 </p>
-                <div className="pt-4">
+                <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
+                  <a
+                    href={getWhatsAppUrl({
+                      type: "quote_followup",
+                      lang: language,
+                      refCode,
+                      serviceTitle: formData.subject,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>
+                      {language === "en"
+                        ? "Notify Broker on WhatsApp"
+                        : language === "ar"
+                        ? "إشعار المستشار عبر الواتساب"
+                        : language === "es"
+                        ? "Notificar por WhatsApp"
+                        : "WhatsApp'tan Müşavire Bildir"}
+                    </span>
+                  </a>
                   <button
                     type="button"
                     onClick={resetForm}
@@ -539,7 +571,7 @@ export default function ContactForm({
                                 type="file"
                                 className="hidden"
                                 onChange={handleFileUpload}
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
+                                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
                               />
                               <div className="flex flex-col items-center gap-1.5">
                                 <div className="w-8 h-8 rounded-full bg-[#44B9CD]/15 text-[#1b7a8a] flex items-center justify-center">

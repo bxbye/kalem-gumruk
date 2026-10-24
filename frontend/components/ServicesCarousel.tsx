@@ -5,6 +5,7 @@ import Link from "next/link";
 import { servicesData } from "@/data/services";
 import { companyInfo } from "@/data/company";
 import { useLanguage } from "@/context/LanguageContext";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -40,7 +41,7 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ServicesCarousel() {
-  const { t, isRTL, localePath } = useLanguage();
+  const { t, language, isRTL, localePath } = useLanguage();
   const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -213,27 +214,39 @@ export default function ServicesCarousel() {
                 </div>
 
                 {/* Alt Kısım: Butonlar */}
-                <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between gap-1.5">
                   <Link
                     href={localePath(`/hizmetlerimiz/${service.slug}`)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1E2A3A] group-hover:text-[#44B9CD] transition-colors"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1E2A3A] group-hover:text-[#44B9CD] transition-colors"
                   >
                     <span>{t.servicesSection.viewDetails}</span>
-                    <ArrowRight className={`w-3.5 h-3.5 transition-transform ${isRTL ? "rotate-180 group-hover:-translate-x-1" : "group-hover:translate-x-1"}`} />
+                    <ArrowRight className={`w-3 h-3 transition-transform ${isRTL ? "rotate-180 group-hover:-translate-x-1" : "group-hover:translate-x-1"}`} />
                   </Link>
 
-                  <a
-                    href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                      `Merhaba Kalem Gümrük, ${service.title} hakkında detaylı bilgi ve teklif almak istiyorum.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white text-[11px] font-bold transition-all"
-                    title="WhatsApp Müşavir Hattı"
-                  >
-                    <MessageCircle className="w-3 h-3" />
-                    <span>Danış</span>
-                  </a>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={localePath(`/hizmetlerimiz?service=${service.slug}#randevu-teklif`)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#44B9CD]/15 hover:bg-[#44B9CD] text-[#196b78] hover:text-white text-[11px] font-bold transition-all"
+                      title={t.servicesPage.actionQuote}
+                    >
+                      <span>{t.servicesPage.actionQuote}</span>
+                    </Link>
+
+                    <a
+                      href={getWhatsAppUrl({
+                        type: "service",
+                        lang: language,
+                        serviceTitle: title,
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white text-[11px] font-bold transition-all"
+                      title="WhatsApp"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             );

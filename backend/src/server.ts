@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import { ensureDatabaseInitialized } from "./db/index.js";
 import { uploadsDir } from "./services/storage.js";
 
@@ -143,13 +144,22 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// 6. API Rotaları
-app.use("/api/contact", contactRouter);
-app.use("/api/forms", formsRouter);
+// 6. Anti-Spam & DoS Koruması (Rate Limiting)
+const formRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 dakika
+  max: 20, // 15 dakikada tek bir IP'den en fazla 20 istek
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Çok fazla deneme yapıldı. Güvenlik nedeniyle lütfen 15 dakika sonra tekrar deneyiniz." },
+});
+
+// 7. API Rotaları
+app.use("/api/contact", formRateLimiter, contactRouter);
+app.use("/api/forms", formRateLimiter, formsRouter);
 app.use("/api/submissions", submissionsRouter);
 app.use("/api/documents", documentsRouter);
-app.use("/api/feedbacks", feedbacksRouter);
-app.use("/api/chat-lead", chatLeadRouter);
+app.use("/api/feedbacks", formRateLimiter, feedbacksRouter);
+app.use("/api/chat-lead", formRateLimiter, chatLeadRouter);
 app.use("/api/exchange-rates", exchangeRatesRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/admin", adminRouter);

@@ -322,7 +322,7 @@ export function ensureDatabaseInitialized() {
           successMessage: "Fiyat teklif talebiniz başarıyla alındı! Gümrük müşavirimiz en kısa sürede analiz ederek tarafınıza dönecektir.",
           autoEmailSubject: "Fiyat Teklifi Talebiniz Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
           autoEmailBody: "Sayın {{fullName}},\n\nKalem Gümrük Müşavirliği'ne iletmiş olduğunuz fiyat teklif talebi operasyon ekibimize iletilmiştir. Gümrük müşavirimiz mevzuat ve tarife kontrollerini yaparak en kısa sürede dönüş sağlayacaktır.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
-          notificationEmail: "info@kalemgumruk.com"
+          notificationEmail: "kadir.kaya@kayapermit.com"
         }),
         1,
         Date.now(),
@@ -359,7 +359,7 @@ export function ensureDatabaseInitialized() {
           successMessage: "Mesajınız başarıyla iletildi. Müşteri temsilcimiz en kısa sürede sizinle iletişime geçecektir.",
           autoEmailSubject: "Mesajınız Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
           autoEmailBody: "Sayın {{fullName}},\n\nİletişim talebiniz merkezimize ulaşmıştır. Konuyla ilgili müşteri temsilcimiz sizinle irtibata geçecektir.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
-          notificationEmail: "info@kalemgumruk.com"
+          notificationEmail: "kadir.kaya@kayapermit.com"
         }),
         1,
         Date.now(),

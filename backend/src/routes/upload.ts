@@ -1,13 +1,30 @@
 import { Router } from "express";
-import { uploadMiddleware, formatBytes } from "../services/storage.js";
+import fs from "fs";
+import { uploadMiddleware, formatBytes, verifyFileSignature } from "../services/storage.js";
 
 export const uploadRouter = Router();
 
-uploadRouter.post("/", uploadMiddleware.single("file"), (req, res) => {
+uploadRouter.post("/", uploadMiddleware.single("file"), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "Lütfen bir dosya seçiniz." });
+    }
+
+    // 1. Derinlikli Güvenlik / Magic Bytes Doğrulaması
+    const signatureCheck = await verifyFileSignature(file.path);
+    if (!signatureCheck.valid) {
+      // Güvenlik testi başarısız -> Dosyayı sunucudan hemen sil
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        console.error("[Upload] Güvensiz dosya silinirken hata:", e);
+      }
+
+      console.warn(`[Anti-Virus/Malware Guard] Şüpheli dosya engellendi ve silindi: ${file.originalname} (${signatureCheck.reason})`);
+      return res.status(400).json({
+        error: signatureCheck.reason || "Güvenlik denetimi başarısız oldu. Yalnızca geçerli PDF veya Resim yükleyebilirsiniz.",
+      });
     }
 
     const fileUrl = `/uploads/${file.filename}`;

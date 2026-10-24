@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePathname } from "next/navigation";
 import {
@@ -10,69 +10,102 @@ import {
   User,
   CheckCircle2,
   Phone,
+  MessageSquare,
 } from "lucide-react";
 import { companyInfo } from "@/data/company";
+import { getLocalizedWhatsAppMessage } from "@/lib/whatsappMessages";
 
 interface Message {
   id: string;
   sender: "bot" | "user";
   text: string;
   time: string;
-  action?: "ask_contact" | "lead_success";
 }
 
 export default function ChatBot() {
   const pathname = usePathname();
-  const { t, language, isRTL } = useLanguage();
+  const { language, isRTL } = useLanguage();
 
   if (pathname?.startsWith("/admin")) {
     return null;
   }
+
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
 
-  // Ziyaretçi iletişim bilgileri durumu
+  // Oturum ve Referans Kodu (WhatsApp ve CRM için)
+  const [sessionId] = useState(() => `sess-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`);
+  const [refCode] = useState(() => `TK-CHAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+
+  // Ziyaretçi iletişim ve mesaj sınırlaması durumu
+  const [userMessageCount, setUserMessageCount] = useState(0);
+  const MAX_MESSAGES = 5;
+  const MAX_CHARS = 200;
+
   const [hasProvidedContact, setHasProvidedContact] = useState(false);
-  const [userQuestion, setUserQuestion] = useState("");
+  const [userFirstQuestion, setUserFirstQuestion] = useState("");
 
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactCompany, setContactCompany] = useState("");
+  const [honeypot, setHoneypot] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [, setLeadSuccessMsg] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const nowText = language === "en" ? "Now" : language === "ar" ? "الآن" : language === "es" ? "Ahora" : "Şimdi";
+  const nowText = useMemo(() => {
+    switch (language) {
+      case "en":
+        return "Now";
+      case "ar":
+        return "الآن";
+      case "es":
+        return "Ahora";
+      case "tr":
+      default:
+        return "Şimdi";
+    }
+  }, [language]);
+
+  const welcomeText = useMemo(() => {
+    switch (language) {
+      case "en":
+        return "Hello! Welcome to Kalem Customs Advisory Assistant. Please write your customs clearance, import, export, or foreign trade inquiry here. Your request will be forwarded directly to our licensed customs broker.";
+      case "ar":
+        return "مرحباً بكم في مساعد قلم للاستشارات الجمركية! يمكنكم كتابة استفساركم حول عمليات التخليص الجمركي، الاستيراد، التصدير أو اللوائح هنا، وسيتم تحويله مباشرة إلى مستشارنا الجمركي المعتمد.";
+      case "es":
+        return "¡Hola! Bienvenido al asistente de asesoría de Kalem Aduanas. Puede enviar su consulta sobre despacho aduanero, importación, exportación o normativa exterior aquí. Su mensaje se remitirá directamente a nuestro agente colegiado.";
+      case "tr":
+      default:
+        return "Merhaba! Kalem Gümrük Danışma Asistanına hoş geldiniz. İthalat, ihracat, mevzuat veya danışmanlık talebinizi buraya yazabilirsiniz. Yazdıklarınız doğrudan yetkili gümrük müşavirimize iletilecektir.";
+    }
+  }, [language]);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome-1",
       sender: "bot",
-      text: t.chatbot.welcomeMessage,
+      text: welcomeText,
       time: nowText,
     },
   ]);
 
-  // Dil değiştiğinde eğer henüz kullanıcı mesaj yazmamışsa karşılama mesajını güncelle
+  // Kullanıcı henüz mesaj atmadıysa ve dil değişirse karşılama mesajını otomatik güncelle
   useEffect(() => {
-    setMessages((prev) => {
-      if (prev.length === 1 && prev[0].id === "welcome-1") {
-        return [
-          {
-            id: "welcome-1",
-            sender: "bot",
-            text: t.chatbot.welcomeMessage,
-            time: nowText,
-          },
-        ];
-      }
-      return prev;
-    });
-  }, [language, t.chatbot.welcomeMessage, nowText]);
-
-  const quickPrompts = t.chatbot.quickQuestions;
+    if (userMessageCount === 0) {
+      setMessages([
+        {
+          id: "welcome-1",
+          sender: "bot",
+          text: welcomeText,
+          time: nowText,
+        },
+      ]);
+    }
+  }, [language, welcomeText, nowText, userMessageCount]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,154 +118,191 @@ export default function ChatBot() {
     }
   }, [isOpen, messages]);
 
-  // Akıllı Yanıt Üretimi (Çok Dilli)
-  const generateBotReply = (text: string) => {
-    const lower = text.toLowerCase();
-    let reply = "";
-
-    if (language === "en") {
-      if (lower.includes("import") || lower.includes("duty") || lower.includes("tax")) {
-        reply =
-          "In import operations, Customs Duty, Additional Duty, VAT, SCT, and applicable TAREKS/TSE approvals are determined based on your product's HS Code. We manage your declarations with zero demurrage and strict legal compliance.";
-      } else if (lower.includes("export") || lower.includes("abroad")) {
-        reply =
-          "For export operations, we issue invoices, packing lists, A.TR, EUR.1, Certificate of Origin, and handle exporter union approvals and exit confirmation seamlessly.";
-      } else if (lower.includes("quote") || lower.includes("price") || lower.includes("cost")) {
-        reply =
-          "We offer competitive brokerage fees and precise landed duty feasibility studies for all Turkish customs ports.";
-      } else {
-        reply =
-          "Thank you for your message. Since 1997, our licensed customs brokers have provided comprehensive foreign trade solutions across all Turkish customs offices.";
-      }
-      return (
-        reply +
-        "\n\n📋 **To enable our licensed broker to examine your shipment and provide a custom duty calculation:** Please share your name, company, and phone number below."
-      );
-    } else if (language === "ar") {
-      if (lower.includes("استيراد") || lower.includes("جمارك") || lower.includes("ضريبة")) {
-        reply =
-          "في عمليات الاستيراد، يتم تحديد الرسوم الجمركية وضريبة القيمة المضافة وموافقات الفحص وفقاً للرمز الجمركي HS Code للبضاعة. نحرص على إنهاء المعاملات دون أي تأخير في الموانئ.";
-      } else if (lower.includes("تصدير") || lower.includes("شحن")) {
-        reply =
-          "في عمليات التصدير، نتولى إصدار شهادات المنشأ A.TR و EUR.1 وموافقات اتحادات المصدرين وتسجيل البيانات الجمركية بسرعة فائقة.";
-      } else if (lower.includes("سعر") || lower.includes("تكلفة")) {
-        reply =
-          "نقدم دراسة تكاليف مفصلة وأسعار تخليص تنافسية لكافة الموانئ والمنافذ الجمركية التركية.";
-      } else {
-        reply =
-          "شكراً لاستفساركم. تقدم شركة قلم خدمات التخليص والاستشارات الجمركية المتكاملة في جميع المنافذ التركية منذ عام 1997.";
-      }
-      return (
-        reply +
-        "\n\n📋 **ليتمكن مستشارنا الجمركي من دراسة شحنتكم وتزويدكم بعرض سعر مخصص:** يرجى تزويدنا بالاسم ورقم الهاتف واسم الشركة أدناه."
-      );
-    } else if (language === "es") {
-      if (lower.includes("import") || lower.includes("arancel") || lower.includes("impuesto")) {
-        reply =
-          "En despachos de importación, los aranceles, gravámenes compensatorios, IVA y controles TAREKS/TSE se calculan según la clasificación arancelaria HS de su mercancía. Gestionamos su expediente con cero demoras.";
-      } else if (lower.includes("export") || lower.includes("salida")) {
-        reply =
-          "Para operaciones de exportación, tramitamos certificados de circulación A.TR, EUR.1, certificados de origen y visados de exportación con máxima agilidad.";
-      } else if (lower.includes("precio") || lower.includes("cotiz") || lower.includes("presupuesto")) {
-        reply =
-          "Elaboramos estudios previos de costes de importación y honorarios competitivos para todas las aduanas de Turquía.";
-      } else {
-        reply =
-          "Agradecemos su consulta. Desde 1997 prestamos servicios integrales de despacho de aduanas homologado en todas las direcciones aduaneras de Turquía.";
-      }
-      return (
-        reply +
-        "\n\n📋 **Para que nuestro agente colegiado pueda evaluar su expediente y enviarle una estimación detallada:** ¿Podría facilitarnos su nombre, empresa y teléfono a continuación?"
-      );
-    } else {
-      // Türkçe
-      if (lower.includes("ithalat") || lower.includes("getir") || lower.includes("vergi")) {
-        reply =
-          "İthalat işlemlerinde ürününüzün GTİP (Gümrük Tarife İstatistik Pozisyonu) koduna göre Gümrük Vergisi, İlave Gümrük Vergisi (İGV), KDV, ÖTV ve varsa TAREKS/TSE izinleri belirlenir. Liman ardiye ve navlun masraflarını önceden planlayarak dosyanızı sıfır gecikmeyle sonuçlandırıyoruz.";
-      } else if (lower.includes("ihracat") || lower.includes("gönder") || lower.includes("yurtdışı")) {
-        reply =
-          "İhracat operasyonlarında fatura, çeki listesi ve ATR / EUR.1 / Menşe şahadetnamesi düzenlenerek ilgili ihracatçı birliği onayı ve gümrük beyannamesi tescili ivedilikle kapatılır. KDV iadesi süreçleriniz için intaç takibini Evrim portalımızdan anlık sunuyoruz.";
-      } else if (lower.includes("gtip") || lower.includes("tarife") || lower.includes("kod")) {
-        reply =
-          "Eşyanın GTİP tespiti, ödenecek tüm vergileri ve gerekli bakanlık izinlerini belirleyen en kritik adımdır. Ürününüzün ticari tanımı, teknik özellikleri veya katalog bilgisiyle uzman gümrük müşavirliğimiz doğru GTİP tespitini yapmaktadır.";
-      } else {
-        reply =
-          "Sorunuzu aldım. 1997'den bugüne yetkili gümrük müşavirliği ve liman operasyon ekibimizle tüm dış ticaret rejimlerinde tam yetkiyle hizmet veriyoruz.";
-      }
-      return (
-        reply +
-        "\n\n📋 **Gümrük müşavirimizin dosyanızı inceleyip size özel maliyet çalışmasıyla dönüş yapabilmesi için:** Lütfen adınızı, firmanızı ve telefon numaranızı paylaşabilir misiniz?"
-      );
-    }
-  };
+  // WhatsApp Yönlendirme Linki (Chat Referansı ve Soru Özetiyle, Aktif Dilde Dinamik Üretilir)
+  const whatsappUrl = useMemo(() => {
+    const waText = getLocalizedWhatsAppMessage({
+      type: "chatbot",
+      lang: language,
+      refCode,
+      topic: userFirstQuestion,
+    });
+    return `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(waText)}`;
+  }, [refCode, userFirstQuestion, language]);
 
   // Kullanıcı Mesaj Gönderdiğinde
-  const handleSendMessage = (textToSend?: string) => {
-    const message = textToSend || inputText;
-    if (!message.trim()) return;
+  const handleSendMessage = async (customText?: string) => {
+    const rawText = customText || inputText;
+    const trimmed = rawText.trim();
+    if (!trimmed) return;
+
+    if (userMessageCount >= MAX_MESSAGES) {
+      return;
+    }
+
+    const currentMsgCount = userMessageCount + 1;
+    setUserMessageCount(currentMsgCount);
+
+    const timeString = new Date().toLocaleTimeString(
+      language === "en" ? "en-GB" : language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "tr-TR",
+      { hour: "2-digit", minute: "2-digit" }
+    );
 
     const userMsg: Message = {
       id: "msg-" + Date.now(),
       sender: "user",
-      text: message.trim(),
-      time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+      text: trimmed,
+      time: timeString,
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText("");
-    if (!userQuestion) {
-      setUserQuestion(message.trim());
+
+    if (!userFirstQuestion) {
+      setUserFirstQuestion(trimmed);
     }
+
+    // CRM'e anlık mesaj kaydı yap (Aktif Dil Parametresiyle)
+    fetch("/api/chat-lead/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        lang: language,
+        message: trimmed,
+        sender: "user",
+      }),
+    }).catch((err) => console.error("[Chat sync error]:", err));
 
     setIsTyping(true);
 
     setTimeout(() => {
       setIsTyping(false);
-      const botResponse = generateBotReply(message);
-      const botMsg: Message = {
-        id: "bot-" + Date.now(),
-        sender: "bot",
-        text: botResponse,
-        time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-        action: hasProvidedContact ? undefined : "ask_contact",
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 900);
+
+      let botReply = "";
+      const remaining = MAX_MESSAGES - currentMsgCount;
+
+      if (currentMsgCount === 1) {
+        switch (language) {
+          case "en":
+            botReply = `Thank you for the details. You can add more information if needed (remaining messages: ${remaining}). To allow our licensed customs broker to review your file and contact you directly, please provide your contact details below.`;
+            break;
+          case "ar":
+            botReply = `شكراً لتوضيحكم وتزويدنا بهذه المعلومات. يمكنكم إضافة مزيد من التفاصيل (الرسائل المتبقية: ${remaining}). ليتسنى لمستشارنا الجمركي دراسة ملفكم والتواصل معكم مباشرة، يرجى ملء بيانات الاتصال أدناه.`;
+            break;
+          case "es":
+            botReply = `Gracias por su mensaje. Puede añadir más detalles si lo desea (mensajes restantes: ${remaining}). Para que nuestro agente de aduanas pueda examinar su consulta y responderle directamente, complete sus datos de contacto abajo.`;
+            break;
+          case "tr":
+          default:
+            botReply = `Notunuzu ve talebinizi aldım. Eklemek istediğiniz başka detaylar varsa yazabilirsiniz (kalan hakkınız: ${remaining}). Gümrük müşavirimizin dosyanızı inceleyip doğrudan size dönüş yapabilmesi için lütfen aşağıdaki iletişim bilgilerinizi iletiniz.`;
+            break;
+        }
+      } else if (currentMsgCount >= MAX_MESSAGES) {
+        switch (language) {
+          case "en":
+            botReply = "You have reached the 5-message consultation limit. Please fill out your contact details below so our customs broker can review your file and reply promptly.";
+            break;
+          case "ar":
+            botReply = "لقد بلغت الحد الأقصى للاستشارة (5 رسائل). يرجى إدخال بيانات الاتصال في النموذج أدناه ليتمكن المستشار الجمركي من الرد عليكم فوراً.";
+            break;
+          case "es":
+            botReply = "Ha alcanzado el límite de 5 mensajes de consulta. Por favor, complete sus datos en el formulario inferior para que nuestro agente pueda responderle a la brevedad.";
+            break;
+          case "tr":
+          default:
+            botReply = "5 mesajlık soru/talep iletme limitinize ulaştınız. Gümrük müşavirimizin dosyanızı detaylıca inceleyip size dönüş yapabilmesi için lütfen aşağıdaki formu doldurunuz.";
+            break;
+        }
+      } else {
+        switch (language) {
+          case "en":
+            botReply = `Noted. You have ${remaining} message(s) left. Don't forget to submit your contact details below so our broker can reach you.`;
+            break;
+          case "ar":
+            botReply = `تم تسجيل رسالتكم الإضافية (تبقى لديكم ${remaining} رسائل). يرجى إدخال بيانات الاتصال أدناه حتى يتمكن المستشار من الاتصال بكم.`;
+            break;
+          case "es":
+            botReply = `Mensaje registrado (mensajes restantes: ${remaining}). No olvide indicar sus datos abajo para que el agente pueda contactarle.`;
+            break;
+          case "tr":
+          default:
+            botReply = `Ek mesajınızı kaydettim (Kalan mesaj hakkınız: ${remaining}). Müşavirimizin arayabilmesi için lütfen iletişim bilgilerinizi aşağıdaki formdan onaylayınız.`;
+            break;
+        }
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: "bot-" + Date.now(),
+          sender: "bot",
+          text: botReply,
+          time: new Date().toLocaleTimeString(
+            language === "en" ? "en-GB" : language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "tr-TR",
+            { hour: "2-digit", minute: "2-digit" }
+          ),
+        },
+      ]);
+    }, 600);
   };
 
-  // İletişim Bilgilerini Gönder
+  // İletişim Bilgilerini Gönder (CRM'e kaydet ve mail gönder)
   const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactPhone || !contactName) return;
+    if (!contactPhone.trim() || !contactName.trim()) return;
+
+    if (honeypot) {
+      setHasProvidedContact(true);
+      return;
+    }
 
     setIsSubmittingLead(true);
 
-    const contactSummary = `${contactName} (${contactCompany || "Corporate"}) - Tel: ${contactPhone}`;
+    const contactSummary = `${contactName.trim()} (${contactCompany.trim() || "Bireysel"}) - Tel: ${contactPhone.trim()} [Lang: ${language}]`;
 
     try {
-      await fetch("/api/chat-lead", {
+      const res = await fetch("/api/chat-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sessionId,
+          lang: language,
+          contactName: contactName.trim(),
+          contactPhone: contactPhone.trim(),
+          contactCompany: contactCompany.trim(),
           contactInfo: contactSummary,
-          question: userQuestion || "Customs Advisory Inquiry",
-          conversationHistory: messages.map((m) => ({
+          question: userFirstQuestion || "Chatbot Danışma Talebi",
+          honeypot,
+          messages: messages.map((m) => ({
             sender: m.sender,
             text: m.text,
+            time: m.time,
           })),
         }),
       });
 
+      const data = await res.json();
       setHasProvidedContact(true);
 
-      const successText =
-        language === "en"
-          ? `✅ **Thank you, ${contactName}!**\n\nYour inquiry has been relayed directly to our licensed broker. We will contact you at **${contactPhone}** shortly.`
-          : language === "ar"
-          ? `✅ **شكراً جزيلاً، ${contactName}!**\n\nتم تحويل استفساركم لمستشارنا الجمركي وسنتواصل معكم على الرقم **${contactPhone}** قريباً.`
-          : language === "es"
-          ? `✅ **¡Muchas gracias, ${contactName}!**\n\nSu consulta ha sido trasladada a nuestro agente de aduanas. Nos pondremos en contacto al teléfono **${contactPhone}** a la brevedad.`
-          : `✅ **Teşekkürler Sayın ${contactName}!**\n\nTalebiniz ve sorunuz gümrük müşavirimize anında iletildi. **${contactPhone}** numaranızdan en kısa sürede sizinle irtibata geçilecektir.`;
+      let fallbackSuccess = "";
+      switch (language) {
+        case "en":
+          fallbackSuccess = `✅ Thank you, ${contactName}! Your inquiry and contact details have been successfully forwarded to our customs broker under reference #${refCode}. We will reach out to you shortly.`;
+          break;
+        case "ar":
+          fallbackSuccess = `✅ شكراً لكم سيد/سيدة ${contactName}! تم إرسال استفساركم وبيانات التواصل بنجاح إلى المستشار الجمركي تحت الرقم المرجعي #${refCode}. سنتواصل معكم في أقرب وقت.`;
+          break;
+        case "es":
+          fallbackSuccess = `✅ ¡Muchas gracias, ${contactName}! Su consulta y datos de contacto han sido remitidos con éxito a nuestro agente de aduanas con la referencia #${refCode}. Nos pondremos en contacto muy pronto.`;
+          break;
+        case "tr":
+        default:
+          fallbackSuccess = `✅ Teşekkürler Sayın ${contactName}! Mesajlarınız ve iletişim bilgileriniz gümrük müşavirimize (#${refCode}) referansıyla başarıyla iletildi. En kısa sürede sizinle irtibata geçilecektir.`;
+          break;
+      }
+
+      const successText = data.message || fallbackSuccess;
+      setLeadSuccessMsg(successText);
 
       setMessages((prev) => [
         ...prev,
@@ -240,8 +310,10 @@ export default function ChatBot() {
           id: "bot-lead-ok-" + Date.now(),
           sender: "bot",
           text: successText,
-          time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-          action: "lead_success",
+          time: new Date().toLocaleTimeString(
+            language === "en" ? "en-GB" : language === "ar" ? "ar-EG" : language === "es" ? "es-ES" : "tr-TR",
+            { hour: "2-digit", minute: "2-digit" }
+          ),
         },
       ]);
     } catch (error) {
@@ -251,58 +323,103 @@ export default function ChatBot() {
     }
   };
 
-  const whatsappUrl = `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-    userQuestion
-      ? `Merhaba Kalem Gümrük: "${userQuestion}"`
-      : companyInfo.whatsappDefaultMessage
-  )}`;
-
-  const uiLabels = {
-    tr: {
-      askPrompt: "Müşavir Asistanına Sorun",
-      namePlaceholder: "Adınız Soyadınız *",
-      phonePlaceholder: "Telefon Numaranız *",
-      companyPlaceholder: "Firma Adı (İsteğe bağlı)",
-      submitBtn: "Müşavire İlet",
-      submittingBtn: "İletiliyor...",
-      waBtn: "WhatsApp'tan Dosya/Evrak Gönder",
-    },
-    en: {
-      askPrompt: "Ask Customs Assistant",
-      namePlaceholder: "Full Name *",
-      phonePlaceholder: "Phone Number *",
-      companyPlaceholder: "Company (Optional)",
-      submitBtn: "Contact Customs Broker",
-      submittingBtn: "Sending...",
-      waBtn: "Send Documents via WhatsApp",
-    },
-    ar: {
-      askPrompt: "اسأل المساعد الجمركي",
-      namePlaceholder: "الاسم الكامل *",
-      phonePlaceholder: "رقم الهاتف *",
-      companyPlaceholder: "اسم الشركة (اختياري)",
-      submitBtn: "إرسال للمستشار الجمركي",
-      submittingBtn: "جارٍ الإرسال...",
-      waBtn: "إرسال الوثائق عبر الواتساب",
-    },
-    es: {
-      askPrompt: "Consulte al Asistente Aduanero",
-      namePlaceholder: "Nombre y Apellidos *",
-      phonePlaceholder: "Teléfono de Contacto *",
-      companyPlaceholder: "Empresa (Opcional)",
-      submitBtn: "Consultar con el Agente",
-      submittingBtn: "Enviando...",
-      waBtn: "Enviar Documentos por WhatsApp",
-    },
-  }[language] || {
-    askPrompt: "Müşavir Asistanına Sorun",
-    namePlaceholder: "Adınız Soyadınız *",
-    phonePlaceholder: "Telefon Numaranız *",
-    companyPlaceholder: "Firma Adı (İsteğe bağlı)",
-    submitBtn: "Müşavire İlet",
-    submittingBtn: "İletiliyor...",
-    waBtn: "WhatsApp'tan Dosya/Evrak Gönder",
+  // WhatsApp Butonuna Tıklandığında CRM'e Log At ve Mail Gönder
+  const handleWhatsAppClick = () => {
+    fetch("/api/chat-lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        lang: language,
+        contactInfo: `WhatsApp Referral [${language.toUpperCase()}]`,
+        question: userFirstQuestion || "WhatsApp Danışma Yönlendirmesi",
+        messages: messages.map((m) => ({
+          sender: m.sender,
+          text: m.text,
+          time: m.time,
+        })),
+      }),
+    }).catch((err) => console.error("[WhatsApp log error]:", err));
   };
+
+  const uiLabels = useMemo(() => {
+    const remaining = MAX_MESSAGES - userMessageCount;
+    switch (language) {
+      case "en":
+        return {
+          askPrompt: "Submit Inquiry to Broker",
+          title: "Kalem Customs Desk",
+          subTitle: "Licensed Broker Advisory",
+          leadHeader: "For Our Customs Broker to Contact You:",
+          namePlaceholder: "Full Name *",
+          phonePlaceholder: "Phone Number *",
+          companyPlaceholder: "Company Name (Optional)",
+          submitBtn: "Forward to Broker",
+          submittingBtn: "Sending...",
+          waBtn: "Chat on WhatsApp",
+          inputPlaceholder: "Type your customs inquiry...",
+          msgLimitText: `Remaining messages: ${remaining} / ${MAX_MESSAGES}`,
+          charsLabel: "chars",
+          limitReached: "You reached the 5-message limit. Please share your contact details below.",
+          leadForwardedWa: "Inquiry forwarded. For urgent queries, continue on WhatsApp:",
+        };
+      case "ar":
+        return {
+          askPrompt: "إرسال استفسار للمستشار",
+          title: "مساعد قلم الجمركي",
+          subTitle: "مكتب استشارات التخليص المعتمد",
+          leadHeader: "لكي يتمكن مستشارنا الجمركي من التواصل معكم:",
+          namePlaceholder: "الاسم الكامل *",
+          phonePlaceholder: "رقم الهاتف *",
+          companyPlaceholder: "اسم الشركة (اختياري)",
+          submitBtn: "إرسال للمستشار الجمركي",
+          submittingBtn: "جارٍ الإرسال...",
+          waBtn: "المحادثة عبر الواتساب",
+          inputPlaceholder: "اكتب استفسارك الجمركي...",
+          msgLimitText: `الرسائل المتبقية: ${remaining} / ${MAX_MESSAGES}`,
+          charsLabel: "حرف",
+          limitReached: "بلغت الحد الأقصى للرسائل (5). يرجى إدخال بيانات الاتصال أدناه.",
+          leadForwardedWa: "تم تحويل الطلب للمستشار. للاستفسار العاجل، تابع عبر الواتساب:",
+        };
+      case "es":
+        return {
+          askPrompt: "Consultar con el Agente",
+          title: "Asistente Kalem Aduanas",
+          subTitle: "Mesa de Asesoría Aduanera",
+          leadHeader: "Para que nuestro agente pueda contactarle:",
+          namePlaceholder: "Nombre y Apellidos *",
+          phonePlaceholder: "Teléfono de Contacto *",
+          companyPlaceholder: "Empresa (Opcional)",
+          submitBtn: "Enviar al Agente de Aduanas",
+          submittingBtn: "Enviando...",
+          waBtn: "Escribir por WhatsApp",
+          inputPlaceholder: "Escriba su consulta aquí...",
+          msgLimitText: `Mensajes restantes: ${remaining} / ${MAX_MESSAGES}`,
+          charsLabel: "caracteres",
+          limitReached: "Límite de 5 mensajes alcanzado. Facilítenos sus datos de contacto abajo.",
+          leadForwardedWa: "Consulta enviada. Si es urgente, continúe por WhatsApp:",
+        };
+      case "tr":
+      default:
+        return {
+          askPrompt: "Müşavire Soru / Talep İletin",
+          title: "Kalem Gümrük Asistanı",
+          subTitle: "Müşavir İletişim Masası",
+          leadHeader: "Müşavirimizin Size Dönüş Yapabilmesi İçin:",
+          namePlaceholder: "Adınız Soyadınız *",
+          phonePlaceholder: "Telefon Numaranız *",
+          companyPlaceholder: "Firma Adı (varsa)",
+          submitBtn: "Müşavirimize İlet",
+          submittingBtn: "İletiliyor...",
+          waBtn: "WhatsApp'tan Müşavire Yaz",
+          inputPlaceholder: "Talebinizi veya sorunuzu yazınız...",
+          msgLimitText: `Kalan mesaj hakkınız: ${remaining} / ${MAX_MESSAGES}`,
+          charsLabel: "karakter",
+          limitReached: "Maksimum 5 mesaj sınırına ulaştınız. Lütfen iletişim bilgilerinizi giriniz.",
+          leadForwardedWa: "Müşavire iletildi. Acilse WhatsApp'tan devam edin:",
+        };
+    }
+  }, [language, userMessageCount]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -329,7 +446,10 @@ export default function ChatBot() {
 
       {/* Açık Sohbet Penceresi */}
       {isOpen && (
-        <div className="w-[92vw] sm:w-[410px] h-[580px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div
+          dir={isRTL ? "rtl" : "ltr"}
+          className="w-[92vw] sm:w-[420px] h-[610px] max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
           {/* Header */}
           <div className="bg-[#1E2A3A] text-white p-4 flex items-center justify-between border-b border-slate-700">
             <div className="flex items-center gap-3">
@@ -339,24 +459,26 @@ export default function ChatBot() {
               </div>
               <div>
                 <div className="font-bold text-sm flex items-center gap-1.5 text-white">
-                  <span>{t.chatbot.assistantName}</span>
+                  <span>{uiLabels.title}</span>
                 </div>
-                <div className="text-[11px] text-emerald-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>{t.chatbot.status}</span>
+                <div className="text-[11px] text-[#44B9CD] flex items-center gap-1">
+                  <span>Ref: #{refCode}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {/* WhatsApp Butonu (Chat Referansıyla ve Kullanıcının Diliyle) */}
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={handleWhatsAppClick}
                 title="WhatsApp"
-                className="p-2 text-slate-300 hover:text-emerald-400 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 text-emerald-400 hover:text-white hover:bg-emerald-600/30 rounded-xl transition-colors flex items-center gap-1 text-xs"
               >
                 <Phone className="w-4 h-4" />
+                <span className="hidden sm:inline font-semibold">WhatsApp</span>
               </a>
               <button
                 onClick={() => setIsOpen(false)}
@@ -376,7 +498,7 @@ export default function ChatBot() {
                 className={`flex gap-2.5 ${m.sender === "user" ? "justify-end" : "justify-start"}`}
               >
                 {m.sender === "bot" && (
-                  <div className="w-7 h-7 rounded-full bg-[#1E2A3A] text-[#44B9CD] flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-full bg-[#1E2A3A] text-[#44B9CD] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                     <Bot className="w-4 h-4" />
                   </div>
                 )}
@@ -391,61 +513,6 @@ export default function ChatBot() {
                   >
                     {m.text}
                   </div>
-
-                  {/* İletişim Formu (Müşavir Bilgi Toplama) */}
-                  {m.action === "ask_contact" && !hasProvidedContact && (
-                    <form
-                      onSubmit={handleLeadSubmit}
-                      className="mt-2.5 p-3.5 bg-white border border-[#44B9CD]/40 rounded-2xl shadow-sm space-y-2.5 animate-in fade-in"
-                    >
-                      <input
-                        type="text"
-                        required
-                        placeholder={uiLabels.namePlaceholder}
-                        value={contactName}
-                        onChange={(e) => setContactName(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
-                      />
-                      <input
-                        type="tel"
-                        required
-                        placeholder={uiLabels.phonePlaceholder}
-                        value={contactPhone}
-                        onChange={(e) => setContactPhone(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
-                      />
-                      <input
-                        type="text"
-                        placeholder={uiLabels.companyPlaceholder}
-                        value={contactCompany}
-                        onChange={(e) => setContactCompany(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD]"
-                      />
-                      <button
-                        type="submit"
-                        disabled={isSubmittingLead}
-                        className="w-full py-2 bg-[#1E2A3A] hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer"
-                      >
-                        {isSubmittingLead ? uiLabels.submittingBtn : uiLabels.submitBtn}
-                      </button>
-                    </form>
-                  )}
-
-                  {/* Başarılı Lead Durumunda WhatsApp Aksiyonu */}
-                  {m.action === "lead_success" && (
-                    <div className="pt-1">
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>{uiLabels.waBtn}</span>
-                      </a>
-                    </div>
-                  )}
-
                   <div
                     className={`text-[10px] text-slate-400 px-1 ${
                       m.sender === "user" ? "text-right" : "text-left"
@@ -456,7 +523,7 @@ export default function ChatBot() {
                 </div>
 
                 {m.sender === "user" && (
-                  <div className="w-7 h-7 rounded-full bg-[#44B9CD] text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-full bg-[#44B9CD] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                     <User className="w-4 h-4" />
                   </div>
                 )}
@@ -476,24 +543,90 @@ export default function ChatBot() {
               </div>
             )}
 
+            {/* İletişim Bilgisi Formu (En az 1 mesaj yazıldıktan sonra veya 5 mesaja ulaşıldığında) */}
+            {userMessageCount >= 1 && !hasProvidedContact && (
+              <div className="mt-4 p-4 bg-white border border-[#44B9CD]/40 rounded-2xl shadow-sm space-y-3 animate-in fade-in">
+                <div className="flex items-center gap-2 text-slate-800 font-semibold text-xs border-b border-slate-100 pb-2">
+                  <MessageSquare className="w-4 h-4 text-[#44B9CD]" />
+                  <span>{uiLabels.leadHeader}</span>
+                </div>
+                <form onSubmit={handleLeadSubmit} className="space-y-2.5">
+                  {/* Honeypot Spam Koruması */}
+                  <input
+                    type="text"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    className="hidden"
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+
+                  <input
+                    type="text"
+                    required
+                    maxLength={80}
+                    placeholder={uiLabels.namePlaceholder}
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD] bg-slate-50/50"
+                  />
+                  <input
+                    type="tel"
+                    required
+                    maxLength={30}
+                    placeholder={uiLabels.phonePlaceholder}
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD] bg-slate-50/50"
+                  />
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder={uiLabels.companyPlaceholder}
+                    value={contactCompany}
+                    onChange={(e) => setContactCompany(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#44B9CD] bg-slate-50/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmittingLead || !contactName.trim() || !contactPhone.trim()}
+                    className="w-full py-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    {isSubmittingLead ? uiLabels.submittingBtn : uiLabels.submitBtn}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* İletişim Bilgisi Gönderildikten Sonra WhatsApp Desteği */}
+            {hasProvidedContact && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-emerald-800 text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{uiLabels.leadForwardedWa}</span>
+                </div>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleWhatsAppClick}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shrink-0"
+                >
+                  WhatsApp
+                </a>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Hızlı Soru Çipleri */}
-          {messages.length <= 3 && (
-            <div className="px-4 py-2 bg-white border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-              {quickPrompts.map((q, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSendMessage(q)}
-                  className="shrink-0 px-3 py-1.5 bg-slate-100 hover:bg-[#44B9CD]/15 hover:text-[#1E2A3A] text-slate-700 rounded-full text-[11px] font-medium transition cursor-pointer border border-slate-200"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Mesaj Sınırı ve Karakter Sayacı Bilgi Barı */}
+          <div className="px-4 py-1.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+            <span>{uiLabels.msgLimitText}</span>
+            <span className={inputText.length > 180 ? "text-amber-600 font-bold" : "text-slate-400"}>
+              {inputText.length} / {MAX_CHARS} {uiLabels.charsLabel}
+            </span>
+          </div>
 
           {/* Mesaj Yazma Alanı */}
           <form
@@ -506,15 +639,19 @@ export default function ChatBot() {
             <input
               type="text"
               value={inputText}
+              maxLength={MAX_CHARS}
+              disabled={userMessageCount >= MAX_MESSAGES}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={t.chatbot.inputPlaceholder}
-              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#44B9CD] transition"
+              placeholder={
+                userMessageCount >= MAX_MESSAGES ? uiLabels.limitReached : uiLabels.inputPlaceholder
+              }
+              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#44B9CD] transition disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || userMessageCount >= MAX_MESSAGES}
               className="p-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition cursor-pointer"
-              aria-label={t.chatbot.send}
+              aria-label="Gönder"
             >
               <Send className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </button>

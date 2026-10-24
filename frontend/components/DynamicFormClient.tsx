@@ -16,7 +16,9 @@ import {
   ShieldCheck,
   Building2,
   Clock,
+  MessageCircle,
 } from "lucide-react";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 import {
   getTranslatedFieldLabel,
   getTranslatedFieldPlaceholder,
@@ -64,6 +66,7 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formLoadedAtRef = useRef<number>(Date.now());
 
   const handleInputChange = (name: string, value: any) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -73,8 +76,15 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      setErrorMsg("Dosya boyutu 20 MB'dan küçük olmalıdır.");
+    if (uploadedFiles.length >= 2) {
+      setErrorMsg("En fazla 2 adet dosya yükleyebilirsiniz.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Dosya boyutu en fazla 5 MB olabilir.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -127,6 +137,9 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
         body: JSON.stringify({
           formData,
           files: uploadedFiles,
+          honeypot: formData.honeypot,
+          formLoadedAt: formLoadedAtRef.current,
+          lang,
         }),
       });
 
@@ -209,7 +222,31 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
               </p>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
+              {successInfo?.refCode && (
+                <a
+                  href={getWhatsAppUrl({
+                    type: "quote_followup",
+                    lang,
+                    refCode: successInfo.refCode,
+                    serviceTitle: form.title,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>
+                    {lang === "en"
+                      ? "Notify Broker on WhatsApp"
+                      : lang === "ar"
+                      ? "إشعار المستشار عبر الواتساب"
+                      : lang === "es"
+                      ? "Notificar por WhatsApp"
+                      : "WhatsApp'tan Müşavire Bildir"}
+                  </span>
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -256,6 +293,16 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Honeypot Spam Koruması */}
+              <input
+                type="text"
+                name="honeypot"
+                value={formData.honeypot || ""}
+                onChange={(e) => handleInputChange("honeypot", e.target.value)}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+              />
               {form.fields.map((field, idx) => {
                 const ui = getFormUIStrings(lang);
                 const translatedLabel = getTranslatedFieldLabel(field.name, field.label, lang);
@@ -326,7 +373,7 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
                           type="file"
                           className="hidden"
                           onChange={handleFileUpload}
-                          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
+                          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
                         />
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-10 h-10 rounded-full bg-cyan-50 text-[#0e7490] flex items-center justify-center">

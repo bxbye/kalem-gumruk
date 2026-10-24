@@ -1487,7 +1487,12 @@ export default function AdminPage() {
               <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
                 {["ALL", ...Array.from(new Set([...formsList.map((f) => f.slug), ...submissions.map((s) => s.formSlug)].filter(Boolean)))].map((cat) => {
                   const matchingForm = formsList.find((f) => f.slug === cat);
-                  const label = cat === "ALL" ? "Tüm Talepler" : (matchingForm?.title || cat);
+                  const label =
+                    cat === "ALL"
+                      ? "Tüm Talepler"
+                      : cat === "chatbot"
+                      ? "💬 Chatbot Talepleri"
+                      : (matchingForm?.title || cat);
                   const count = cat === "ALL" ? submissions.length : submissions.filter((s) => s.formSlug === cat).length;
                   return (
                     <button
@@ -1543,9 +1548,15 @@ export default function AdminPage() {
                         <tr key={sub.id} className="hover:bg-slate-50/80 transition">
                           <td className="py-3 px-4 font-mono font-bold text-slate-900">{sub.id}</td>
                           <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
-                              {sub.formSlug}
-                            </span>
+                            {sub.formSlug === "chatbot" ? (
+                              <span className="px-2.5 py-1 rounded-full bg-cyan-50 text-[#1E2A3A] font-bold inline-flex items-center gap-1 border border-cyan-200">
+                                💬 Chatbot Danışma
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                                {formsList.find((f) => f.slug === sub.formSlug)?.title || sub.formSlug}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-900">{sub.data.fullName || "İsimsiz"}</div>
@@ -2623,7 +2634,9 @@ export default function AdminPage() {
                   {selectedSubmission.id}
                 </span>
                 <h3 className="text-xl font-bold text-[#1E2A3A]">
-                  Talep Detayı: {selectedSubmission.formSlug}
+                  {selectedSubmission.formSlug === "chatbot"
+                    ? "💬 Canlı Chatbot Danışma & Sohbet Kaydı"
+                    : `Talep Detayı: ${formsList.find((f) => f.slug === selectedSubmission.formSlug)?.title || selectedSubmission.formSlug}`}
                 </h3>
                 <span className="text-xs text-slate-400">
                   {new Date(selectedSubmission.createdAt).toLocaleString("tr-TR")}
@@ -2637,13 +2650,46 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Chatbot Özel Sohbet Geçmişi */}
+            {Array.isArray(selectedSubmission.data?.chatHistory) && selectedSubmission.data.chatHistory.length > 0 && (
+              <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-[#44B9CD]/30 space-y-3">
+                <h4 className="text-xs font-bold text-[#1E2A3A] uppercase tracking-wider flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-[#44B9CD]" />
+                  <span>Chatbot Canlı Sohbet Dökümü ({selectedSubmission.data.chatHistory.length} Mesaj)</span>
+                </h4>
+                <div className="space-y-2.5 max-h-72 overflow-y-auto p-3 bg-white rounded-xl border border-slate-200/80">
+                  {selectedSubmission.data.chatHistory.map((m: any, idx: number) => {
+                    const isUser = m.sender === "user";
+                    return (
+                      <div key={idx} className={`flex gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`p-3 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
+                            isUser
+                              ? "bg-[#1E2A3A] text-white rounded-tr-xs"
+                              : "bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/60"
+                          }`}
+                        >
+                          <div className={`text-[10px] mb-1 font-bold ${isUser ? "text-[#44B9CD]" : "text-slate-500"}`}>
+                            {isUser ? "👤 Ziyaretçi" : "🤖 Kalem Asistan"} {m.time ? `(${m.time})` : ""}
+                          </div>
+                          <div className="whitespace-pre-line">{m.text}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Doldurulan Alanlar */}
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Müşteri Yanıtları &amp; Başvuru Bilgileri
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-                {Object.entries(selectedSubmission.data || {}).map(([key, val]: [string, any]) => {
+                {Object.entries(selectedSubmission.data || {})
+                  .filter(([key]) => key !== "chatHistory")
+                  .map(([key, val]: [string, any]) => {
                   const matchingForm = formsList.find((f) => f.slug === selectedSubmission.formSlug);
                   const matchingField = matchingForm?.fields?.find((f: any) => f.name === key);
                   const displayLabel = matchingField?.label || key;
@@ -2651,7 +2697,7 @@ export default function AdminPage() {
                   return (
                     <div key={key} className="space-y-1 bg-white p-3 rounded-xl border border-slate-200/70">
                       <span className="text-slate-400 text-[11px] font-bold block">{displayLabel}</span>
-                      <p className="font-semibold text-slate-900 break-words">{String(val || "-")}</p>
+                      <p className="font-semibold text-slate-900 break-words whitespace-pre-line">{String(val || "-")}</p>
                     </div>
                   );
                 })}

@@ -11,6 +11,7 @@ import {
   getTranslatedOption,
   getFormUIStrings,
 } from "@/lib/formTranslations";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -213,6 +214,10 @@ export default function ServicesPage({
     "haricte-isleme": "haricte",
     antrepo: "antrepo",
     transit: "transit",
+    "serbest-bolge": "serbestBolge",
+    danismanlik: "danismanlik",
+    hukuk: "hukuk",
+    sigorta: "sigorta",
   };
 
   const getServiceTitle = (service: ServiceItem) => {
@@ -271,7 +276,7 @@ export default function ServicesPage({
     }
   }, [initialQuoteForm]);
 
-  // URL hash (#teklif, #randevu, #randevu-teklif) yumuşak kaydırma
+  // URL hash (#teklif, #randevu, #randevu-teklif) ve ?service= parametresi
   useEffect(() => {
     const handleHash = () => {
       if (typeof window === "undefined") return;
@@ -290,10 +295,31 @@ export default function ServicesPage({
       }
     };
 
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const serviceParam = urlParams.get("service");
+      if (serviceParam) {
+        const matched = currentServices.find(
+          (s) => s.slug === serviceParam || s.title.toLowerCase() === serviceParam.toLowerCase()
+        );
+        if (matched) {
+          const matchedTitle = getServiceTitle(matched);
+          setFormData((prev) => ({
+            ...prev,
+            operationType: matchedTitle,
+          }));
+          setTimeout(() => {
+            const el = document.getElementById("randevu-teklif");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 250);
+        }
+      }
+    }
+
     handleHash();
     window.addEventListener("hashchange", handleHash);
     return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
+  }, [currentServices]);
 
   const filteredServices = currentServices.filter((service) => {
     const title = getServiceTitle(service);
@@ -401,6 +427,7 @@ export default function ServicesPage({
           formData,
           files: uploadedFiles,
           honeypot: formData.honeypot,
+          lang: language,
         }),
       });
 
@@ -472,9 +499,7 @@ export default function ServicesPage({
               </a>
 
               <a
-                href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                  companyInfo.whatsappDefaultMessage
-                )}`}
+                href={getWhatsAppUrl({ type: "general", lang: language })}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] flex items-center gap-1.5"
@@ -600,11 +625,13 @@ export default function ServicesPage({
                       </Link>
 
                       <div className="flex items-center gap-1.5">
-                        {/* 2. WhatsApp'a Yönlendirme */}
+                        {/* 2. WhatsApp'a Yönlendirme (Seçili Dilde Dinamik Mesaj) */}
                         <a
-                          href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                            `Merhaba Kalem Gümrük, ${title} hizmetiniz hakkında hızlı teklif ve bilgi almak istiyorum.`
-                          )}`}
+                          href={getWhatsAppUrl({
+                            type: "service",
+                            lang: language,
+                            serviceTitle: title,
+                          })}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white text-[11px] font-bold transition-all"
@@ -701,9 +728,7 @@ export default function ServicesPage({
                         {t.contactForm.waTitle}
                       </div>
                       <a
-                        href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                          companyInfo.whatsappDefaultMessage
-                        )}`}
+                        href={getWhatsAppUrl({ type: "general", lang: language })}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs sm:text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -817,7 +842,29 @@ export default function ServicesPage({
                     </div>
                   )}
 
-                  <div className="pt-2">
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                    <a
+                      href={getWhatsAppUrl({
+                        type: "quote_followup",
+                        lang: language,
+                        refCode,
+                        serviceTitle: formData.operationType,
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>
+                        {language === "en"
+                          ? "Notify Broker on WhatsApp"
+                          : language === "ar"
+                          ? "إشعار المستشار عبر الواتساب"
+                          : language === "es"
+                          ? "Notificar por WhatsApp"
+                          : "WhatsApp'tan Müşavire Bildir"}
+                      </span>
+                    </a>
                     <button
                       type="button"
                       onClick={resetForm}

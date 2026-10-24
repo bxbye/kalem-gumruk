@@ -3,8 +3,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getServiceBySlug, getAllServices } from "@/lib/services";
 import { companyInfo } from "@/data/company";
-import { CheckCircle2, Phone, MessageSquare, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Phone, MessageSquare, ShieldCheck, FileText } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
+import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 
 interface Props {
   params: Promise<{ slug: string; lang: string }>;
@@ -106,6 +107,13 @@ export default async function ServiceDetailPage({ params }: Props) {
     : isEs
     ? "Consulte Directamente con Nuestro Agente de Aduanas"
     : "Gümrük Müşavirimiz ile Doğrudan Görüşün";
+  const quoteBtnText = isEn
+    ? "Request a Quote"
+    : isAr
+    ? "طلب عرض سعر"
+    : isEs
+    ? "Solicitar Cotización"
+    : "Fiyat Teklifi Al";
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
@@ -227,24 +235,33 @@ export default async function ServiceDetailPage({ params }: Props) {
                 {consultantBtn}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <a
-                href={`tel:${companyInfo.phoneRaw}`}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1E2A3A] text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link
+                href={`/${lang}/hizmetlerimiz?service=${service.slug}#randevu-teklif`}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-[#44B9CD] hover:bg-[#3597a8] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
               >
-                <Phone className="w-3.5 h-3.5 text-[#44B9CD]" />
-                <span dir="ltr">{companyInfo.phone}</span>
-              </a>
+                <FileText className="w-3.5 h-3.5" />
+                <span>{quoteBtnText}</span>
+              </Link>
               <a
-                href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
-                  `Merhaba, ${service.title} hakkında detaylı bilgi ve teklif almak istiyorum.`
-                )}`}
+                href={getWhatsAppUrl({
+                  type: "service",
+                  lang,
+                  serviceTitle: service.title,
+                })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-500 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>WhatsApp</span>
+              </a>
+              <a
+                href={`tel:${companyInfo.phoneRaw}`}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5 text-[#44B9CD]" />
+                <span dir="ltr">{companyInfo.phone}</span>
               </a>
             </div>
           </div>
