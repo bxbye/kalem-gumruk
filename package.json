@@ -6,13 +6,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "start": "next start"
+    "build:worker": "opennextjs-cloudflare build",
+    "start": "next start",
+    "deploy": "opennextjs-cloudflare deploy"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.13",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",
@@ -33,6 +36,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "drizzle-kit": "^0.31.11"
+    "drizzle-kit": "^0.31.11",
+    "wrangler": "^4.152.0"
   }
 }
