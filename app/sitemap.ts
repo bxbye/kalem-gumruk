@@ -3,6 +3,8 @@ import { getAllServices } from "@/lib/services";
 import { getAllSirkuler } from "@/lib/sirkuler";
 import { availableLanguages } from "@/data/translations";
 
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://kalemgumruk.com";
   const currentDate = new Date();

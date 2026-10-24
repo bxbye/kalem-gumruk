@@ -1,0 +1,30 @@
+# Cloudflare Pages Redirects
+/   /tr   302
+
+# Hızlı Teklif Yönlendirmeleri
+/teklif   /tr/hizmetlerimiz#teklif   302
+/teklif-al   /tr/hizmetlerimiz#teklif   302
+
+# Eski WordPress ve Kısayol SEO 301 Yönlendirmeleri
+/ithalat-islemleri   /tr/hizmetlerimiz/ithalat   301
+/ihracat-islemleri   /tr/hizmetlerimiz/ihracat   301
+/dahilde-isleme-islemleri   /tr/hizmetlerimiz/dahilde-isleme   301
+/dahilde-ve-haricte-isleme-rejimi   /tr/hizmetlerimiz/dahilde-isleme   301
+/hizmetlerimiz/dahilde-haricte-isleme   /tr/hizmetlerimiz/dahilde-isleme   301
+/haricte-isleme-hizmetleri   /tr/hizmetlerimiz/haricte-isleme   301
+/antrepo-rejimi-islemleri   /tr/hizmetlerimiz/antrepo   301
+/antrepo-ve-transit-rejimi   /tr/hizmetlerimiz/antrepo   301
+/hizmetlerimiz/antrepo-transit   /tr/hizmetlerimiz/antrepo   301
+/transit-rejimi   /tr/hizmetlerimiz/transit   301
+/serbest-bolge-islemleri   /tr/hizmetlerimiz/serbest-bolge   301
+/danismanlik-hizmetleri   /tr/hizmetlerimiz/danismanlik   301
+/hukuk-hizmetleri   /tr/hizmetlerimiz/hukuk   301
+/sigorta-hizmetleri   /tr/hizmetlerimiz/sigorta   301
+/hakkimizda   /tr/kurumsal   301
+/iletisim   /tr/iletisim   301
+/sirkulerler   /tr/sirkuler   301
+/belgeler   /tr/belgeler   301
+/araclar   /tr/araclar   301
+/kariyer   /tr/kariyer   301
+/hizmetlerimiz   /tr/hizmetlerimiz   301
+/kurumsal   /tr/kurumsal   301
