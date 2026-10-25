@@ -6,21 +6,26 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Olası .env konumlarını sırayla kontrol et ve yükle
+// Monorepo ana dizini (Tek Doğruluk Kaynağı / Single Source of Truth)
 const backendDir = path.resolve(__dirname, "../..");
 const rootDir = path.resolve(backendDir, "..");
 const cwd = process.cwd();
 
-const envCandidates = [
-  path.join(backendDir, ".env"),
-  path.join(rootDir, ".env"),
-  path.join(cwd, "backend/.env"),
+// 1. Öncelikle kök dizindeki ana .env dosyasını yükle (en yüksek öncelik)
+const rootEnvPath = path.join(rootDir, ".env");
+if (fs.existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath, override: true });
+}
+
+// 2. Fallback: Proje kökünden farklı bir çalışma dizinindeyse (örn. backend dizini)
+const fallbackCandidates = [
   path.join(cwd, ".env"),
+  path.join(backendDir, ".env"),
 ];
 
-for (const envPath of envCandidates) {
-  if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
+for (const envPath of fallbackCandidates) {
+  if (fs.existsSync(envPath) && envPath !== rootEnvPath) {
+    dotenv.config({ path: envPath, override: false });
   }
 }
 
@@ -32,4 +37,10 @@ if (process.env.SMTP_PASS) {
   process.env.SMTP_PASS = process.env.SMTP_PASS.replace(/\s+/g, "").trim();
 }
 
-console.log(`[Env] Çevre değişkenleri yüklendi. (RESEND: ${process.env.RESEND_API_KEY ? "AKTİF" : "YOK"}, SMTP_USER: ${process.env.SMTP_USER || "YOK"}, RECEIVER: ${process.env.CONTACT_RECEIVER || "YOK"})`);
+console.log(
+  `[Env] Çevre değişkenleri yüklendi. (RESEND: ${
+    process.env.RESEND_API_KEY ? "AKTİF" : "YOK"
+  }, GÖNDERİCİ: ${process.env.RESEND_FROM || process.env.SMTP_USER || "YOK"}, ALICI: ${
+    process.env.CONTACT_RECEIVER || "YOK"
+  })`
+);
