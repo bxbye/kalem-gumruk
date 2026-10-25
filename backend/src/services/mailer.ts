@@ -19,6 +19,22 @@ export interface SendMailOptions {
   attachments?: MailAttachment[];
 }
 
+/**
+ * Gönderici (From) başlığını temizler ve formatlar:
+ * Çift açılı ayraçları <...<...>> engeller ve geçerli "Ad <email>" formatı üretir.
+ */
+function cleanSender(raw?: string, defaultSender?: string): string {
+  const fallback = defaultSender || process.env.RESEND_FROM?.trim() || "Kalem Gümrük <onboarding@resend.dev>";
+  const target = (raw || fallback).trim();
+  const emailMatch = target.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (!emailMatch) return target;
+
+  const email = emailMatch[1];
+  let name = target.split("<")[0].replace(/["']/g, "").trim();
+  if (!name) name = "Kalem Gümrük";
+  return `"${name}" <${email}>`;
+}
+
 export function getMailer(): Transporter | null {
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || 465);
@@ -74,7 +90,8 @@ export async function sendEmailUnified(options: SendMailOptions): Promise<{ succ
   if (resendApiKey) {
     const defaultFrom = process.env.RESEND_FROM?.trim() || "Kalem Gümrük <onboarding@resend.dev>";
     // options.from @gmail.com içeriyorsa ve henüz özel domain doğrulanmadıysa defaultFrom kullan
-    const from = options.from && !options.from.includes("@gmail.com") ? options.from : defaultFrom;
+    const rawFrom = options.from && !options.from.includes("@gmail.com") ? options.from : defaultFrom;
+    const from = cleanSender(rawFrom, defaultFrom);
     const to = Array.isArray(options.to) ? options.to : [options.to];
 
     const attachments = options.attachments
