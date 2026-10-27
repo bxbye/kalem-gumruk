@@ -273,11 +273,12 @@ export default function ReferencesSection() {
 
   // Veritabanından dinamik referansları çek ve sembolleriyle eşle
   useEffect(() => {
-    fetch("/api/admin/references")
+    fetch("/api/public/references")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          const activeRefs = data.items.filter((r: any) => r.isActive !== 0 && r.isActive !== false);
+        const items = data.references || data.items;
+        if (data.success && Array.isArray(items) && items.length > 0) {
+          const activeRefs = items.filter((r: any) => r.isActive !== 0 && r.isActive !== false);
           if (activeRefs.length > 0) {
             const mapped: ReferenceClient[] = activeRefs.map((item: any, idx: number) => {
               return {

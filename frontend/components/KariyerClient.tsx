@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import HumanVerification from "./HumanVerification";
 import { companyInfo } from "@/data/company";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -151,6 +152,8 @@ export default function KariyerClient({
   const [fileUploading, setFileUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
+  const [challengeAnswer, setChallengeAnswer] = useState("");
   const [successInfo, setSuccessInfo] = useState<{
     refCode: string;
     message: string;
@@ -248,6 +251,10 @@ export default function KariyerClient({
       setErrorMsg(c.form.errors.kvkkRequired);
       return;
     }
+    if (!challengeAnswer.trim()) {
+      setErrorMsg("Lütfen güvenlik doğrulamasını (insan doğrulaması) yanıtlayınız.");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -255,11 +262,15 @@ export default function KariyerClient({
       const payload = {
         formData: {
           ...formData,
+          challengeToken,
+          challengeAnswer,
           cvFile: uploadedFiles[0]?.name || formData.cvFile || "",
-          uploadedFilesSummary: uploadedFiles.map((f) => f.name).join(", "),
         },
         files: uploadedFiles,
         honeypot: formData.honeypot,
+        challengeToken,
+        challengeAnswer,
+        kvkkConsent: formData.kvkkConsent,
       };
 
       const res = await fetch(`/api/forms/${form.slug || "kariyer-staj"}`, {
@@ -702,6 +713,21 @@ export default function KariyerClient({
                       </div>
                     );
                   })}
+                </div>
+
+                {/* İnsan Doğrulaması (Anti-Bot Challenge - Dev ve Prod Tam Uyumlu) */}
+                <div className="pt-2">
+                  <HumanVerification
+                    label="Güvenlik Doğrulaması (İnsan Doğrulaması)"
+                    placeholder="Sonuç"
+                    refreshText="Yenile"
+                    value={challengeAnswer}
+                    onChange={(tok, ans) => {
+                      setChallengeToken(tok);
+                      setChallengeAnswer(ans);
+                    }}
+                    isRTL={isRTL}
+                  />
                 </div>
 
                 {/* KVKK Onay Kutusu */}

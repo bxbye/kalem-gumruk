@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SirkulerItem } from "@/lib/sirkuler";
+import { GerekliBaglanti } from "@/lib/baglantilar";
 import CircularsVerticalTicker from "./CircularsVerticalTicker";
 import ExchangeRatesWidget from "./ExchangeRatesWidget";
 import QuickLinksWidget from "./QuickLinksWidget";
@@ -10,9 +11,10 @@ import { BookOpen, ArrowRight, TrendingUp } from "lucide-react";
 
 interface CircularsCarouselProps {
   items: SirkulerItem[];
+  initialLinks?: GerekliBaglanti[];
 }
 
-export default function CircularsCarousel({ items }: CircularsCarouselProps) {
+export default function CircularsCarousel({ items, initialLinks }: CircularsCarouselProps) {
   const { t, isRTL, localePath } = useLanguage();
   const dw = t.deskWidgets;
 
@@ -79,7 +81,7 @@ export default function CircularsCarousel({ items }: CircularsCarouselProps) {
                 <ExchangeRatesWidget compact={true} />
               </div>
               <div className="h-[262px]">
-                <QuickLinksWidget />
+                <QuickLinksWidget initialLinks={initialLinks} />
               </div>
             </div>
           </div>

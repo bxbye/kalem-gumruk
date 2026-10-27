@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Star, Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import HumanVerification from "./HumanVerification";
 import { useLanguage } from "@/context/LanguageContext";
 
 interface FeedbackItem {
@@ -27,6 +28,11 @@ export default function DegerlendirmePage() {
   const [rating, setRating] = useState(5);
   const [serviceType, setServiceType] = useState(f.serviceOptions[0] || "İthalat Gümrükleme");
   const [comment, setComment] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [kvkkConsent, setKvkkConsent] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [challengeAnswer, setChallengeAnswer] = useState("");
+  const formLoadedAtRef = useRef<number>(Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -50,6 +56,17 @@ export default function DegerlendirmePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!kvkkConsent) {
+      setResult({ success: false, message: "Lütfen KVKK onay kutusunu işaretleyiniz." });
+      return;
+    }
+
+    if (!challengeAnswer.trim()) {
+      setResult({ success: false, message: "Lütfen güvenlik doğrulamasını (insan doğrulaması) yanıtlayınız." });
+      return;
+    }
+
     setSubmitting(true);
     setResult(null);
 
@@ -63,6 +80,11 @@ export default function DegerlendirmePage() {
           rating,
           serviceType,
           comment,
+          honeypot,
+          kvkkConsent,
+          challengeToken,
+          challengeAnswer,
+          formLoadedAt: formLoadedAtRef.current,
         }),
       });
 
@@ -73,6 +95,7 @@ export default function DegerlendirmePage() {
         setCompany("");
         setComment("");
         setRating(5);
+        setKvkkConsent(false);
       } else {
         setResult({ success: false, message: data.error || f.errorMsg });
       }
@@ -214,6 +237,47 @@ export default function DegerlendirmePage() {
                   placeholder={f.commentPlaceholder}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD] transition resize-none"
                 />
+              </div>
+
+              {/* Honeypot Spam Koruması */}
+              <input
+                type="text"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+
+              {/* İnsan Doğrulaması (Anti-Bot Challenge) */}
+              <div className="pt-1">
+                <HumanVerification
+                  label="Güvenlik Doğrulaması (İnsan Doğrulaması)"
+                  placeholder="Sonuç"
+                  refreshText="Yenile"
+                  value={challengeAnswer}
+                  onChange={(tok, ans) => {
+                    setChallengeToken(tok);
+                    setChallengeAnswer(ans);
+                  }}
+                  isRTL={isRTL}
+                />
+              </div>
+
+              {/* KVKK Onay Kutusu */}
+              <div className="pt-1">
+                <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={kvkkConsent}
+                    onChange={(e) => setKvkkConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-[#44B9CD] border-slate-300 rounded focus:ring-[#44B9CD] accent-[#1E2A3A]"
+                  />
+                  <span className="leading-relaxed">
+                    6698 sayılı KVKK kapsamında değerlendirmemin ve iletişim bilgilerimin işlenmesini onaylıyorum. <span className="text-red-500">*</span>
+                  </span>
+                </label>
               </div>
 
               <button

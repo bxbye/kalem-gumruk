@@ -1,4 +1,6 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
+import path from "path";
+import fs from "fs";
 import { db } from "../db/index.js";
 import {
   sirkuler,
@@ -6,9 +8,23 @@ import {
   gerekliBaglantilar,
   references,
   siteSettings,
+  users,
 } from "../db/schema.js";
 import { eq, desc, asc } from "drizzle-orm";
 import { verifySmtp, sendTestEmail } from "../services/mailer.js";
+import {
+  authenticateRequest,
+  generateToken,
+  hashPassword,
+  verifyPassword,
+  type AuthenticatedRequest,
+} from "../services/auth.js";
+import {
+  listDatabaseBackups,
+  createDatabaseBackup,
+  restoreDatabaseBackup,
+  backupsDir,
+} from "../services/backup.js";
 
 export const adminRouter = Router();
 
@@ -32,17 +48,176 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function checkAdminPassword(req: any, res: any): boolean {
-  const password = req.body?.password || req.query?.password || req.headers["x-admin-password"];
-  const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-  if (password !== validPassword) {
-    res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+/**
+ * Kimlik ve Yetki Kontrolü
+ */
+async function authorize(
+  req: AuthenticatedRequest,
+  res: Response,
+  options?: { requiredPermission?: string; requireAdmin?: boolean }
+): Promise<boolean> {
+  const user = await authenticateRequest(req);
+  if (!user) {
+    res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız veya geçerli şifre giriniz." });
     return false;
   }
+  req.user = user;
+
+  // 1. DELETE metodunda Editör kesinlikle engellenir
+  if (req.method === "DELETE") {
+    if (user.role !== "ADMIN" || user.permissions?.canDelete === false) {
+      res.status(403).json({
+        error: "Yetkisiz işlem: Editör kullanıcıları kayıt silme işlemi yapamaz. Silme yetkisi yalnızca Sistem Yöneticisine (Admin) aittir.",
+      });
+      return false;
+    }
+  }
+
+  // 2. Sadece Admin'e özel alanlar
+  if (options?.requireAdmin && user.role !== "ADMIN") {
+    res.status(403).json({
+      error: "Yetkisiz işlem: Bu alana yalnızca Sistem Yöneticisi (Admin) erişebilir.",
+    });
+    return false;
+  }
+
+  // 3. Özel yetki kontrolü
+  if (options?.requiredPermission && user.role !== "ADMIN") {
+    const hasPerm = Boolean(user.permissions?.[options.requiredPermission]);
+    if (!hasPerm) {
+      res.status(403).json({
+        error: `Yetkisiz işlem: '${options.requiredPermission}' yetkiniz bulunmamaktadır.`,
+      });
+      return false;
+    }
+  }
+
   return true;
 }
 
-// ==================== 1. SIRKÜLER ====================
+// ==================== 0. KİMLİK DOĞRULAMA (AUTH) ====================
+
+/**
+ * Giriş Yap (Hem Kullanıcı Adı + Şifre, hem de tek şifre ile giriş desteklenir)
+ */
+adminRouter.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    const cleanPass = String(password || "").trim();
+    const cleanUser = String(username || "").trim();
+
+    if (!cleanPass) {
+      return res.status(400).json({ error: "Lütfen şifrenizi giriniz." });
+    }
+
+    const adminEnvPass = (process.env.ADMIN_PASSWORD || "kalem1997").trim();
+    const editorEnvPass = (process.env.EDITOR_PASSWORD || "editor1997").trim();
+
+    // 1. Veritabanındaki kullanıcıları kontrol et
+    let matchedUser: any = null;
+    const dbUsers = await db.select().from(users).where(eq(users.isActive, true)).all();
+
+    if (cleanUser) {
+      const userRecord = dbUsers.find((u) => u.username.toLowerCase() === cleanUser.toLowerCase());
+      if (userRecord && verifyPassword(cleanPass, userRecord.passwordHash)) {
+        matchedUser = userRecord;
+      }
+    } else {
+      // Kullanıcı adı verilmemişse şifreye göre eşleştir
+      for (const u of dbUsers) {
+        if (verifyPassword(cleanPass, u.passwordHash)) {
+          matchedUser = u;
+          break;
+        }
+      }
+    }
+
+    if (matchedUser) {
+      let parsedPerms = {};
+      try {
+        parsedPerms = JSON.parse(matchedUser.permissions || "{}");
+      } catch {
+        parsedPerms = {};
+      }
+
+      const session = {
+        id: matchedUser.id,
+        username: matchedUser.username,
+        role: matchedUser.role as "ADMIN" | "EDITOR",
+        name: matchedUser.name,
+        permissions: parsedPerms,
+      };
+
+      const token = generateToken(session);
+      return res.json({ success: true, token, user: session });
+    }
+
+    // 2. Fallback: ENV şifreleri ile eşleşme
+    if (cleanPass === adminEnvPass) {
+      const session = {
+        id: "env-admin",
+        username: "admin",
+        role: "ADMIN" as const,
+        name: "Sistem Yöneticisi (Admin)",
+        permissions: {
+          canEditServices: true,
+          canEditSirkuler: true,
+          canEditBaglantilar: true,
+          canEditReferences: true,
+          canEditForms: true,
+          canEditDocuments: true,
+          canManageSettings: true,
+          canManageUsers: true,
+          canManageBackups: true,
+          canDelete: true,
+        },
+      };
+      const token = generateToken(session);
+      return res.json({ success: true, token, user: session });
+    }
+
+    if (cleanPass === editorEnvPass) {
+      const session = {
+        id: "env-editor",
+        username: "editor",
+        role: "EDITOR" as const,
+        name: "Mevzuat & İçerik Editörü",
+        permissions: {
+          canEditServices: true,
+          canEditSirkuler: true,
+          canEditBaglantilar: true,
+          canEditReferences: true,
+          canEditForms: false,
+          canEditDocuments: true,
+          canManageSettings: false,
+          canManageUsers: false,
+          canManageBackups: false,
+          canDelete: false, // Editör silemez!
+        },
+      };
+      const token = generateToken(session);
+      return res.json({ success: true, token, user: session });
+    }
+
+    return res.status(401).json({ error: "Geçersiz kullanıcı adı veya şifre." });
+  } catch (error: any) {
+    console.error("[Admin Login Error]:", error);
+    return res.status(500).json({ error: "Giriş işlemi sırasında sunucu hatası oluştu." });
+  }
+});
+
+/**
+ * Mevcut oturum bilgilerini doğrula
+ */
+adminRouter.get("/me", async (req: AuthenticatedRequest, res) => {
+  const user = await authenticateRequest(req);
+  if (!user) {
+    return res.status(401).json({ error: "Oturum açılmamış." });
+  }
+  return res.json({ success: true, user });
+});
+
+// ==================== 1. SIRKÜLER & MEVZUAT ====================
 adminRouter.get("/sirkuler", async (_req, res) => {
   try {
     const list = await db.select().from(sirkuler).orderBy(desc(sirkuler.date)).all();
@@ -57,8 +232,8 @@ adminRouter.get("/sirkuler", async (_req, res) => {
   }
 });
 
-adminRouter.post("/sirkuler", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/sirkuler", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requiredPermission: "canEditSirkuler" }))) return;
   try {
     const {
       id,
@@ -84,7 +259,6 @@ adminRouter.post("/sirkuler", async (req, res) => {
     }
 
     const sirkulerSlug = slug ? slugify(slug) : slugify(title);
-
     const sirkulerId = id || `sirkuler-${Date.now()}`;
     const now = new Date();
 
@@ -141,22 +315,23 @@ adminRouter.post("/sirkuler", async (req, res) => {
   }
 });
 
-adminRouter.delete("/sirkuler", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.delete("/sirkuler", async (req: AuthenticatedRequest, res) => {
+  // Silme işlemini YALNIZCA Admin yapabilir
+  if (!(await authorize(req, res))) return;
   try {
     const id = (req.query.id as string) || req.body?.id;
     if (!id) return res.status(400).json({ error: "Silinecek sirküler ID belirtilmelidir." });
 
     await db.delete(sirkuler).where(eq(sirkuler.id, id));
-    return res.json({ success: true, message: "Sirküler silindi." });
+    return res.json({ success: true, message: "Sirküler başarıyla silindi." });
   } catch (error) {
     console.error("[Admin Sirkuler Delete Error]:", error);
     return res.status(500).json({ error: "Silme işlemi başarısız." });
   }
 });
 
-adminRouter.patch("/sirkuler/status", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.patch("/sirkuler/status", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requiredPermission: "canEditSirkuler" }))) return;
   try {
     const { id, isPublished } = req.body || {};
     if (!id) return res.status(400).json({ error: "Sirküler ID belirtilmelidir." });
@@ -185,8 +360,8 @@ adminRouter.get("/services", async (_req, res) => {
   }
 });
 
-adminRouter.post("/services", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/services", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requiredPermission: "canEditServices" }))) return;
   try {
     const {
       id,
@@ -214,7 +389,6 @@ adminRouter.post("/services", async (req, res) => {
         .replace(/-+/g, "-");
 
     const serviceId = id || `service-${serviceSlug}`;
-
     const existing = await db.select().from(services).where(eq(services.id, serviceId)).get();
 
     if (existing) {
@@ -257,8 +431,9 @@ adminRouter.post("/services", async (req, res) => {
   }
 });
 
-adminRouter.delete("/services", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.delete("/services", async (req: AuthenticatedRequest, res) => {
+  // Silme işlemini YALNIZCA Admin yapabilir
+  if (!(await authorize(req, res))) return;
   try {
     const id = (req.query.id as string) || req.body?.id;
     if (!id) return res.status(400).json({ error: "Silinecek hizmet ID belirtilmelidir." });
@@ -282,8 +457,8 @@ adminRouter.get("/baglantilar", async (_req, res) => {
   }
 });
 
-adminRouter.post("/baglantilar", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/baglantilar", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requiredPermission: "canEditBaglantilar" }))) return;
   try {
     const { id, title, shortTitle, category, url, image, description, tag, orderIndex, isActive } = req.body || {};
 
@@ -332,8 +507,9 @@ adminRouter.post("/baglantilar", async (req, res) => {
   }
 });
 
-adminRouter.delete("/baglantilar", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.delete("/baglantilar", async (req: AuthenticatedRequest, res) => {
+  // Silme işlemini YALNIZCA Admin yapabilir
+  if (!(await authorize(req, res))) return;
   try {
     const id = (req.query.id as string) || req.body?.id;
     if (!id) return res.status(400).json({ error: "Silinecek bağlantı ID belirtilmelidir." });
@@ -357,8 +533,8 @@ adminRouter.get("/references", async (_req, res) => {
   }
 });
 
-adminRouter.post("/references", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/references", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requiredPermission: "canEditReferences" }))) return;
   try {
     const { id, name, sector, description, logoUrl, orderIndex, isActive } = req.body || {};
 
@@ -401,8 +577,9 @@ adminRouter.post("/references", async (req, res) => {
   }
 });
 
-adminRouter.delete("/references", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.delete("/references", async (req: AuthenticatedRequest, res) => {
+  // Silme işlemini YALNIZCA Admin yapabilir
+  if (!(await authorize(req, res))) return;
   try {
     const id = (req.query.id as string) || req.body?.id;
     if (!id) return res.status(400).json({ error: "Silinecek referans ID belirtilmelidir." });
@@ -434,8 +611,9 @@ adminRouter.get("/settings", async (_req, res) => {
   }
 });
 
-adminRouter.post("/settings", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/settings", async (req: AuthenticatedRequest, res) => {
+  // Ayarları sadece Admin veya yetkilendirilmiş editör değiştirebilir
+  if (!(await authorize(req, res, { requiredPermission: "canManageSettings" }))) return;
   try {
     const { settings } = req.body || {};
     if (!settings) return res.status(400).json({ error: "Ayarlar verisi eksik." });
@@ -463,9 +641,185 @@ adminRouter.post("/settings", async (req, res) => {
   }
 });
 
-// ==================== 6. SMTP TEST & SAĞLIK ====================
-adminRouter.get("/smtp-status", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+// ==================== 6. KULLANICI VE YETKİ YÖNETİMİ (ADMIN ONLY) ====================
+adminRouter.get("/users", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const userList = await db.select().from(users).orderBy(asc(users.createdAt)).all();
+    const safeUsers = userList.map((u) => {
+      let perms = {};
+      try {
+        perms = JSON.parse(u.permissions || "{}");
+      } catch {
+        perms = {};
+      }
+      return {
+        id: u.id,
+        username: u.username,
+        name: u.name,
+        role: u.role,
+        permissions: perms,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+      };
+    });
+    return res.json({ success: true, users: safeUsers });
+  } catch (error) {
+    console.error("[Admin Users List Error]:", error);
+    return res.status(500).json({ error: "Kullanıcılar listelenemedi." });
+  }
+});
+
+adminRouter.post("/users", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const { id, username, password, name, role, permissions, isActive } = req.body || {};
+
+    if (!username || !name) {
+      return res.status(400).json({ error: "Kullanıcı adı ve Ad Soyad alanları zorunludur." });
+    }
+
+    const cleanUser = String(username).trim().toLowerCase();
+    const userId = id || `user-${Date.now()}`;
+    const userRole = (role === "ADMIN" ? "ADMIN" : "EDITOR") as "ADMIN" | "EDITOR";
+
+    // Editörlerin silme yetkisi KESİNLİKLE false olmalıdır
+    const parsedPerms = typeof permissions === "object" ? { ...permissions } : {};
+    if (userRole === "EDITOR") {
+      parsedPerms.canDelete = false; // Güvenlik garantisi
+    }
+
+    const existing = await db.select().from(users).where(eq(users.id, userId)).get();
+
+    if (existing) {
+      const updateData: any = {
+        username: cleanUser,
+        name,
+        role: userRole,
+        permissions: JSON.stringify(parsedPerms),
+        isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
+        updatedAt: new Date(),
+      };
+      if (password && String(password).trim().length >= 4) {
+        updateData.passwordHash = hashPassword(String(password).trim());
+      }
+
+      await db.update(users).set(updateData).where(eq(users.id, userId));
+      return res.json({ success: true, message: "Kullanıcı başarıyla güncellendi." });
+    } else {
+      if (!password || String(password).trim().length < 4) {
+        return res.status(400).json({ error: "Yeni kullanıcı için en az 4 karakterli bir şifre belirleyiniz." });
+      }
+
+      // Kullanıcı adı benzersizlik kontrolü
+      const duplicate = await db.select().from(users).where(eq(users.username, cleanUser)).get();
+      if (duplicate) {
+        return res.status(400).json({ error: "Bu kullanıcı adı zaten kullanımda." });
+      }
+
+      await db.insert(users).values({
+        id: userId,
+        username: cleanUser,
+        passwordHash: hashPassword(String(password).trim()),
+        name,
+        role: userRole,
+        permissions: JSON.stringify(parsedPerms),
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      return res.json({ success: true, message: "Yeni kullanıcı başarıyla eklendi.", id: userId });
+    }
+  } catch (error: any) {
+    console.error("[Admin Users Save Error]:", error);
+    return res.status(500).json({ error: error?.message || "Kullanıcı kaydedilemedi." });
+  }
+});
+
+adminRouter.delete("/users", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const id = (req.query.id as string) || req.body?.id;
+    if (!id) return res.status(400).json({ error: "Silinecek kullanıcı ID belirtilmelidir." });
+
+    if (req.user?.id === id) {
+      return res.status(400).json({ error: "Kendi yönetici hesabınızı silemezsiniz." });
+    }
+
+    await db.delete(users).where(eq(users.id, id));
+    return res.json({ success: true, message: "Kullanıcı silindi." });
+  } catch (error) {
+    console.error("[Admin Users Delete Error]:", error);
+    return res.status(500).json({ error: "Kullanıcı silinemedi." });
+  }
+});
+
+// ==================== 7. YEDEKLEME VE GERİ YÜKLEME (BACKUPS - ADMIN ONLY) ====================
+adminRouter.get("/backups", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const backups = await listDatabaseBackups();
+    return res.json({ success: true, backups });
+  } catch (error: any) {
+    console.error("[Admin Backups List Error]:", error);
+    return res.status(500).json({ error: "Yedekler listelenemedi." });
+  }
+});
+
+adminRouter.post("/backups/create", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const note = req.body?.note || "Yönetici paneli üzerinden manuel alındı";
+    const backup = await createDatabaseBackup("MANUAL", note);
+    return res.json({
+      success: true,
+      message: `Veritabanı yedeği başarıyla oluşturuldu: ${backup.filename}`,
+      backup,
+    });
+  } catch (error: any) {
+    console.error("[Admin Backup Create Error]:", error);
+    return res.status(500).json({ error: error?.message || "Yedek alınamadı." });
+  }
+});
+
+adminRouter.post("/backups/restore", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const { filename } = req.body || {};
+    if (!filename) {
+      return res.status(400).json({ error: "Geri yüklenecek yedek dosya adı belirtilmelidir." });
+    }
+
+    const result = await restoreDatabaseBackup(filename);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("[Admin Backup Restore Error]:", error);
+    return res.status(500).json({ error: error?.message || "Geri yükleme başarısız." });
+  }
+});
+
+adminRouter.get("/backups/download/:filename", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res, { requireAdmin: true }))) return;
+  try {
+    const target = path.basename(String(req.params.filename));
+    const absPath = path.join(backupsDir, target);
+
+    if (!fs.existsSync(absPath)) {
+      return res.status(404).json({ error: "Yedek dosyası sunucuda bulunamadı." });
+    }
+
+    res.download(absPath, target);
+  } catch (error: any) {
+    console.error("[Admin Backup Download Error]:", error);
+    return res.status(500).json({ error: "Dosya indirilemedi." });
+  }
+});
+
+// ==================== 8. SMTP TEST & SAĞLIK ====================
+adminRouter.get("/smtp-status", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   const status = await verifySmtp();
   return res.json({
     success: status.ok,
@@ -479,8 +833,8 @@ adminRouter.get("/smtp-status", async (req, res) => {
   });
 });
 
-adminRouter.post("/test-email", async (req, res) => {
-  if (!checkAdminPassword(req, res)) return;
+adminRouter.post("/test-email", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   const targetEmail = req.body?.targetEmail || process.env.CONTACT_RECEIVER;
   const result = await sendTestEmail(targetEmail);
   return res.json(result);

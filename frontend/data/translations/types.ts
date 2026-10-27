@@ -65,6 +65,7 @@ export interface Translations {
   };
   stats: {
     founded: { label: string; value: string };
+    compliance?: { label: string; value: string };
     experience: { label: string; value: string };
     intacRate: { label: string; value: string };
     support: { label: string; value: string };
@@ -186,6 +187,10 @@ export interface Translations {
     defaultSuccessMsg: string;
     newMsgBtn: string;
     kvkkNotice: string;
+    kvkkConsentLabel: string;
+    kvkkRequiredMsg: string;
+    humanVerificationLabel: string;
+    humanVerificationPlaceholder: string;
     errorMsg: string;
     connectionError: string;
   };
@@ -393,6 +398,7 @@ export interface Translations {
     customsSaleLabel: string;
     goldSaleLabel: string;
     caratLabel: string;
+    crossRateTitle: string;
     bulletinPrefix: string;
     currentLabel: string;
     todayLabel: string;

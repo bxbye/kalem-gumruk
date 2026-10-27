@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import HizmetlerClient from "@/components/HizmetlerClient";
-import { getAllServices } from "@/lib/services";
+import { getAllServicesAsync } from "@/lib/services";
 import { availableLanguages } from "@/data/translations";
 
 export function generateStaticParams() {
@@ -26,12 +26,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : "Gümrük Müşavirliği Hizmetlerimiz | İthalat, İhracat & Danışmanlık";
 
   const description = isEn
-    ? "Authorized customs brokerage solutions since 1997 for import, export, bonded warehousing, inward processing, and free trade zones."
+    ? "Authorized customs brokerage solutions with 25+ years expertise for import, export, bonded warehousing, inward processing, and free trade zones."
     : isAr
-    ? "حلول التخليص الجمركي المعتمدة منذ 1997 في عمليات الاستيراد والتصدير والمستودعات الجمركية والمناطق الحرة."
+    ? "حلول التخليص الجمركي المعتمدة بخبرة تتجاوز 25 عاماً في عمليات الاستيراد والتصدير والمستودعات الجمركية والمناطق الحرة."
     : isEs
-    ? "Soluciones autorizadas de despacho aduanero desde 1997 para importación, exportación, depósito aduanero y zonas francas."
-    : "İthalat, ihracat, dahilde ve hariçte işleme rejimi, antrepo, transit ve serbest bölge işlemlerinde 1997'den bugüne yetkili gümrük müşavirliği çözümleri.";
+    ? "Soluciones autorizadas de despacho aduanero con más de 25 años de experiencia para importación, exportación, depósito aduanero y zonas francas."
+    : "İthalat, ihracat, dahilde ve hariçte işleme rejimi, antrepo, transit ve serbest bölge işlemlerinde 25 yılı aşkın tecrübeyle yetkili gümrük müşavirliği çözümleri.";
 
   return {
     title,
@@ -59,7 +59,7 @@ const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0
 async function getQuoteFormData() {
   try {
     const res = await fetch(`${BACKEND_INTERNAL_URL}/api/forms/fiyat-teklifi`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -72,7 +72,7 @@ async function getQuoteFormData() {
 
 export default async function HizmetlerimizPage({ params }: Props) {
   const { lang } = await params;
-  const services = getAllServices(lang);
+  const services = await getAllServicesAsync(lang);
   const quoteForm = await getQuoteFormData();
 
   return <HizmetlerClient initialServices={services} initialQuoteForm={quoteForm} />;

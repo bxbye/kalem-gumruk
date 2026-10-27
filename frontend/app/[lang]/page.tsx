@@ -5,6 +5,8 @@ import ServicesCarousel from "@/components/ServicesCarousel";
 import CircularsCarousel from "@/components/CircularsCarousel";
 import ReferencesSection from "@/components/ReferencesSection";
 import { getAllSirkulerAsync } from "@/lib/sirkuler";
+import { getAllServicesAsync } from "@/lib/services";
+import { getAllGerekliBaglantilarAsync } from "@/lib/baglantilar";
 import { availableLanguages } from "@/data/translations";
 
 export const dynamic = "force-dynamic";
@@ -24,20 +26,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isEs = lang === "es";
 
   const title = isEn
-    ? "Kalem Customs Brokerage | Reliable Foreign Trade Solutions Since 1997"
+    ? "Kalem Customs Brokerage | Reliable Foreign Trade Solutions"
     : isAr
-    ? "شركة قلم للتخليص الجمركي | حلول التجارة الخارجية الموثوقة منذ عام 1997"
+    ? "شركة قلم للتخليص الجمركي | حلول التجارة الخارجية الموثوقة"
     : isEs
-    ? "Kalem Despacho de Aduanas | Soluciones Confiables de Comercio Exterior desde 1997"
-    : "Kalem Gümrük Müşavirliği | 1997'den Bugüne Güvenilir Dış Ticaret Çözümleri";
+    ? "Kalem Despacho de Aduanas | Soluciones Confiables de Comercio Exterior"
+    : "Kalem Gümrük Müşavirliği | Güvenilir Dış Ticaret Çözümleri";
 
   const description = isEn
-    ? "Authorized Customs Brokerage in Istanbul, Turkey since 1997. Import, export, bonded warehousing, inward processing, and Evrim digital tracking."
+    ? "Authorized Customs Brokerage in Istanbul, Turkey. Import, export, bonded warehousing, inward processing, and Evrim digital tracking."
     : isAr
-    ? "شركة تخليص جمركي معتمدة في إسطنبول منذ عام 1997. خدمات الاستيراد والتصدير والمستودعات الجمركية وتتبع المعاملات رقمياً."
+    ? "شركة تخليص جمركي معتمدة في إسطنبول. خدمات الاستيراد والتصدير والمستودعات الجمركية وتتبع المعاملات رقمياً."
     : isEs
-    ? "Agencia aduanera homologada en Estambul, Turquía desde 1997. Despachos de importación, exportación, depósito aduanero, perfeccionamiento y seguimiento digital."
-    : "1997 yılından bu yana İstanbul merkezli olarak yetkili gümrük müşavirliği, ithalat, ihracat, antrepo, DİR ve dijital gümrükleme (Evrim Web) çözümleri sunuyoruz.";
+    ? "Agencia aduanera homologada en Estambul, Turquía. Despachos de importación, exportación, depósito aduanero, perfeccionamiento y seguimiento digital."
+    : "25 yılı aşkın sektörel tecrübemizle İstanbul merkezli olarak yetkili gümrük müşavirliği, ithalat, ihracat, antrepo, DİR ve dijital gümrükleme (Evrim Web) çözümleri sunuyoruz.";
 
   return {
     title,
@@ -64,13 +66,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function HomePage({ params }: Props) {
   const { lang } = await params;
   const allSirkuler = await getAllSirkulerAsync(lang);
+  const allServices = await getAllServicesAsync(lang);
+  const allBaglantilar = await getAllGerekliBaglantilarAsync();
 
   return (
     <>
       <Hero />
       <StatsBar />
-      <ServicesCarousel />
-      <CircularsCarousel items={allSirkuler} />
+      <ServicesCarousel initialServices={allServices} />
+      <CircularsCarousel items={allSirkuler} initialLinks={allBaglantilar} />
       <ReferencesSection />
     </>
   );

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getServiceBySlug, getAllServices } from "@/lib/services";
+import { getServiceBySlugAsync, getAllServices } from "@/lib/services";
 import { companyInfo } from "@/data/company";
 import { CheckCircle2, Phone, MessageSquare, ShieldCheck, FileText } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
@@ -25,7 +25,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, lang } = await params;
-  const service = getServiceBySlug(slug, lang);
+  const service = await getServiceBySlugAsync(slug, lang);
   if (!service) return {};
 
   return {
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServiceDetailPage({ params }: Props) {
   const { slug, lang } = await params;
-  const service = getServiceBySlug(slug, lang);
+  const service = await getServiceBySlugAsync(slug, lang);
 
   if (!service) {
     notFound();

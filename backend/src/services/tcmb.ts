@@ -20,16 +20,15 @@ const FALLBACK_RATES: RatesResponse = {
   date: new Date().toLocaleDateString("tr-TR"),
   bulletinNo: "GÜNCEL",
   updatedAt: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-  source: "T.C. Merkez Bankası & Piyasa",
+  source: "T.C. Merkez Bankası",
   rates: [
-    { code: "GA", name: "Gram Altın", unit: 1, buying: 6385.4, selling: 6415.2 },
     { code: "USD", name: "Amerikan Doları", unit: 1, buying: 49.5647, selling: 49.654 },
     { code: "EUR", name: "Euro", unit: 1, buying: 54.123, selling: 54.2315 },
     { code: "GBP", name: "İngiliz Sterlini", unit: 1, buying: 63.854, selling: 64.195 },
     { code: "CHF", name: "İsviçre Frangı", unit: 1, buying: 56.452, selling: 56.784 },
     { code: "CNY", name: "Çin Yuanı", unit: 1, buying: 6.842, selling: 6.932 },
     { code: "JPY", name: "100 Japon Yeni", unit: 100, buying: 32.784, selling: 33.052 },
-    { code: "CAD", name: "Kanada Doları", unit: 1, buying: 35.84, mechanical: 36.12 } as any,
+    { code: "CAD", name: "Kanada Doları", unit: 1, buying: 35.84, selling: 36.12 },
     { code: "AUD", name: "Avustralya Doları", unit: 1, buying: 34.7, selling: 34.93 },
     { code: "RUB", name: "Rus Rublesi", unit: 1, buying: 0.512, selling: 0.528 },
   ],
@@ -107,29 +106,12 @@ export async function getExchangeRates(): Promise<RatesResponse> {
       }
     });
 
-    // Gram Altın Hesabı (Ons altın / 31.1034768 * USD alış/satış)
-    const usdRate = rates.find((r) => r.code === "USD");
-    let goldBuying = 6385.4;
-    let goldSelling = 6415.2;
-
-    if (usdRate && usdRate.buying > 0) {
-      const estimatedOnsUsd = 2860; // Tahmini baz ons
-      const gramUsd = estimatedOnsUsd / 31.1034768;
-      goldBuying = Number((gramUsd * usdRate.buying).toFixed(1));
-      goldSelling = Number((gramUsd * usdRate.selling * 1.01).toFixed(1));
-    }
-
-    const finalRates: CurrencyRate[] = [
-      { code: "GA", name: "Gram Altın", unit: 1, buying: goldBuying, selling: goldSelling },
-      ...rates,
-    ];
-
     cachedRates = {
       date: dateAttr,
       bulletinNo: bNoAttr,
       updatedAt: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
       source: "T.C. Merkez Bankası (TCMB)",
-      rates: finalRates,
+      rates,
     };
     lastFetchTime = now;
 

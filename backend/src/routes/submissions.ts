@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { formSubmissions } from "../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
+import { authenticateRequest } from "../services/auth.js";
 
 export const submissionsRouter = Router();
 
@@ -41,13 +42,12 @@ submissionsRouter.get("/", async (req, res) => {
 // Durum Güncelle ve Yönetici Notu Ekle (PATCH veya PUT)
 const updateSubmissionHandler = async (req: any, res: any) => {
   try {
-    const { password, id, status, adminNotes } = req.body || {};
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
 
+    const { id, status, adminNotes } = req.body || {};
     if (!id) {
       return res.status(400).json({ error: "Kayıt ID belirtilmelidir." });
     }
@@ -68,17 +68,21 @@ const updateSubmissionHandler = async (req: any, res: any) => {
 submissionsRouter.patch("/", updateSubmissionHandler);
 submissionsRouter.put("/", updateSubmissionHandler);
 
-// Kayıt Sil (DELETE)
+// Kayıt Sil (DELETE - YALNIZCA ADMIN)
 submissionsRouter.delete("/", async (req, res) => {
   try {
-    const id = (req.query.id as string) || req.body?.id;
-    const password = (req.query.password as string) || req.body?.password;
-
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
 
+    if (user.role !== "ADMIN" || user.permissions?.canDelete === false) {
+      return res.status(403).json({
+        error: "Yetkisiz işlem: Editör kullanıcıları başvuru kayıtlarını silemez. Silme yetkisi yalnızca Yöneticiye aittir.",
+      });
+    }
+
+    const id = (req.query.id as string) || req.body?.id;
     if (!id) {
       return res.status(400).json({ error: "Silinecek ID belirtilmelidir." });
     }

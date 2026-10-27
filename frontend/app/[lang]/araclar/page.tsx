@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import GerekliBaglantilarSection from "@/components/GerekliBaglantilarSection";
 import { translations, availableLanguages, Language } from "@/data/translations";
-import { getAllGerekliBaglantilar } from "@/lib/baglantilar";
+import { getAllGerekliBaglantilarAsync } from "@/lib/baglantilar";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -38,8 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function AraclarPage() {
-  const links = getAllGerekliBaglantilar();
+export default async function AraclarPage() {
+  const links = await getAllGerekliBaglantilarAsync();
   return (
     <div className="py-12 sm:py-16 bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

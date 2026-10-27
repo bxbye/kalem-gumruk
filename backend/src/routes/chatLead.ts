@@ -100,7 +100,7 @@ chatLeadRouter.post("/message", async (req, res) => {
         fullName: updatedContact || "Web Chatbot Ziyaretçisi",
         phone: detected.phone || "-",
         company: "-",
-        serviceType: "💬 Chatbot Danışma",
+        serviceType: "Chatbot Danışma",
         question: firstQuestion,
         message: formatMessagesText(currentMessages),
         chatHistory: currentMessages,
@@ -178,7 +178,7 @@ chatLeadRouter.post("/message", async (req, res) => {
         fullName: contactInfo || "Web Chatbot Ziyaretçisi",
         phone: detected.phone || "-",
         company: "-",
-        serviceType: "💬 Chatbot Danışma",
+        serviceType: "Chatbot Danışma",
         question: trimmedMessage,
         message: formatMessagesText(currentMessages),
         chatHistory: currentMessages,
@@ -232,6 +232,7 @@ chatLeadRouter.post("/", async (req, res) => {
       sessionId,
       refCode: clientRefCode,
       honeypot,
+      kvkkConsent,
       lang = "tr",
     } = req.body || {};
     const visitorLang = String(lang).toLowerCase();
@@ -239,6 +240,14 @@ chatLeadRouter.post("/", async (req, res) => {
     // Spam engelleme: Honeypot kontrolü
     if (honeypot) {
       return res.json({ success: true, message: "Talebiniz kaydedildi." });
+    }
+
+    // KVKK Onay Kontrolü (Form üzerinden isim ve telefon gönderiliyorsa zorunludur)
+    if (contactName || contactPhone) {
+      const isKvkk = kvkkConsent === true || kvkkConsent === "true" || kvkkConsent === 1;
+      if (!isKvkk) {
+        return res.status(400).json({ error: "Lütfen KVKK aydınlatma metnini onaylayınız." });
+      }
     }
 
     if (!sessionId && !contactInfo && !question && !contactName) {
@@ -307,7 +316,7 @@ chatLeadRouter.post("/", async (req, res) => {
       fullName: contactName || finalContactInfo,
       phone: contactPhone || "-",
       company: contactCompany || "-",
-      serviceType: "💬 Chatbot Danışma",
+      serviceType: "Chatbot Danışma",
       question: question || (allMessages.find((m: any) => m.sender === "user")?.text ?? "Gümrük Danışma"),
       message: formatMessagesText(allMessages),
       refCode,

@@ -2,31 +2,43 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { formSubmissions } from "../db/schema.js";
 import { sendContactEmail } from "../services/mailer.js";
+import { validateFormSpamGuard } from "../services/security.js";
 
 export const contactRouter = Router();
 
 contactRouter.post("/", async (req, res) => {
   try {
-    const { fullName, company, phone, email, serviceType, message, honeypot, formLoadedAt, lang = "tr" } = req.body || {};
+    const {
+      fullName,
+      company,
+      phone,
+      email,
+      serviceType,
+      message,
+      honeypot,
+      formLoadedAt,
+      challengeToken,
+      challengeAnswer,
+      kvkkConsent,
+      lang = "tr",
+    } = req.body || {};
     const visitorLang = String(lang).toLowerCase();
 
-    // 1. Spam Engelleme: Honeypot (Bot Tuzağı)
-    if (honeypot) {
-      console.warn(`[Anti-Spam] Honeypot tetiklendi, istek bot kabul edildi. IP: ${req.ip}`);
-      return res.json({ success: true, message: "İşlem başarılı." });
+    // 1. Kapsamlı Spam & İnsan Doğrulaması & KVKK Onayı
+    const spamCheck = await validateFormSpamGuard({
+      honeypot,
+      formLoadedAt,
+      challengeToken,
+      challengeAnswer,
+      kvkkConsent,
+      ip: req.ip,
+    });
+
+    if (!spamCheck.valid) {
+      return res.status(400).json({ error: spamCheck.reason || "Güvenlik denetimi başarısız oldu." });
     }
 
-    // 2. Spam Engelleme: Hızlı Gönderim Kontrolü (Time-trap)
-    if (formLoadedAt) {
-      const elapsedMs = Date.now() - Number(formLoadedAt);
-      if (elapsedMs < 1200) {
-        // Form 1.2 saniyeden kısa sürede doldurulamaz (insan davranışı olamaz)
-        console.warn(`[Anti-Spam] Form insan hızından çok hızlı dolduruldu (${elapsedMs}ms). Bot şüphesi.`);
-        return res.json({ success: true, message: "İşlem başarılı." });
-      }
-    }
-
-    // 3. Zorunlu Alan Kontrolü
+    // 2. Zorunlu Alan Kontrolü
     if (!fullName || !phone || !message) {
       return res.status(400).json({ error: "Lütfen zorunlu alanları (Ad Soyad, Telefon, Mesaj) doldurunuz." });
     }

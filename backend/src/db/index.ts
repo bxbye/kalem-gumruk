@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema.js";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { companyInfo } from "../data/company.js";
 import { gerekliBaglantilarData } from "../data/gerekliBaglantilar.js";
@@ -13,12 +14,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // backend/data dizini
-const dataDir = path.resolve(__dirname, "../../data");
+export const dataDir = path.resolve(__dirname, "../../data");
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const sqlitePath = path.join(dataDir, "kalem.sqlite");
+export const sqlitePath = path.join(dataDir, "kalem.sqlite");
 console.log(`[DB] SQLite veritabanı yolu: ${sqlitePath}`);
 
 export const sqlite = new Database(sqlitePath, { timeout: 30000 });
@@ -167,6 +168,28 @@ export function ensureDatabaseInitialized() {
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER
       );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'EDITOR',
+        permissions TEXT NOT NULL DEFAULT '{}',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER,
+        updated_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS database_backups (
+        id TEXT PRIMARY KEY,
+        filename TEXT UNIQUE NOT NULL,
+        filepath TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        backup_type TEXT NOT NULL DEFAULT 'AUTOMATIC',
+        note TEXT,
+        created_at INTEGER
+      );
     `);
 
     // 2. Başlangıç Hizmet Verilerini Yükle
@@ -266,8 +289,8 @@ export function ensureDatabaseInitialized() {
       insertForm.run(
         "form_fiyat_teklifi",
         "fiyat-teklifi",
-        "Hızlı Gümrükleme Fiyat Teklifi",
-        "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden 2 saat içinde özel teklif alın.",
+        "Fiyat Teklifi İsteme Formu",
+        "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden özel fiyat teklifi talep edin.",
         "quote",
         JSON.stringify([
           { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Örn: Ahmet Yılmaz" },
@@ -315,7 +338,7 @@ export function ensureDatabaseInitialized() {
             ]
           },
           { name: "gtipOrProduct", label: "GTİP No veya Eşya Tanımı", type: "text", required: false, placeholder: "Örn: 8471.30 veya Endüstriyel Elektronik Kart" },
-          { name: "message", label: "Sevkiyat ve Teklif Detayları", type: "textarea", required: true, placeholder: "Konteyner/koli adedi, çıkış ülkesi veya sormak istedikleriniz..." },
+          { name: "message", label: "Sevkiyat ve Fiyat Teklifi Detayları", type: "textarea", required: true, placeholder: "Konteyner/koli adedi, çıkış ülkesi veya sormak istedikleriniz..." },
           { name: "files", label: "Fatura / Konşimento / Çeki Listesi (Opsiyonel)", type: "file", required: false, helpText: "PDF, JPG veya PNG formatında yükleyebilirsiniz." }
         ]),
         JSON.stringify({
@@ -516,7 +539,7 @@ export function ensureDatabaseInitialized() {
           company: "Atlas Dış Ticaret A.Ş.",
           rating: 5,
           serviceType: "İthalat Gümrükleme",
-          comment: "1997 yılından beri çalıştığımız tek gümrük müşavirliği. Dijital arşivleme ve Evrim sistemi takipleri hızımıza hız katıyor.",
+          comment: "Uzun yıllardır birlikte çalıştığımız yetkili gümrük müşavirliği. Dijital arşivleme ve Evrim sistemi takipleri hızımıza hız katıyor.",
         },
         {
           id: "fb-2",
@@ -540,6 +563,74 @@ export function ensureDatabaseInitialized() {
         insertFb.run(fb.id, fb.fullName, fb.company, fb.rating, fb.serviceType, fb.comment, 1, Date.now());
       });
       console.log(`[DB Seed] ${defaultFeedbacks.length} onaylı müşteri değerlendirmesi eklendi.`);
+    }
+
+    // 9. Başlangıç Kullanıcılarını Oluştur (Admin & Editör)
+    const countUsers = sqlite.prepare("SELECT count(*) as count FROM users").get() as { count: number };
+    if (countUsers.count === 0) {
+      function quickHash(pw: string): string {
+        const salt = crypto.randomBytes(16).toString("hex");
+        const key = crypto.scryptSync(pw, salt, 64);
+        return `${salt}:${key.toString("hex")}`;
+      }
+
+      const insertUser = sqlite.prepare(`
+        INSERT OR IGNORE INTO users (id, username, password_hash, name, role, permissions, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const adminPassword = (process.env.ADMIN_PASSWORD || "kalem1997").trim();
+      const editorPassword = (process.env.EDITOR_PASSWORD || "editor1997").trim();
+
+      // 1. Yönetici Kullanıcısı (Tüm yetkiler açık)
+      insertUser.run(
+        "user-admin",
+        (process.env.ADMIN_USERNAME || "admin").trim(),
+        quickHash(adminPassword),
+        "Sistem Yöneticisi",
+        "ADMIN",
+        JSON.stringify({
+          canEditServices: true,
+          canEditSirkuler: true,
+          canEditBaglantilar: true,
+          canEditReferences: true,
+          canEditForms: true,
+          canEditDocuments: true,
+          canManageSettings: true,
+          canManageUsers: true,
+          canManageBackups: true,
+          canDelete: true,
+        }),
+        1,
+        Date.now(),
+        Date.now()
+      );
+
+      // 2. Editör Kullanıcısı (Ekleme ve Düzenleme yapabilir, ASLA SİLEMEZ)
+      insertUser.run(
+        "user-editor",
+        (process.env.EDITOR_USERNAME || "editor").trim(),
+        quickHash(editorPassword),
+        "Mevzuat & İçerik Editörü",
+        "EDITOR",
+        JSON.stringify({
+          canEditServices: true,
+          canEditSirkuler: true,
+          canEditBaglantilar: true,
+          canEditReferences: true,
+          canEditForms: false,
+          canEditDocuments: true,
+          canManageSettings: false,
+          canManageUsers: false,
+          canManageBackups: false,
+          canDelete: false, // Editör silme yapamaz!
+        }),
+        1,
+        Date.now(),
+        Date.now()
+      );
+
+      console.log("[DB Seed] Varsayılan 'admin' ve 'editor' kullanıcı hesapları oluşturuldu.");
     }
 
     isInitialized = true;

@@ -27,7 +27,7 @@ export const servicesData: ServiceItem[] = [
       "Verilen talimata göre bildirilen adrese eşya teslimi için nakliye organizasyonunun yapılması",
     ],
     detailedContent:
-      "İthalat rejimi, dış ticaretin en hassas ve maliyetli aşamalarından biridir. Kalem Gümrük Müşavirliği olarak 1997 yılından gelen saha tecrübemiz ve dijital takip altyapımızla, eşyanız limana veya sınıra gelmeden önce ön inceleme başlatır, olası gecikme ve ardiye masraflarını sıfıra indiririz. İthalat sürecindeki tüm mevzuat gerekliliklerini, izin belgelerini ve vergi hesaplarını titizlikle tamamlıyoruz.",
+      "İthalat rejimi, dış ticaretin en hassas ve maliyetli aşamalarından biridir. Kalem Gümrük Müşavirliği olarak 25 yılı aşkın saha tecrübemiz ve dijital takip altyapımızla, eşyanız limana veya sınıra gelmeden önce ön inceleme başlatır, olası gecikme ve ardiye masraflarını sıfıra indiririz. İthalat sürecindeki tüm mevzuat gerekliliklerini, izin belgelerini ve vergi hesaplarını titizlikle tamamlıyoruz.",
   },
   {
     slug: "ihracat",

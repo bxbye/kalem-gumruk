@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import HumanVerification from "./HumanVerification";
 import {
   Send,
   CheckCircle2,
@@ -140,6 +141,9 @@ export default function ContactForm({
   const [responseMsg, setResponseMsg] = useState("");
   const [refCode, setRefCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [kvkkConsent, setKvkkConsent] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [challengeAnswer, setChallengeAnswer] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formLoadedAtRef = useRef<number>(Date.now());
 
@@ -240,15 +244,35 @@ export default function ContactForm({
     setStatus("loading");
     setResponseMsg("");
 
+    if (!kvkkConsent) {
+      setStatus("error");
+      setResponseMsg(cf.kvkkRequiredMsg || "Lütfen KVKK onay kutusunu işaretleyiniz.");
+      return;
+    }
+
+    if (!challengeAnswer.trim()) {
+      setStatus("error");
+      setResponseMsg("Lütfen güvenlik doğrulamasını (insan doğrulaması) yanıtlayınız.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/forms/${form.slug || "iletisim"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          formData,
+          formData: {
+            ...formData,
+            kvkkConsent,
+            challengeToken,
+            challengeAnswer,
+          },
           files: uploadedFiles,
           honeypot: formData.honeypot,
           formLoadedAt: formLoadedAtRef.current,
+          challengeToken,
+          challengeAnswer,
+          kvkkConsent,
           lang: language,
         }),
       });
@@ -278,6 +302,8 @@ export default function ContactForm({
     setStatus("idle");
     setResponseMsg("");
     setRefCode("");
+    setKvkkConsent(false);
+    setChallengeAnswer("");
     setFormData({
       subject: "Genel Bilgi & İletişim",
       honeypot: "",
@@ -643,6 +669,45 @@ export default function ContactForm({
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* İnsan Doğrulaması (Anti-Bot Challenge - Dev ve Prod Tam Uyumlu) */}
+                  <div className="pt-2">
+                    <HumanVerification
+                      label={cf.humanVerificationLabel || "Güvenlik Doğrulaması (İnsan Doğrulaması)"}
+                      placeholder={cf.humanVerificationPlaceholder || "Sonuç"}
+                      refreshText={ui.refreshQuestion || "Yenile"}
+                      value={challengeAnswer}
+                      onChange={(tok, ans) => {
+                        setChallengeToken(tok);
+                        setChallengeAnswer(ans);
+                      }}
+                      isRTL={isRTL}
+                    />
+                  </div>
+
+                  {/* KVKK Onay Kutusu (Zorunlu) */}
+                  <div className="pt-1">
+                    <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={kvkkConsent}
+                        onChange={(e) => setKvkkConsent(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 text-[#44B9CD] border-slate-300 rounded focus:ring-[#44B9CD] accent-[#1E2A3A]"
+                      />
+                      <span className="leading-relaxed">
+                        <Link
+                          href={localePath("/kurumsal#kvkk")}
+                          target="_blank"
+                          className="text-[#44B9CD] hover:underline font-bold"
+                        >
+                          6698 sayılı KVKK
+                        </Link>{" "}
+                        {cf.kvkkConsentLabel || "kapsamında kişisel verilerimin işlenmesine ve tarafımla iletişime geçilmesine açık rıza veriyorum."}{" "}
+                        <span className="text-red-500">*</span>
+                      </span>
+                    </label>
                   </div>
 
                   {/* Hata Mesajı */}

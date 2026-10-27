@@ -8,11 +8,11 @@ import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata: Metadata = {
   title: {
-    default: "Kalem Gümrük Müşavirliği | 1997'den Bugüne Güvenilir Dış Ticaret Çözümleri",
+    default: "Kalem Gümrük Müşavirliği | Güvenilir Dış Ticaret Çözümleri",
     template: "%s | Kalem Gümrük Müşavirliği",
   },
   description:
-    "Kalem Gümrük Müşavirliği Ltd. Şti. — 1997 yılından bu yana İstanbul merkezli olarak ithalat, ihracat, antrepo, DİR ve gümrük danışmanlığı alanında yetkili gümrük müşavirliği güvencesiyle hizmet vermektedir.",
+    "Kalem Gümrük Müşavirliği Ltd. Şti. — 25 yılı aşkın sektörel tecrübemiz ve uzman ekibimizle ithalat, ihracat, antrepo, DİR ve gümrük danışmanlığı alanında yetkili gümrük müşavirliği güvencesiyle hizmet vermektedir.",
   keywords: [
     "gümrük müşavirliği",
     "kalem gümrük",
@@ -109,7 +109,6 @@ export default function RootLayout({
         },
         image: "https://kalemgumruk.com/kalem-gumruk-hero.jpg",
         description: companyInfo.description,
-        foundingDate: "1997",
         telephone: companyInfo.phoneRaw,
         email: companyInfo.email,
         priceRange: "$$",

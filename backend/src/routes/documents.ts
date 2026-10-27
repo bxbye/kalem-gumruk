@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index.js";
 import { documents } from "../db/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
+import { authenticateRequest } from "../services/auth.js";
 
 export const documentsRouter = Router();
 
@@ -19,7 +20,7 @@ documentsRouter.get("/", async (_req, res) => {
 // Belge Ekle / İndirme Sayacı Artır
 documentsRouter.post("/", async (req, res) => {
   try {
-    const { action, id, password, title, description, category, fileUrl, fileKey, fileSize, fileType, isPublic } =
+    const { action, id, title, description, category, fileUrl, fileKey, fileSize, fileType, isPublic } =
       req.body || {};
 
     // 1. İndirme Sayacı Artırma (Public)
@@ -31,10 +32,14 @@ documentsRouter.post("/", async (req, res) => {
       return res.json({ success: true, message: "Sayım artırıldı." });
     }
 
-    // 2. Yeni Belge Ekleme (Admin)
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    // 2. Yeni Belge Ekleme (Admin veya Yetkili Editör)
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
+    }
+
+    if (user.role !== "ADMIN" && user.permissions?.canEditDocuments === false) {
+      return res.status(403).json({ error: "Yetkisiz işlem: Belge yükleme yetkiniz bulunmamaktadır." });
     }
 
     if (!title || !fileUrl || !category) {
@@ -63,17 +68,21 @@ documentsRouter.post("/", async (req, res) => {
   }
 });
 
-// Belge Sil (DELETE)
+// Belge Sil (DELETE - YALNIZCA ADMIN)
 documentsRouter.delete("/", async (req, res) => {
   try {
-    const id = (req.query.id as string) || req.body?.id;
-    const password = (req.query.password as string) || req.body?.password;
-
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen yönetici şifresi giriniz." });
     }
 
+    if (user.role !== "ADMIN" || user.permissions?.canDelete === false) {
+      return res.status(403).json({
+        error: "Yetkisiz işlem: Editör kullanıcıları belge silemez. Silme işlemi için Yönetici (Admin) yetkisi gereklidir.",
+      });
+    }
+
+    const id = (req.query.id as string) || req.body?.id;
     if (!id) {
       return res.status(400).json({ error: "Silinecek belge ID belirtilmelidir." });
     }

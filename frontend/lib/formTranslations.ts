@@ -23,36 +23,48 @@ export interface FormTranslationStrings {
   requiredWarning: string;
   connectionError: string;
   removeFile: string;
+  kvkkConsent: string;
+  kvkkRequired: string;
+  humanVerification: string;
+  humanVerificationPlaceholder: string;
+  refreshQuestion: string;
+  maxFilesNotice: string;
 }
 
 export const formUIStrings: Record<SupportedLang, FormTranslationStrings> = {
   tr: {
     selectPlaceholder: "Seçiniz...",
     submitBtn: "Fiyat Teklifi Talebini Gönder",
-    submittingBtn: "Teklif Talebi Gönderiliyor...",
+    submittingBtn: "Fiyat Teklifi Talebi Gönderiliyor...",
     uploadDrop: "Dosya Seçin veya Sürükleyin",
-    uploadHint: "PDF, Word, Excel veya Görsel (Maks. 20 MB)",
+    uploadHint: "PDF, Word veya Görsel (En fazla 2 dosya, maks. 5 MB)",
     uploading: "Dosya Yükleniyor...",
-    successTitle: "Teklif Talebiniz Başarıyla Alındı!",
-    refNumber: "Teklif Referans Numaranız:",
+    successTitle: "Fiyat Teklifi Talebiniz Başarıyla Alındı!",
+    refNumber: "Fiyat Teklifi Referans Numaranız:",
     refNote: "Gümrük müşavirlerimiz talebinizi bu referans numarası üzerinden takip edecektir.",
-    newRequestBtn: "Yeni Teklif Talebi Gönder",
+    newRequestBtn: "Yeni Fiyat Teklifi Talebi Gönder",
     copyRef: "Kopyala",
     copiedRef: "Kopyalandı!",
     sslSecurity: "256-Bit SSL ile güvenli iletim",
-    badge: "GÜMRÜKLEME FİYAT TEKLİFİ",
-    quoteTitle: "Hızlı Gümrükleme Fiyat Teklifi",
-    quoteDesc: "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden en kısa sürede özel teklif alın.",
+    badge: "FİYAT TEKLİFİ İSTEME FORMU",
+    quoteTitle: "Fiyat Teklifi İsteme Formu",
+    quoteDesc: "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden en kısa sürede özel fiyat teklifi alın.",
     requiredWarning: "Lütfen zorunlu alanları doldurunuz.",
     connectionError: "Sunucuya bağlanılamadı. Lütfen doğrudan telefon veya WhatsApp ile ulaşınız.",
     removeFile: "Dosyayı Kaldır",
+    kvkkConsent: "6698 sayılı KVKK kapsamında kişisel verilerimin işlenmesini ve tarafımla iletişime geçilmesini onaylıyorum.",
+    kvkkRequired: "Devam edebilmek için lütfen KVKK onay kutusunu işaretleyiniz.",
+    humanVerification: "Güvenlik Doğrulaması (İnsan Doğrulaması)",
+    humanVerificationPlaceholder: "İşlem sonucu",
+    refreshQuestion: "Soruyu Yenile",
+    maxFilesNotice: "Forma en fazla 2 adet dosya ekleyebilirsiniz.",
   },
   en: {
     selectPlaceholder: "Select...",
     submitBtn: "Submit Quote Request",
     submittingBtn: "Submitting Quote Request...",
     uploadDrop: "Select File or Drag & Drop Here",
-    uploadHint: "PDF, Word, Excel or Image (Max. 20 MB)",
+    uploadHint: "PDF, Word or Image (Max 2 files, up to 5 MB each)",
     uploading: "Uploading File...",
     successTitle: "Quote Request Received Successfully!",
     refNumber: "Quote Reference Number:",
@@ -67,13 +79,19 @@ export const formUIStrings: Record<SupportedLang, FormTranslationStrings> = {
     requiredWarning: "Please fill in all required fields.",
     connectionError: "Failed to connect to the server. Please contact us directly via phone or WhatsApp.",
     removeFile: "Remove File",
+    kvkkConsent: "I consent to the processing of my personal data and being contacted under data privacy regulations.",
+    kvkkRequired: "Please accept the privacy consent checkbox to continue.",
+    humanVerification: "Security Verification (Human Verification)",
+    humanVerificationPlaceholder: "Result",
+    refreshQuestion: "Refresh Challenge",
+    maxFilesNotice: "You can upload a maximum of 2 files.",
   },
   ar: {
     selectPlaceholder: "اختر...",
     submitBtn: "إرسال طلب عرض السعر",
     submittingBtn: "جارٍ إرسال الطلب...",
     uploadDrop: "اختر ملفاً أو اسحبه إلى هنا",
-    uploadHint: "PDF أو Word أو Excel أو صورة (بحد أقصى 20 ميغابايت)",
+    uploadHint: "PDF أو Word أو صورة (ملفان كحد أقصى، حتى 5 ميغابايت)",
     uploading: "جارٍ رفع الملف...",
     successTitle: "تم استلام طلب عرض السعر بنجاح!",
     refNumber: "رقم مرجع عرض السعر:",
@@ -88,13 +106,19 @@ export const formUIStrings: Record<SupportedLang, FormTranslationStrings> = {
     requiredWarning: "يرجى ملء كافة الحقول الإلزامية.",
     connectionError: "تعذر الاتصال بالخادم. يرجى التواصل معنا مباشرة عبر الهاتف أو واتساب.",
     removeFile: "إزالة الملف",
+    kvkkConsent: "أوافق على معالجة بياناتي والتواصل معي وفقاً للوائح حماية البيانات الشخصية.",
+    kvkkRequired: "يرجى الموافقة على شروط حماية البيانات للمتابعة.",
+    humanVerification: "التحقق الأمني (إثبات المستخدم البشري)",
+    humanVerificationPlaceholder: "النتيجة",
+    refreshQuestion: "تحديث السؤال",
+    maxFilesNotice: "يمكنك رفع ملفين كحد أقصى.",
   },
   es: {
     selectPlaceholder: "Seleccionar...",
     submitBtn: "Enviar Solicitud de Cotización",
     submittingBtn: "Enviando Solicitud...",
     uploadDrop: "Seleccionar Archivo o Arrastrar Aquí",
-    uploadHint: "PDF, Word, Excel o Imagen (Máx. 20 MB)",
+    uploadHint: "PDF, Word o Imagen (Máximo 2 archivos, hasta 5 MB)",
     uploading: "Subiendo Archivo...",
     successTitle: "¡Solicitud de Cotización Recibida!",
     refNumber: "Número de Referencia:",
@@ -109,6 +133,12 @@ export const formUIStrings: Record<SupportedLang, FormTranslationStrings> = {
     requiredWarning: "Por favor complete todos los campos obligatorios.",
     connectionError: "No se pudo conectar con el servidor. Comuníquese directamente por teléfono o WhatsApp.",
     removeFile: "Eliminar Archivo",
+    kvkkConsent: "Doy mi consentimiento para el tratamiento de mis datos y para ser contactado según la ley de privacidad.",
+    kvkkRequired: "Debe aceptar la cláusula de privacidad para continuar.",
+    humanVerification: "Verificación de Seguridad (Verificación Humana)",
+    humanVerificationPlaceholder: "Resultado",
+    refreshQuestion: "Actualizar Pregunta",
+    maxFilesNotice: "Puede subir un máximo de 2 archivos.",
   },
 };
 
@@ -169,7 +199,7 @@ const fieldLabelMap: Record<string, Record<SupportedLang, string>> = {
     es: "Código Arancelario (GTIP) o Descripción",
   },
   message: {
-    tr: "Sevkiyat ve Teklif Detayları",
+    tr: "Sevkiyat ve Fiyat Teklifi Detayları",
     en: "Shipment Details & Notes",
     ar: "تفاصيل الشحنة والملاحظات",
     es: "Detalles del Envío y Notas",

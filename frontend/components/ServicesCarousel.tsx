@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { servicesData } from "@/data/services";
 import { companyInfo } from "@/data/company";
@@ -40,10 +40,23 @@ const iconMap: Record<string, React.ReactNode> = {
   Shield: <Shield className="w-5 h-5" />,
 };
 
-export default function ServicesCarousel() {
+export default function ServicesCarousel({ initialServices }: { initialServices?: any[] }) {
   const { t, language, isRTL, localePath } = useLanguage();
+  const [servicesList, setServicesList] = useState<any[]>(initialServices || servicesData);
   const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Veritabanından canlı hizmetleri getir
+  useEffect(() => {
+    fetch(`/api/public/services?lang=${language}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.services) && data.services.length > 0) {
+          setServicesList(data.services);
+        }
+      })
+      .catch(() => {});
+  }, [language]);
 
   // Hizmet id eşlemesi
   const serviceKeyMap: Record<string, keyof typeof t.services> = {
@@ -60,11 +73,12 @@ export default function ServicesCarousel() {
   };
 
   // Sonsuz kesintisiz yatay akış için 4 set kullanıyoruz (her ekran boyutunda ve dilde boşluksuz kesintisiz döngü)
+  const activeServices = servicesList.length > 0 ? servicesList : servicesData;
   const marqueeServices = [
-    ...servicesData,
-    ...servicesData,
-    ...servicesData,
-    ...servicesData,
+    ...activeServices,
+    ...activeServices,
+    ...activeServices,
+    ...activeServices,
   ];
 
   const handlePrev = () => {
@@ -204,7 +218,7 @@ export default function ServicesCarousel() {
 
                   {/* Örnek 3 İşlem Maddesi */}
                   <div className="space-y-2 pt-3 border-t border-slate-100">
-                    {service.features.slice(0, 3).map((feat, i) => (
+                    {(service.features || []).slice(0, 3).map((feat: string, i: number) => (
                       <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
                         <CheckCircle2 className="w-3.5 h-3.5 text-[#44B9CD] shrink-0 mt-0.5" />
                         <span className="line-clamp-1">{feat}</span>

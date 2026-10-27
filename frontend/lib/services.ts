@@ -50,7 +50,7 @@ const localizedServiceContent: Record<
   ithalat: {
     en: {
       detailedContent:
-        "The import regime is one of the most critical and cost-sensitive phases of international trade. With over 25 years of field experience and digital EDI tracking since 1997, Kalem Customs Brokerage initiates pre-checks before cargo reaches Turkish ports, eliminating delays and demurrage expenses. We manage all regulatory compliance, ministry permits, and tariff audits with zero-defect accuracy.",
+        "The import regime is one of the most critical and cost-sensitive phases of international trade. With over 25 years of field experience and digital EDI tracking, Kalem Customs Brokerage initiates pre-checks before cargo reaches Turkish ports, eliminating delays and demurrage expenses. We manage all regulatory compliance, ministry permits, and tariff audits with zero-defect accuracy.",
       features: [
         "Comprehensive feasibility and cost analysis for imported goods",
         "Harmonized System (HS / GTİP) code classification and duty calculation",
@@ -63,7 +63,7 @@ const localizedServiceContent: Record<
     },
     ar: {
       detailedContent:
-        "يعد نظام الاستيراد أحد أكثر مراحل التجارة الدولية حساسية وأهمية. بفضل خبرتنا الميدانية الممتدة منذ عام 1997 وبنيتنا التحتية الرقمية، تبدأ قلم للتخليص الجمركي الفحص المسبق قبل وصول البضائع إلى الموانئ التركية لمنع أي تأخير أو رسوم أرضيات إضافية، مع إنجاز جميع التراخيص والتدقيق الضريبي باحترافية كاملة.",
+        "يعد نظام الاستيراد أحد أكثر مراحل التجارة الدولية حساسية وأهمية. بفضل خبرتنا الميدانية التي تتجاوز 25 عاماً وبنيتنا التحتية الرقمية، تبدأ قلم للتخليص الجمركي الفحص المسبق قبل وصول البضائع إلى الموانئ التركية لمنع أي تأخير أو رسوم أرضيات إضافية، مع إنجاز جميع التراخيص والتدقيق الضريبي باحترافية كاملة.",
       features: [
         "إجراء دراسة جدوى وتكلفة تفصيلية للبضائع المستوردة",
         "تحديد الرمز الجمركي (GTİP / HS Code) وحساب الرسوم بدقة",
@@ -204,7 +204,7 @@ export async function getAllServicesAsync(lang: string = "tr"): Promise<ServiceI
   const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
     const res = await fetch(`${backendUrl}/api/public/services?lang=${lang}`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     if (res.ok) {
       const data = await res.json();
@@ -216,6 +216,30 @@ export async function getAllServicesAsync(lang: string = "tr"): Promise<ServiceI
     // Fallback
   }
   return getFallbackServices(lang);
+}
+
+export async function getServiceBySlugAsync(
+  slug: string,
+  lang: string = "tr"
+): Promise<ServiceItem | undefined> {
+  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
+  try {
+    const res = await fetch(
+      `${backendUrl}/api/public/services/${encodeURIComponent(slug)}?lang=${lang}`,
+      {
+        cache: "no-store",
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.service) {
+        return data.service;
+      }
+    }
+  } catch (error) {
+    console.error("[getServiceBySlugAsync] Backend fetch failed, checking fallback:", error);
+  }
+  return getServiceBySlug(slug, lang);
 }
 
 export function getAllServices(lang: string = "tr"): ServiceItem[] {

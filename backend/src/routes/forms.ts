@@ -4,8 +4,14 @@ import fs from "fs";
 import { db } from "../db/index.js";
 import { forms, formSubmissions } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
-import { getMailer, getCustomerConfirmationEmail, langBadgeMap, sendEmailUnified } from "../services/mailer.js";
-import { uploadsDir } from "../services/storage.js";
+import { getMailer, sendEmailUnified } from "../services/mailer.js";
+import { uploadsDir, fixUtf8Mojibake } from "../services/storage.js";
+import { authenticateRequest } from "../services/auth.js";
+import { validateFormSpamGuard } from "../services/security.js";
+import {
+  renderFormSubmissionAdminEmail,
+  renderCustomerConfirmationEmail,
+} from "../services/emailTemplates.js";
 
 export const formsRouter = Router();
 
@@ -28,12 +34,16 @@ formsRouter.get("/", async (_req, res) => {
 // Yeni Form Tanımla
 formsRouter.post("/", async (req, res) => {
   try {
-    const { password, id, slug, title, description, category, fields, settings, isActive } = req.body || {};
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
+
+    if (user.role !== "ADMIN" && user.permissions?.canEditForms === false) {
+      return res.status(403).json({ error: "Yetkisiz işlem: Form düzenleme yetkiniz bulunmamaktadır." });
+    }
+
+    const { id, slug, title, description, category, fields, settings, isActive } = req.body || {};
 
     if (!slug || !title) {
       return res.status(400).json({ error: "Slug ve Başlık alanları zorunludur." });
@@ -80,20 +90,21 @@ formsRouter.post("/", async (req, res) => {
   }
 });
 
-// Form Sil (DELETE)
+// Form Sil (DELETE - YALNIZCA ADMIN)
 formsRouter.delete("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const authHeader = (req.headers["authorization"] || req.headers["x-admin-password"]) as string | undefined;
-    const password =
-      req.body?.password ||
-      req.query?.password ||
-      (typeof authHeader === "string" ? authHeader.replace("Bearer ", "") : "");
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
+
+    if (user.role !== "ADMIN" || user.permissions?.canDelete === false) {
+      return res.status(403).json({
+        error: "Yetkisiz işlem: Editör kullanıcıları form şablonlarını silemez. Silme yetkisi yalnızca Yöneticiye aittir.",
+      });
+    }
+
+    const { id } = req.params;
 
     await db.delete(forms).where(eq(forms.id, id));
     return res.json({ success: true, message: "Form başarıyla silindi." });
@@ -164,22 +175,37 @@ formsRouter.get("/:slug", async (req, res) => {
 formsRouter.post("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const { formData, files, honeypot, formLoadedAt, lang = "tr" } = req.body || {};
+    const {
+      formData,
+      files,
+      honeypot,
+      formLoadedAt,
+      challengeToken,
+      challengeAnswer,
+      kvkkConsent,
+      lang = "tr",
+    } = req.body || {};
     const visitorLang = String(lang || formData?.lang || "tr").toLowerCase();
 
-    // 1. Anti-Spam: Honeypot kontrolü
-    if (honeypot) {
-      console.warn(`[Anti-Spam] Dinamik Form Honeypot tetiklendi. IP: ${req.ip}`);
-      return res.json({ success: true, message: "İşlem başarılı." });
+    // 1. Merkezi Spam ve Güvenlik Denetimi (KVKK onayı, İnsan doğrulaması, Honeypot, Süre tuzağı, Maksimum 2 dosya)
+    const spamCheck = await validateFormSpamGuard({
+      honeypot: honeypot || formData?.honeypot,
+      formLoadedAt: formLoadedAt || formData?.formLoadedAt,
+      challengeToken: challengeToken || formData?.challengeToken,
+      challengeAnswer: challengeAnswer || formData?.challengeAnswer,
+      kvkkConsent: kvkkConsent !== undefined ? kvkkConsent : formData?.kvkkConsent,
+      files: files || [],
+      maxFiles: 2,
+      ip: req.ip,
+    });
+
+    if (!spamCheck.valid) {
+      return res.status(400).json({ error: spamCheck.reason || "Güvenlik denetimi başarısız oldu." });
     }
 
-    // 2. Anti-Spam: Time-trap kontrolü
-    if (formLoadedAt) {
-      const elapsedMs = Date.now() - Number(formLoadedAt);
-      if (elapsedMs < 1200) {
-        console.warn(`[Anti-Spam] Dinamik Form insan hızından çok hızlı dolduruldu (${elapsedMs}ms). Bot şüphesi.`);
-        return res.json({ success: true, message: "İşlem başarılı." });
-      }
+    // 2. Maksimum 2 Dosya Kontrolü
+    if (Array.isArray(files) && files.length > 2) {
+      return res.status(400).json({ error: "Forma en fazla 2 adet dosya ekleyebilirsiniz." });
     }
 
     const formRecord = await db.select().from(forms).where(eq(forms.slug, slug)).get();
@@ -219,10 +245,17 @@ formsRouter.post("/:slug", async (req, res) => {
       updatedAt: now,
     });
 
-    // Otomatik E-Posta Bildirimi (Ziyaretçinin Seçtiği Dilde)
-    handleFormSubmissionEmail(slug, formRecord.title, submissionData, files || [], refCode, settings, visitorLang).catch((err) =>
-      console.error("[Form Email Error]:", err)
-    );
+    // Otomatik E-Posta Bildirimi (Ziyaretçinin Seçtiği Dilde ve Form Alan Tanımlarıyla)
+    handleFormSubmissionEmail(
+      slug,
+      formRecord.title,
+      submissionData,
+      files || [],
+      refCode,
+      settings,
+      visitorLang,
+      fields
+    ).catch((err) => console.error("[Form Email Error]:", err));
 
     const localizedSuccessMsgs: Record<string, string> = {
       en: "Your quote request has been received successfully. Our customs broker will contact you shortly.",
@@ -255,44 +288,24 @@ async function handleFormSubmissionEmail(
   files: any[],
   refCode: string,
   settings: any,
-  lang: string = "tr"
+  lang: string = "tr",
+  fieldsDef: any[] = []
 ) {
   const transporter = getMailer();
   const smtpUser = process.env.SMTP_USER;
-  const hasResend = Boolean(process.env.RESEND_API_KEY);
   // Hedef e-posta: Öncelik kadir.kaya@kayapermit.com (CONTACT_RECEIVER)
   const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || "kadir.kaya@kayapermit.com";
 
-  const langLabels: Record<string, string> = {
-    tr: "🇹🇷 Türkçe",
-    en: "🇬🇧 English (İngilizce)",
-    ar: "🇸🇦 العربية (Arapça)",
-    es: "🇪🇸 Español (İspanyolca)",
-  };
-  const langLabel = langLabels[lang] || lang;
-
-  if (!hasResend && (!transporter || !smtpUser)) {
-    console.warn(`[Form Mailer] ⚠️ E-posta yapılandırması eksik (RESEND_API_KEY veya SMTP_USER/SMTP_PASS yok). Form e-postası gönderilemedi: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
+  if (!transporter || !smtpUser) {
+    console.warn(`[Form Mailer] SMTP yapilandirmasi eksik. Form e-postasi gonderilemedi: [${refCode}] -> ${companyEmail}`);
     return;
   }
 
-  console.log(`[Form Mailer] Form e-posta bildirimi gönderiliyor: [${refCode}] [Lang: ${langLabel}] -> ${companyEmail}`);
-
   const customerEmail = data.email || data.eposta || data.mail;
-  const customerName = data.fullName || data.adsoyad || data.name || "Sayın Yetkili";
-
-  const hiddenKeys = new Set(["_lang", "honeypot", "formLoadedAt", "files", "lang"]);
-  const formDetailsHtml = Object.entries(data)
-    .filter(([key]) => !hiddenKeys.has(key))
-    .map(([key, val]) => {
-      const displayVal = typeof val === "object" ? JSON.stringify(val) : String(val ?? "-");
-      return `<tr><td style="padding: 6px 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; width: 35%;">${key}:</td><td style="padding: 6px 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${displayVal}</td></tr>`;
-    })
-    .join("");
-
+  const customerName = fixUtf8Mojibake(data.fullName || data.adsoyad || data.name || "Sayın Yetkili");
   const siteBaseUrl = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "https://kalemgumruk.com";
 
-  // Gerçek e-posta eki (Attachments) oluştur
+  // Gerçek e-posta eki (Attachments) oluştur - UTF-8 karakter onarımı ile
   const mailAttachments: Array<{ filename: string; path: string }> = [];
   if (Array.isArray(files) && files.length > 0) {
     for (const f of files) {
@@ -302,123 +315,57 @@ async function handleFormSubmissionEmail(
       const absPath = path.join(uploadsDir, filenameOnDisk);
       if (fs.existsSync(absPath)) {
         mailAttachments.push({
-          filename: f.name || filenameOnDisk,
+          filename: fixUtf8Mojibake(f.name || filenameOnDisk),
           path: absPath,
         });
       }
     }
   }
 
-  const filesHtml =
-    files && files.length > 0
-      ? `<div style="margin-top: 15px; padding: 12px; background-color: #f1f5f9; border-radius: 6px;">
-          <strong>Ekli Dosyalar (Doğrudan e-posta ekinde de mevcuttur):</strong>
-          <ul style="margin: 6px 0 0 0; padding-left: 20px;">
-            ${files
-              .map((f: any) => {
-                const fullUrl = f.url?.startsWith("http") ? f.url : `${siteBaseUrl.replace(/\/$/, "")}${f.url}`;
-                return `<li><a href="${fullUrl}" target="_blank">${f.name} (${f.size || "Dosya"})</a></li>`;
-              })
-              .join("")}
-          </ul>
-        </div>`
-      : "";
+  // Modern, optimize edilmiş kurumsal HTML e-posta tasarımı oluştur
+  const renderedAdmin = renderFormSubmissionAdminEmail({
+    formSlug,
+    formTitle,
+    refCode,
+    data,
+    fieldsDef,
+    files,
+    lang,
+    siteBaseUrl,
+  });
 
-  const adminHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-      <div style="background-color: #1E2A3A; padding: 18px; color: #ffffff;">
-        <h3 style="margin: 0; font-size: 18px;">📋 Yeni Form Yanıtı: ${formTitle}</h3>
-        <p style="margin: 4px 0 0 0; color: #44B9CD; font-size: 13px;">Referans Kodu: <strong>${refCode}</strong></p>
-        <div style="display: inline-block; margin-top: 8px; background: rgba(68,185,205,0.2); border: 1px solid rgba(68,185,205,0.5); padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #44B9CD;">
-          🌐 Ziyaretçi Dili: <strong>${langLabel}</strong>
-        </div>
-      </div>
-      <div style="padding: 20px; background-color: #ffffff;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          ${formDetailsHtml}
-        </table>
-        ${filesHtml}
-      </div>
-      <div style="background-color: #f8fafc; padding: 12px; font-size: 12px; color: #64748b; text-align: center;">
-        Bu talep Kalem Gümrük Müşavirliği web sitesi üzerinden doğrudan iletilmiştir.
-      </div>
-    </div>
-  `;
-
-  const cleanLang = (lang || "tr").toLowerCase();
-  const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
-  const shortTitle = formTitle
-    .replace(/Hızlı Gümrükleme Fiyat Teklifi/gi, "Fiyat Teklifi")
-    .replace(/Genel İletişim & Danışma Formu/gi, "İletişim")
-    .replace(/Gümrükleme/gi, "")
-    .replace(/İşlemleri/gi, "")
-    .trim() || "Form";
-  const companyTag = data.company && data.company !== "Bireysel" && data.company !== "-" ? ` (${data.company})` : "";
-  const mailSubject = `[${refCode}] [${langBadge}] ${shortTitle}: ${customerName}${companyTag}`;
-
+  // Yetkili Gümrük Müşaviri / Admin Bildirimi Gönder
   try {
     const res = await sendEmailUnified({
-      from: `"Kalem Gümrük Web Formu" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
+      from: `"Kalem Gümrük Web Formu" <${process.env.SMTP_FROM || smtpUser || "bilgi@kalemgumruk.com"}>`,
       to: companyEmail,
       replyTo: customerEmail || undefined,
-      subject: mailSubject,
-      html: adminHtml,
+      subject: renderedAdmin.subject,
+      html: renderedAdmin.html,
       attachments: mailAttachments,
     });
-    console.log(`[Form Mailer] ✅ Form bildirimi başarıyla iletildi: [${refCode}] -> ${companyEmail} (MsgID: ${res.messageId})`);
+    console.log(`[Form Mailer] Form bildirimi başarıyla iletildi: [${refCode}] -> ${companyEmail} (MsgID: ${res.messageId})`);
   } catch (err: any) {
-    console.error(`[Form Mailer] ❌ Form bildirimi e-postası iletilemedi: [${refCode}] -> ${companyEmail}:`, err?.message || err);
+    console.error(`[Form Mailer] Form bildirimi e-postası iletilemedi: [${refCode}] -> ${companyEmail}:`, err?.message || err);
   }
 
+  // Müşteriye / Başvuru Sahibine Otomatik Onay E-postası Gönder
   if (customerEmail) {
     try {
-      if (lang && lang !== "tr") {
-        const conf = getCustomerConfirmationEmail({
-          refCode,
-          fullName: customerName,
-          serviceOrTitle: formTitle,
-          lang,
-        });
+      const conf = renderCustomerConfirmationEmail({
+        refCode,
+        fullName: customerName,
+        serviceOrTitle: formTitle,
+        lang,
+      });
 
-        const custRes = await sendEmailUnified({
-          from: `"Kalem Gümrük Müşavirliği" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
-          to: customerEmail,
-          subject: conf.subject,
-          html: conf.html,
-        });
-        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custRes.messageId})`);
-      } else if (settings.autoEmailSubject && settings.autoEmailBody) {
-        const personalizedBody = settings.autoEmailBody
-          .replace(/{{fullName}}/g, customerName)
-          .replace(/{{refNo}}/g, refCode)
-          .replace(/{{formTitle}}/g, formTitle)
-          .replace(/\n/g, "<br/>");
-
-        const customerHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-            <div style="background-color: #1E2A3A; padding: 20px; text-align: center; color: #ffffff;">
-              <h2 style="margin: 0; font-size: 20px; color: #ffffff;">Kalem Gümrük Müşavirliği</h2>
-              <p style="margin: 6px 0 0 0; color: #44B9CD; font-size: 13px;">1997'den Beri Güvenle Dış Ticaretin Hizmetinde</p>
-            </div>
-            <div style="padding: 24px; background-color: #ffffff; color: #334155; line-height: 1.6; font-size: 14px;">
-              <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0; font-size: 13px; color: #166534;">
-                  <strong>Talep Referans Numaranız:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: bold;">${refCode}</span>
-                </p>
-              </div>
-              <div>${personalizedBody}</div>
-            </div>
-          </div>
-        `;
-
-        const custRes = await sendEmailUnified({
-          from: `"Kalem Gümrük Müşavirliği" <${process.env.RESEND_FROM || smtpUser || "onboarding@resend.dev"}>`,
-          to: customerEmail,
-          subject: (settings.autoEmailSubject || "").replace(/{{refNo}}/g, refCode),
-          html: customerHtml,
-        });
-        console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custRes.messageId})`);
-      }
+      const custRes = await sendEmailUnified({
+        from: `"Kalem Gümrük Müşavirliği" <${process.env.SMTP_FROM || smtpUser || "bilgi@kalemgumruk.com"}>`,
+        to: customerEmail,
+        subject: conf.subject,
+        html: conf.html,
+      });
+      console.log(`[Form Mailer] ✅ Müşteri onay e-postası gönderildi: [${refCode}] -> ${customerEmail} (MsgID: ${custRes.messageId})`);
     } catch (err: any) {
       console.warn(`[Form Mailer] ⚠️ Müşteri onay e-postası gönderilemedi (${customerEmail}):`, err?.message || err);
     }

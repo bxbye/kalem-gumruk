@@ -32,7 +32,7 @@ export async function getAllGerekliBaglantilarAsync(): Promise<GerekliBaglanti[]
   const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
     const res = await fetch(`${backendUrl}/api/public/baglantilar`, {
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
     if (res.ok) {
       const data = await res.json();

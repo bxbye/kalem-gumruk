@@ -2,7 +2,7 @@ import { Translations } from "./types";
 
 export const en: Translations = {
   topBar: {
-    tagline: "Kalem Customs Brokerage — Trusted Since 1997",
+    tagline: "Kalem Customs Brokerage — Trust & Expertise",
     workingHours: "Mon - Fri: 08:30 - 18:00 | Sat: 09:00 - 13:00",
     consultantLine: "Direct Broker Hotline:",
   },
@@ -77,7 +77,7 @@ export const en: Translations = {
     },
   },
   hero: {
-    badge: "Reliability & Speed Since 1997",
+    badge: "Reliability, Speed & Compliance",
     titleMain: "In Global Trade",
     titleHighlight: "Seamless & Compliant",
     titleSub: "Customs Brokerage",
@@ -92,7 +92,7 @@ export const en: Translations = {
       },
       digital: {
         title: "Digital EDI Integration",
-        desc: "24/7 real-time declaration and file tracking",
+        desc: "Real-time declaration and file tracking",
       },
       speed: {
         title: "Speed & Zero Defect",
@@ -109,10 +109,11 @@ export const en: Translations = {
     },
   },
   stats: {
-    founded: { label: "Founded in", value: "1997" },
+    founded: { label: "Founded", value: "2024" },
+    compliance: { label: "Regulatory Compliance", value: "100%" },
     experience: { label: "Years Experience", value: "25+" },
     intacRate: { label: "On-Time Clearance", value: "99.8%" },
-    support: { label: "Broker Support", value: "24/7" },
+    support: { label: "Broker Tracking", value: "Evrim Web" },
   },
   servicesSection: {
     badge: "Comprehensive Trade Regimes",
@@ -134,7 +135,7 @@ export const en: Translations = {
     subtitle: "Safeguarding the foreign trade operations of global industrial and commercial enterprises.",
   },
   footer: {
-    desc: "Kalem Customs Brokerage Ltd. Co. — Managing foreign trade operations across all Turkish customs directorates since 1997 with full licensed broker warranty.",
+    desc: "Kalem Customs Brokerage Ltd. Co. — Managing foreign trade operations across all Turkish customs directorates with 25+ years of licensed expertise.",
     corporateTitle: "Corporate",
     servicesTitle: "Services",
     contactTitle: "Contact & Location",
@@ -173,10 +174,10 @@ export const en: Translations = {
   },
   corporatePage: {
     badge: "Corporate Profile",
-    title: "Trust & Experience Since 1997",
-    subtitle: "Guiding Turkish exporters and global importers at the intersection of trade and regulation for over a quarter century.",
+    title: "Trust, Speed & 25+ Years Experience",
+    subtitle: "Guiding Turkish exporters and global importers at the intersection of trade and regulation with over 25 years of licensed field experience.",
     aboutTitle: "About Us",
-    aboutP1: "Kalem Customs Brokerage Ltd. Co. was founded in 1997 with the mission to deliver the fastest, most cost-effective, and 100% legally compliant customs services across all sectors.",
+    aboutP1: "Kalem Customs Brokerage Ltd. Co. operates with accredited customs brokers holding over 25 years of cross-border field experience, dedicated to delivering the fastest, most cost-effective, and 100% legally compliant customs services across all sectors.",
     aboutP2: "Customs clearance is the single most critical link in international supply chains. Incorrect tariff classifications or missed compliance checkpoints can trigger severe financial penalties. Kalem Customs eliminates these liabilities through licensed senior brokers and state-of-the-art EDI integration.",
     visionTitle: "Our Vision",
     visionDesc: "To be the benchmark customs brokerage firm recognized for legal certainty, swift turnaround, and digital leadership in regional cross-border commerce.",
@@ -243,6 +244,10 @@ export const en: Translations = {
     defaultSuccessMsg: "Your message has been sent successfully. Our team will get back to you shortly.",
     newMsgBtn: "Send Another Message",
     kvkkNotice: "Your data is kept confidential under strict data privacy regulations.",
+    kvkkConsentLabel: "I consent to the processing of my personal data and being contacted under data privacy regulations.",
+    kvkkRequiredMsg: "Please accept the privacy consent checkbox to continue.",
+    humanVerificationLabel: "Security Verification (Human Verification)",
+    humanVerificationPlaceholder: "Result",
     errorMsg: "An error occurred while sending your message. Please try again.",
     connectionError: "Could not connect to the server. Please call or WhatsApp us directly.",
   },
@@ -443,7 +448,7 @@ export const en: Translations = {
   servicesPage: {
     breadcrumbHome: "Home",
     breadcrumbCurrent: "Services",
-    badge: "Authorized Customs Brokerage Reliability Since 1997",
+    badge: "Authorized Customs Brokerage Reliability",
     title: "Customs Brokerage & Foreign Trade Services",
     desc: "We manage your import, export, and customs regime operations with over 25 years of experience, accredited brokers, and full regulatory compliance.",
     quoteAppointmentBtn: "Get a Quote",
@@ -492,9 +497,10 @@ export const en: Translations = {
     ratesBoxTitle: "CBRT & Markets ({count} Units)",
     calculateBtn: "Calculate",
     buyLabel: "Buy",
-    customsSaleLabel: "Customs Rate",
+    customsSaleLabel: "Sale",
     goldSaleLabel: "Sale",
     caratLabel: "24K",
+    crossRateTitle: "Cross Rate",
     bulletinPrefix: "Bulletin: ",
     currentLabel: "Current",
     todayLabel: "Today",

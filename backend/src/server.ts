@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { ensureDatabaseInitialized } from "./db/index.js";
 import { uploadsDir } from "./services/storage.js";
 import { verifySmtp } from "./services/mailer.js";
+import { startDailyBackupScheduler } from "./services/backup.js";
 
 // Rotalar
 import { contactRouter } from "./routes/contact.js";
@@ -183,13 +184,15 @@ app.listen(Number(PORT), "0.0.0.0", async () => {
   console.log(`📁 Uploads: ${uploadsDir}`);
   console.log(`🩺 Health: http://localhost:${PORT}/health`);
 
-  // E-Posta Bildirim Bağlantısını Doğrula (Resend HTTPS veya SMTP)
+  // E-Posta Bildirim Bağlantısını Doğrula (SMTP)
   const smtpStatus = await verifySmtp();
   if (smtpStatus.ok) {
-    const providerLabel = (smtpStatus as any).provider === "resend" ? "Resend HTTPS API" : "SMTP";
-    console.log(`📧 E-Posta Servisi [${providerLabel}]: ✅ Hazır (${smtpStatus.user} -> ${process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com"})`);
+    console.log(`📧 E-Posta Servisi [SMTP]: ✅ Hazır (${smtpStatus.user} -> ${process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com"})`);
   } else {
-    console.warn(`📧 E-Posta Servisi: ⚠️ ${smtpStatus.message}`);
+    console.warn(`📧 E-Posta Servisi [SMTP]: ⚠️ ${smtpStatus.message}`);
   }
+
+  // 9. Günlük Otomatik Yedekleme Servisini Başlat
+  startDailyBackupScheduler();
   console.log(`=================================================`);
 });

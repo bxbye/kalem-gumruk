@@ -28,7 +28,7 @@ export function getLocalizedWhatsAppMessage(params: WhatsAppMessageParams): stri
           return `Hola Kalem Aduanas, quisiera solicitar una cotización e información detallada sobre su servicio de "${sTitle}".`;
         case "tr":
         default:
-          return `Merhaba Kalem Gümrük, "${sTitle}" hizmetiniz hakkında hızlı teklif ve bilgi almak istiyorum.`;
+          return `Merhaba Kalem Gümrük, "${sTitle}" hizmetiniz hakkında fiyat teklifi ve bilgi almak istiyorum.`;
       }
     }
 
@@ -66,7 +66,7 @@ export function getLocalizedWhatsAppMessage(params: WhatsAppMessageParams): stri
           return `Hola Kalem Aduanas, he enviado mi solicitud de cotización #${refCode} a través de su sitio web${sTitle}. Quisiera consultar sobre el proceso.`;
         case "tr":
         default:
-          return `Merhaba Kalem Gümrük, #${refCode} numaralı teklif talebimi web siteniz üzerinden ilettim${sTitle}. Süreç hakkında bilgi almak istiyorum.`;
+          return `Merhaba Kalem Gümrük, #${refCode} numaralı fiyat teklifi talebimi web siteniz üzerinden ilettim${sTitle}. Süreç hakkında bilgi almak istiyorum.`;
       }
     }
 

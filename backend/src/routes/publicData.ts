@@ -1,9 +1,23 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { sirkuler, services, gerekliBaglantilar, references } from "../db/schema.js";
+import { sirkuler, services, gerekliBaglantilar, references, siteSettings } from "../db/schema.js";
 import { eq, desc, asc, and, or } from "drizzle-orm";
+import { companyInfo } from "../data/company.js";
+import { generateHumanChallenge } from "../services/security.js";
 
 export const publicDataRouter = Router();
+
+// ==================== İNSAN DOĞRULAMASI / GÜVENLİK SORUSU (PUBLIC) ====================
+publicDataRouter.get("/challenge", (_req, res) => {
+  try {
+    const challenge = generateHumanChallenge();
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    return res.json({ success: true, challenge });
+  } catch (error) {
+    console.error("[Public Challenge Error]:", error);
+    return res.status(500).json({ error: "Güvenlik sorusu oluşturulamadı." });
+  }
+});
 
 // ==================== HİZMETLER (PUBLIC) ====================
 publicDataRouter.get("/services", async (req, res) => {
@@ -44,7 +58,7 @@ publicDataRouter.get("/services", async (req, res) => {
       };
     });
 
-    res.setHeader("Cache-Control", "public, max-age=60");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, services: formatted });
   } catch (error) {
     console.error("[Public Services Error]:", error);
@@ -96,7 +110,7 @@ publicDataRouter.get("/services/:slug", async (req, res) => {
   }
 });
 
-// ==================== SIRKÜLER (PUBLIC) ====================
+// ==================== SIRKÜLER & MEVZUAT (PUBLIC) ====================
 publicDataRouter.get("/sirkuler", async (req, res) => {
   try {
     const lang = (req.query.lang as string) || "tr";
@@ -205,7 +219,7 @@ publicDataRouter.get("/baglantilar", async (_req, res) => {
       .where(eq(gerekliBaglantilar.isActive, true))
       .orderBy(asc(gerekliBaglantilar.orderIndex))
       .all();
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, baglantilar: list });
   } catch (error) {
     console.error("[Public Baglantilar Error]:", error);
@@ -222,10 +236,37 @@ publicDataRouter.get("/references", async (_req, res) => {
       .where(eq(references.isActive, true))
       .orderBy(asc(references.orderIndex))
       .all();
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, references: list });
   } catch (error) {
     console.error("[Public References Error]:", error);
     return res.status(500).json({ error: "Referanslar alınamadı." });
+  }
+});
+
+// ==================== SİTE VE FİRMA AYARLARI (PUBLIC) ====================
+publicDataRouter.get("/settings", async (_req, res) => {
+  try {
+    const record = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).get();
+    let dbSettings: Record<string, any> = {};
+    if (record && record.value) {
+      try {
+        dbSettings = JSON.parse(record.value);
+      } catch {
+        dbSettings = {};
+      }
+    }
+
+    // CompanyInfo ile DB ayarlarını birleştir (DB ayarları önceliklidir)
+    const merged = {
+      ...companyInfo,
+      ...dbSettings,
+    };
+
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    return res.json({ success: true, settings: merged });
+  } catch (error) {
+    console.error("[Public Settings Error]:", error);
+    return res.status(500).json({ error: "Ayarlar alınamadı." });
   }
 });

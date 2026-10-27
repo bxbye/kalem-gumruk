@@ -138,3 +138,27 @@ export const references = sqliteTable("references", {
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// 11. Kullanıcılar ve Rol Bazlı Yetkilendirme (Admin & Editör)
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  username: text("username").unique().notNull(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("EDITOR"), // 'ADMIN' | 'EDITOR'
+  permissions: text("permissions").notNull().default("{}"), // JSON string
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// 12. Veritabanı Yedekleri Kataloğu
+export const databaseBackups = sqliteTable("database_backups", {
+  id: text("id").primaryKey(),
+  filename: text("filename").unique().notNull(),
+  filepath: text("filepath").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  backupType: text("backup_type").notNull().default("AUTOMATIC"), // AUTOMATIC, MANUAL, PRE_RESTORE
+  note: text("note"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

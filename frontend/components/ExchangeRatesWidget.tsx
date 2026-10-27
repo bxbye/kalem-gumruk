@@ -8,8 +8,8 @@ import {
   ExternalLink,
   Pause,
   Play,
-  Coins,
   Calculator,
+  ArrowLeftRight,
 } from "lucide-react";
 
 interface RateItem {
@@ -34,9 +34,8 @@ interface ExchangeRatesWidgetProps {
 
 const CURRENCY_META: Record<
   string,
-  { flag: string; symbol: string; badgeColor?: string; isGold?: boolean }
+  { flag: string; symbol: string; badgeColor?: string }
 > = {
-  GA: { flag: "🪙", symbol: "GR", badgeColor: "bg-amber-100 text-amber-800 border-amber-300", isGold: true },
   USD: { flag: "🇺🇸", symbol: "$", badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   EUR: { flag: "🇪🇺", symbol: "€", badgeColor: "bg-blue-50 text-blue-700 border-blue-200" },
   GBP: { flag: "🇬🇧", symbol: "£", badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200" },
@@ -50,6 +49,37 @@ const CURRENCY_META: Record<
   AED: { flag: "🇦🇪", symbol: "AED", badgeColor: "bg-slate-100 text-slate-700 border-slate-200" },
 };
 
+const CURRENCY_LIST = [
+  { code: "USD", name: "Amerikan Doları" },
+  { code: "EUR", name: "Euro" },
+  { code: "TRY", name: "Türk Lirası" },
+  { code: "GBP", name: "İngiliz Sterlini" },
+  { code: "CHF", name: "İsviçre Frangı" },
+  { code: "CNY", name: "Çin Yuanı" },
+  { code: "JPY", name: "Japon Yeni" },
+  { code: "CAD", name: "Kanada Doları" },
+  { code: "AUD", name: "Avustralya Doları" },
+  { code: "RUB", name: "Rus Rublesi" },
+  { code: "SAR", name: "Suudi Arabistan Riyali" },
+  { code: "AED", name: "BAE Dirhemi" },
+];
+
+function getCurrencySymbol(code: string): string {
+  switch (code) {
+    case "TRY": return "₺";
+    case "USD": return "$";
+    case "EUR": return "€";
+    case "GBP": return "£";
+    case "JPY":
+    case "CNY": return "¥";
+    case "CHF": return "CHF";
+    case "CAD": return "C$";
+    case "AUD": return "A$";
+    case "RUB": return "₽";
+    default: return code;
+  }
+}
+
 export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWidgetProps) {
   const { t } = useLanguage();
   const dw = t.deskWidgets;
@@ -57,9 +87,10 @@ export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWi
   const [data, setData] = useState<RatesData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [showCalculator, setShowCalculator] = useState<boolean>(false);
+  const [showCalculator, setShowCalculator] = useState<boolean>(true);
   const [calcAmount, setCalcAmount] = useState<number>(1000);
-  const [calcCurrency, setCalcCurrency] = useState<string>("USD");
+  const [fromCurrency, setFromCurrency] = useState<string>("USD");
+  const [toCurrency, setToCurrency] = useState<string>("EUR");
 
   const fetchRates = async () => {
     try {
@@ -80,103 +111,102 @@ export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWi
 
   const rates = data?.rates || [];
 
-  const selectedRate = rates.find((r) => r.code === calcCurrency);
-  const calculatedSelling =
-    selectedRate && selectedRate.selling
-      ? ((calcAmount / selectedRate.unit) * selectedRate.selling).toLocaleString("tr-TR", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : "0,00";
+  const handleSwapCurrencies = () => {
+    setFromCurrency(toCurrency);
+    setToCurrency(fromCurrency);
+  };
+
+  const getUnitPriceInTRY = (code: string): number => {
+    if (code === "TRY") return 1;
+    const item = rates.find((r) => r.code === code);
+    if (!item || !item.selling || item.selling <= 0) {
+      if (code === "USD") return 49.654;
+      if (code === "EUR") return 54.2315;
+      return 1;
+    }
+    return item.selling / (item.unit || 1);
+  };
+
+  const fromPriceInTRY = getUnitPriceInTRY(fromCurrency);
+  const toPriceInTRY = getUnitPriceInTRY(toCurrency);
+  const parity = toPriceInTRY > 0 ? fromPriceInTRY / toPriceInTRY : 1;
+  const calculatedResult = calcAmount * parity;
+
+  const formattedResult = calculatedResult.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: calculatedResult < 1 && calculatedResult > 0 ? 4 : 2,
+  });
+
+  const formattedParity = parity.toLocaleString("tr-TR", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
 
   const renderRateCard = (rate: RateItem, key: string) => {
     const meta = CURRENCY_META[rate.code] || {
       flag: "🌐",
       symbol: rate.code,
       badgeColor: "bg-slate-100 text-slate-700",
-      isGold: false,
     };
-
-    const isGold = meta.isGold;
 
     return (
       <div
         key={key}
-        className={`rounded-xl border transition-all duration-200 group/item relative ${
-          compact ? "p-2 sm:p-2.5" : "p-3.5 sm:p-4"
-        } ${
-          isGold
-            ? "bg-gradient-to-r from-amber-50/90 to-yellow-50/80 border-amber-300/80 shadow-xs hover:border-amber-400 hover:shadow-md"
-            : "bg-white border-slate-200/90 shadow-xs hover:border-[#44B9CD] hover:shadow-md"
-        }`}
+        className="rounded-lg border transition-all duration-200 group/item relative py-1.5 px-2 sm:px-2.5 bg-white/95 border-slate-200 shadow-2xs hover:border-[#44B9CD] hover:shadow-xs"
       >
-        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
-          {/* Sol: Bayrak & Para Birimi */}
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <span className={`${compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"} shrink-0 leading-none drop-shadow-xs`}>
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          {/* Sol: Bayrak & Kod & İsim */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-base sm:text-lg shrink-0 leading-none drop-shadow-2xs">
               {meta.flag}
             </span>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`font-extrabold tracking-tight ${compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"} ${
-                    isGold ? "text-amber-900" : "text-[#1E2A3A]"
-                  }`}
-                >
+              <div className="flex items-center gap-1">
+                <span className="font-extrabold tracking-tight text-xs sm:text-[13px] leading-tight text-[#1E2A3A]">
                   {rate.code}
                 </span>
                 {rate.unit > 1 && (
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="text-[9px] text-slate-400 font-mono">
                     ({rate.unit})
                   </span>
                 )}
-                {isGold && (
-                  <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-1 py-0.2 rounded inline-flex items-center gap-0.5">
-                    <Coins className="w-2.5 h-2.5" />
-                    {dw.caratLabel}
-                  </span>
-                )}
               </div>
-              <div className="text-[11px] text-slate-500 truncate">{rate.name}</div>
+              <div className="text-[9.5px] sm:text-[10px] text-slate-500 truncate max-w-[65px] xs:max-w-[85px] sm:max-w-[105px] leading-tight">
+                {rate.name}
+              </div>
             </div>
           </div>
 
-          {/* Sağ: Alış & Satış Fiyatları */}
-          <div className="flex items-center gap-2.5 sm:gap-4 text-right shrink-0">
+          {/* Sağ: Alış & Satış Fiyatları (Birbirine yakın ve net) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 text-right shrink-0">
             {/* Alış */}
-            <div>
-              <div className="text-[9px] uppercase font-semibold text-slate-400">
+            <div className="text-right">
+              <div className="text-[8px] sm:text-[8.5px] uppercase font-semibold text-slate-400 leading-none mb-0.5">
                 {dw.buyLabel}
               </div>
-              <div className={`font-mono font-semibold text-slate-700 ${compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"}`} dir="ltr">
-                ₺
-                {rate.buying > 0
+              <div className="font-mono font-semibold text-slate-700 text-[10.5px] sm:text-[11.5px] leading-tight" dir="ltr">
+                ₺{rate.buying > 0
                   ? rate.buying.toLocaleString("tr-TR", {
-                      minimumFractionDigits: isGold ? 2 : 4,
-                      maximumFractionDigits: isGold ? 2 : 4,
+                      minimumFractionDigits: 4,
+                      maximumFractionDigits: 4,
                     })
                   : "--"}
               </div>
             </div>
 
-            {/* Satış (Gümrük Kuru) */}
-            <div className={compact ? "min-w-[75px] sm:min-w-[90px]" : "min-w-[85px] sm:min-w-[105px]"}>
-              <div className="text-[9px] uppercase font-bold text-emerald-700 flex items-center justify-end gap-1">
-                <span>
-                  {isGold ? dw.goldSaleLabel : dw.customsSaleLabel}
-                </span>
+            {/* Satış */}
+            <div className="text-right">
+              <div className="text-[8px] sm:text-[8.5px] uppercase font-bold text-emerald-600 leading-none mb-0.5">
+                {dw.customsSaleLabel}
               </div>
               <div
-                className={`font-mono font-extrabold ${compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"} ${
-                  isGold ? "text-amber-900" : "text-[#1E2A3A]"
-                }`}
+                className="font-mono font-extrabold text-[10.5px] sm:text-[11.5px] leading-tight text-[#1E2A3A]"
                 dir="ltr"
               >
-                ₺
-                {rate.selling > 0
+                ₺{rate.selling > 0
                   ? rate.selling.toLocaleString("tr-TR", {
-                      minimumFractionDigits: isGold ? 2 : 4,
-                      maximumFractionDigits: isGold ? 2 : 4,
+                      minimumFractionDigits: 4,
+                      maximumFractionDigits: 4,
                     })
                   : "--"}
               </div>
@@ -197,7 +227,7 @@ export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWi
     >
       {/* 1. Ticker Kontrol & Başlık Çubuğu */}
       <div className={`bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20 ${
-        compact ? "px-4 py-2" : "px-5 py-3.5"
+        compact ? "px-3 sm:px-4 py-2" : "px-5 py-3.5"
       }`}>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
@@ -214,7 +244,7 @@ export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWi
             onClick={() => setShowCalculator(!showCalculator)}
             className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
               showCalculator
-                ? "bg-[#44B9CD] text-white"
+                ? "bg-[#44B9CD] text-white shadow-2xs"
                 : "bg-[#44B9CD]/10 text-[#0d788a] hover:bg-[#44B9CD]/20"
             }`}
             title={dw.calculateBtn}
@@ -243,72 +273,123 @@ export default function ExchangeRatesWidget({ compact = false }: ExchangeRatesWi
         </div>
       </div>
 
-      {/* 2. Mini Çevirici Panel */}
-      {showCalculator && (
-        <div className="p-3 bg-gradient-to-r from-slate-900 to-[#1E2A3A] text-white border-b border-slate-700 animate-in slide-in-from-top-2 duration-200 z-30 shrink-0">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="1"
-              value={calcAmount}
-              onChange={(e) => setCalcAmount(Math.max(0, Number(e.target.value)))}
-              className="w-24 px-2 py-1 text-xs rounded-lg bg-white/10 border border-white/20 text-white font-mono focus:outline-none focus:border-[#44B9CD]"
-            />
-            <select
-              value={calcCurrency}
-              onChange={(e) => setCalcCurrency(e.target.value)}
-              className="px-2 py-1 text-xs rounded-lg bg-white/10 border border-white/20 text-white font-bold focus:outline-none focus:border-[#44B9CD]"
+      {/* 2. Orta Bölüm: Sol Ticker + Sağ Çapraz Kur Hesaplama Menüsü */}
+      <div className="flex-1 min-h-0 flex overflow-hidden relative">
+        {/* Sol: GPU İpeksi Akış Konteyneri */}
+        <div className="flex-1 min-w-0 h-full overflow-hidden select-none relative p-2 sm:p-2.5">
+          {/* Degrade Maskeler */}
+          <div className="pointer-events-none absolute left-0 right-0 top-0 h-4 bg-gradient-to-b from-slate-50/90 to-transparent z-10" />
+          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-5 bg-gradient-to-t from-slate-50 to-transparent z-10" />
+
+          {loading && !data ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+              <RefreshCw className="w-5 h-5 animate-spin text-[#44B9CD]" />
+              <span className="text-xs">{dw.ratesLoading}</span>
+            </div>
+          ) : (
+            <div
+              className="animate-scroll-up space-y-1.5"
+              style={{
+                animationDuration: `${Math.max(16, rates.length * 1.5)}s`,
+                animationPlayState: isPaused ? "paused" : "running",
+              }}
             >
-              {rates.map((r) => (
-                <option key={r.code} value={r.code} className="bg-slate-900 text-white">
-                  {r.code}
-                </option>
-              ))}
-            </select>
-            <span className="text-xs text-slate-400">=</span>
-            <div className="flex-1 text-right">
-              <span className="text-sm font-extrabold text-[#44B9CD] font-mono" dir="ltr">
-                ₺{calculatedSelling}
+              {rates.map((rate, idx) => renderRateCard(rate, `set1-${rate.code}-${idx}`))}
+              {rates.map((rate, idx) => renderRateCard(rate, `set2-${rate.code}-${idx}`))}
+            </div>
+          )}
+        </div>
+
+        {/* Sağ: Çapraz Kur Hesaplama Menüsü */}
+        {showCalculator && (
+          <div className="w-[185px] xs:w-[200px] sm:w-[220px] shrink-0 border-l border-slate-200/90 bg-gradient-to-b from-slate-900 via-[#182230] to-[#111827] text-white p-2 sm:p-2.5 flex flex-col justify-between z-20 shadow-xs">
+            {/* Üst: Menü Başlığı */}
+            <div className="flex items-center justify-between pb-1 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <div className="p-0.5 rounded bg-[#44B9CD]/20 text-[#44B9CD]">
+                  <Calculator className="w-3 h-3" />
+                </div>
+                <span className="text-[11px] font-bold text-white tracking-wide">
+                  {dw.crossRateTitle || "Çapraz Kur"}
+                </span>
+              </div>
+              <span className="text-[8.5px] font-semibold text-[#44B9CD] bg-[#44B9CD]/15 px-1 py-0.2 rounded">
+                TCMB
               </span>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* 3. Degrade Maskeler */}
-      <div className={`pointer-events-none absolute left-0 right-0 h-5 bg-gradient-to-b from-slate-50/90 to-transparent z-10 ${
-        compact ? "top-10" : "top-20"
-      }`} />
-      <div className={`pointer-events-none absolute left-0 right-0 h-6 bg-gradient-to-t from-slate-50 to-transparent z-10 ${
-        compact ? "bottom-7" : "bottom-10"
-      }`} />
+            {/* Tutar Girişi */}
+            <div className="my-0.5 shrink-0">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={calcAmount === 0 ? "" : calcAmount}
+                onChange={(e) => setCalcAmount(Math.max(0, Number(e.target.value) || 0))}
+                placeholder="Tutar"
+                className="w-full px-2 py-1 text-xs rounded-md bg-white/10 border border-white/20 text-white font-mono text-right focus:outline-none focus:border-[#44B9CD] focus:ring-1 focus:ring-[#44B9CD]"
+              />
+            </div>
 
-      {/* 4. GPU İpeksi Akış Konteyneri */}
-      <div className={`flex-1 min-h-0 overflow-hidden select-none relative ${
-        compact ? "p-2.5 space-y-2" : "p-4"
-      }`}>
-        {loading && !data ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-            <RefreshCw className="w-5 h-5 animate-spin text-[#44B9CD]" />
-            <span className="text-xs">{dw.ratesLoading}</span>
-          </div>
-        ) : (
-          <div
-            className={`animate-scroll-up ${compact ? "space-y-2" : "space-y-3"}`}
-            style={{
-              animationDuration: `${Math.max(16, rates.length * 1.5)}s`,
-              animationPlayState: isPaused ? "paused" : "running",
-            }}
-          >
-            {rates.map((rate, idx) => renderRateCard(rate, `set1-${rate.code}-${idx}`))}
-            {rates.map((rate, idx) => renderRateCard(rate, `set2-${rate.code}-${idx}`))}
+            {/* Çapraz Kurlar & Değiştir Butonu */}
+            <div className="flex items-center gap-1 my-0.5 shrink-0">
+              <select
+                value={fromCurrency}
+                onChange={(e) => setFromCurrency(e.target.value)}
+                className="flex-1 min-w-0 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-[11px] rounded-md px-1 py-1 focus:outline-none focus:border-[#44B9CD] cursor-pointer"
+              >
+                {CURRENCY_LIST.map((c) => (
+                  <option key={`from-${c.code}`} value={c.code} className="bg-slate-900 text-white">
+                    {c.code}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={handleSwapCurrencies}
+                title="Kurları Değiştir"
+                className="p-1 rounded-md bg-white/10 hover:bg-[#44B9CD] hover:text-white text-white/80 transition-colors cursor-pointer shrink-0"
+              >
+                <ArrowLeftRight className="w-3 h-3" />
+              </button>
+
+              <select
+                value={toCurrency}
+                onChange={(e) => setToCurrency(e.target.value)}
+                className="flex-1 min-w-0 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-[11px] rounded-md px-1 py-1 focus:outline-none focus:border-[#44B9CD] cursor-pointer"
+              >
+                {CURRENCY_LIST.map((c) => (
+                  <option key={`to-${c.code}`} value={c.code} className="bg-slate-900 text-white">
+                    {c.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Hesaplama Sonucu */}
+            <div className="bg-white/[0.07] rounded-lg p-1.5 border border-white/10 text-right shrink-0 my-0.5">
+              <div className="text-[9.5px] text-slate-300 font-medium truncate">
+                {calcAmount.toLocaleString("tr-TR")} {fromCurrency} =
+              </div>
+              <div className="text-xs sm:text-sm font-extrabold text-[#44B9CD] font-mono tracking-tight leading-tight" dir="ltr">
+                {formattedResult} {getCurrencySymbol(toCurrency)}
+              </div>
+            </div>
+
+            {/* 1 Birim Parite Bilgisi */}
+            <div className="pt-1 border-t border-white/10 text-center shrink-0">
+              <span className="text-[9px] text-slate-400 font-mono inline-block truncate max-w-full">
+                1 {fromCurrency} = {formattedParity} {toCurrency}
+              </span>
+            </div>
           </div>
         )}
       </div>
 
-      {/* 5. Alt Bilgi Çubuğu */}
+      {/* 3. Alt Bilgi Çubuğu */}
       <div className={`bg-white border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 shrink-0 z-20 ${
-        compact ? "px-4 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"
+        compact ? "px-3 sm:px-4 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"
       }`}>
         <div className="flex items-center gap-1.5 truncate">
           <Clock className="w-3 h-3 text-[#44B9CD] shrink-0" />

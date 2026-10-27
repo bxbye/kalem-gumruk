@@ -1,23 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
+import { GerekliBaglanti, gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
 import { useLanguage } from "@/context/LanguageContext";
 import { ExternalLink, ArrowRight, Pause, Play, Globe } from "lucide-react";
 
-export default function QuickLinksWidget() {
+interface QuickLinksWidgetProps {
+  initialLinks?: GerekliBaglanti[];
+}
+
+export default function QuickLinksWidget({ initialLinks }: QuickLinksWidgetProps = {}) {
   const { isRTL, localePath, t } = useLanguage();
   const [isPaused, setIsPaused] = useState(false);
+  const [links, setLinks] = useState<GerekliBaglanti[]>(
+    initialLinks && initialLinks.length > 0 ? initialLinks : []
+  );
   const ul = t.usefulLinksSection;
 
-  const marqueeItems = [
-    ...gerekliBaglantilarData,
-    ...gerekliBaglantilarData,
-    ...gerekliBaglantilarData,
-    ...gerekliBaglantilarData,
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshLinks = async () => {
+      try {
+        const res = await fetch("/api/public/baglantilar", {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.baglantilar && Array.isArray(data.baglantilar) && data.baglantilar.length > 0) {
+            if (isMounted) {
+              setLinks(data.baglantilar);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Hızlı erişim bağlantıları veritabanından alınamadı:", err);
+      }
+    };
+
+    fetchFreshLinks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeLinks = useMemo(() => {
+    if (links.length > 0) return links;
+    if (initialLinks && initialLinks.length > 0) return initialLinks;
+    return gerekliBaglantilarData;
+  }, [links, initialLinks]);
+
+  const marqueeItems = useMemo(() => {
+    if (activeLinks.length === 0) return [];
+    let items = [...activeLinks];
+    while (items.length < 10) {
+      items = [...items, ...activeLinks];
+    }
+    // Sonsuz kayan bant akışı için çift kopya
+    return [...items, ...items];
+  }, [activeLinks]);
 
   return (
     <div
@@ -31,7 +74,7 @@ export default function QuickLinksWidget() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#44B9CD]"></span>
           </span>
           <span className="text-xs font-bold text-[#1E2A3A] truncate">
-            {ul.quickAccessTitle.replace("{count}", String(gerekliBaglantilarData.length))}
+            {ul.quickAccessTitle.replace("{count}", String(activeLinks.length))}
           </span>
         </div>
 
@@ -75,7 +118,7 @@ export default function QuickLinksWidget() {
           className="animate-marquee-slow flex items-center gap-3 px-3"
           style={{
             animationPlayState: isPaused ? "paused" : "running",
-            animationDuration: "50s",
+            animationDuration: `${Math.max(35, activeLinks.length * 4)}s`,
           }}
         >
           {marqueeItems.map((item, index) => (
@@ -90,23 +133,28 @@ export default function QuickLinksWidget() {
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center justify-between gap-1 mb-1.5">
                   <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-cyan-800 bg-cyan-50 border border-cyan-100/80 px-1.5 py-0.2 rounded truncate max-w-[150px]">
-                    {item.tag}
+                    {item.tag || "Portalı"}
                   </span>
                   <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-[#44B9CD] transition-colors shrink-0" />
                 </div>
 
                 <div className="relative w-full h-14 rounded-lg bg-slate-50 border border-slate-100 shadow-2xs p-1.5 flex items-center justify-center overflow-hidden group-hover:bg-white group-hover:border-cyan-100 transition-colors">
-                  <Image
-                    src={item.image}
-                    alt={item.shortTitle}
-                    fill
-                    className="object-contain p-1 transition-transform duration-200 group-hover:scale-105"
-                    sizes="200px"
-                  />
+                  {item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? (
+                    <Image
+                      src={item.image}
+                      alt={item.shortTitle || item.title}
+                      fill
+                      unoptimized
+                      className="object-contain p-1 transition-transform duration-200 group-hover:scale-105"
+                      sizes="200px"
+                    />
+                  ) : (
+                    <Globe className="w-7 h-7 text-slate-400 group-hover:text-[#44B9CD] transition-colors" />
+                  )}
                 </div>
 
                 <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-[#44B9CD] transition-colors truncate mt-2">
-                  {item.shortTitle}
+                  {item.shortTitle || item.title}
                 </h4>
 
                 <p className="text-[10px] sm:text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">

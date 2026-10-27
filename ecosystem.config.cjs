@@ -1,3 +1,5 @@
+const path = require("path");
+
 module.exports = {
   apps: [
     {
@@ -7,10 +9,29 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: "300M",
+      max_memory_restart: "350M",
+      kill_timeout: 5000,
+      listen_timeout: 8000,
+      time: true,
+      error_file: "../logs/backend-error.log",
+      out_file: "../logs/backend-out.log",
+      merge_logs: true,
       env: {
+        NODE_ENV: "development",
+        PORT: 5001,
+        BACKEND_PORT: 5001,
+        FRONTEND_URL: "http://localhost:3000",
+      },
+      env_development: {
+        NODE_ENV: "development",
+        PORT: 5001,
+        BACKEND_PORT: 5001,
+        FRONTEND_URL: "http://localhost:3000",
+      },
+      env_production: {
         NODE_ENV: "production",
         PORT: 5001,
+        BACKEND_PORT: 5001,
         FRONTEND_URL: "https://kalemgumruk.com,https://www.kalemgumruk.com,http://localhost:3000",
       },
     },
@@ -22,8 +43,24 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: "500M",
+      max_memory_restart: "600M",
+      kill_timeout: 5000,
+      listen_timeout: 8000,
+      time: true,
+      error_file: "../logs/frontend-error.log",
+      out_file: "../logs/frontend-out.log",
+      merge_logs: true,
       env: {
+        NODE_ENV: "development",
+        PORT: 3000,
+        BACKEND_INTERNAL_URL: "http://localhost:5001",
+      },
+      env_development: {
+        NODE_ENV: "development",
+        PORT: 3000,
+        BACKEND_INTERNAL_URL: "http://localhost:5001",
+      },
+      env_production: {
         NODE_ENV: "production",
         PORT: 3000,
         BACKEND_INTERNAL_URL: "http://localhost:5001",

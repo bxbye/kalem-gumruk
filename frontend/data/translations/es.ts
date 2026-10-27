@@ -2,7 +2,7 @@ import { Translations } from "./types";
 
 export const es: Translations = {
   topBar: {
-    tagline: "Kalem Despacho de Aduanas — Confianza desde 1997",
+    tagline: "Kalem Despacho de Aduanas — Confianza y Experiencia",
     workingHours: "Lun - Vie: 08:30 - 18:00 | Sáb: 09:00 - 13:00",
     consultantLine: "Línea Directa del Agente de Aduanas:",
   },
@@ -77,7 +77,7 @@ export const es: Translations = {
     },
   },
   hero: {
-    badge: "Confianza y Rapidez Operativa desde 1997",
+    badge: "Confianza, Rapidez y Cumplimiento Normativo",
     titleMain: "En el Comercio Global",
     titleHighlight: "Despacho de Aduanas",
     titleSub: "Ágil y Seguro",
@@ -92,7 +92,7 @@ export const es: Translations = {
       },
       digital: {
         title: "Integración Digital EDI",
-        desc: "Seguimiento 24/7 en tiempo real de declaraciones",
+        desc: "Seguimiento en tiempo real de declaraciones",
       },
       speed: {
         title: "Rapidez y Cero Errores",
@@ -109,10 +109,11 @@ export const es: Translations = {
     },
   },
   stats: {
-    founded: { label: "Año de Fundación", value: "1997" },
+    founded: { label: "Año de Fundación", value: "2024" },
+    compliance: { label: "Cumplimiento Legal", value: "100%" },
     experience: { label: "Años de Experiencia", value: "25+" },
     intacRate: { label: "Despacho a Tiempo", value: "99.8%" },
-    support: { label: "Atención del Agente", value: "24/7" },
+    support: { label: "Control en Vivo", value: "Portal Evrim" },
   },
   servicesSection: {
     badge: "Regímenes Aduaneros Integrales",
@@ -134,7 +135,7 @@ export const es: Translations = {
     subtitle: "Gestionamos con total seguridad las operaciones de empresas líderes en automoción, textil, química y tecnología.",
   },
   footer: {
-    desc: "Kalem Customs Brokerage Ltd. Co. — Gestionando operaciones de comercio exterior en todas las direcciones de aduanas de Turquía desde 1997 con la garantía de agentes autorizados.",
+    desc: "Kalem Customs Brokerage Ltd. Co. — Gestionando operaciones de comercio exterior en todas las aduanas de Turquía con más de 25 años de experiencia de agentes autorizados.",
     corporateTitle: "Corporativo",
     servicesTitle: "Servicios",
     contactTitle: "Contacto y Ubicación",
@@ -173,10 +174,10 @@ export const es: Translations = {
   },
   corporatePage: {
     badge: "Identidad Corporativa",
-    title: "Confianza y Experiencia desde 1997",
-    subtitle: "Acompañamos a la industria y al sector exportador e importador en el núcleo del comercio internacional y bajo estricto marco legal durante más de un cuarto de siglo.",
+    title: "Confianza y más de 25 Años de Experiencia",
+    subtitle: "Acompañamos a la industria y al sector exportador e importador en el núcleo del comercio internacional y bajo estricto marco legal con más de 25 años de experiencia sobre el terreno.",
     aboutTitle: "Sobre Nosotros",
-    aboutP1: "Kalem Customs Brokerage Ltd. Co. fue fundada en 1997 con el objetivo primordial de brindar a importadores y exportadores el servicio aduanero más ágil, económico y 100% conforme con la legislación.",
+    aboutP1: "Kalem Customs Brokerage Ltd. Co. cuenta con agentes aduaneros colegiados con más de 25 años de trayectoria profesional, con el objetivo primordial de brindar a importadores y exportadores el servicio más ágil, económico y 100% conforme a la ley.",
     aboutP2: "El despacho de aduanas es el eslabón más crítico del comercio internacional. Una clasificación arancelaria errónea o un plazo vencido pueden generar costosas sanciones. En Kalem Aduanas eliminamos los riesgos gracias a nuestros agentes habilitados y a la infraestructura digital EDI.",
     visionTitle: "Nuestra Visión",
     visionDesc: "Ser la agencia aduanera referente que proporciona certeza jurídica, máxima agilidad operativa y liderazgo tecnológico en el comercio transfronterizo.",
@@ -243,6 +244,10 @@ export const es: Translations = {
     defaultSuccessMsg: "Su mensaje ha sido enviado satisfactoriamente. Nuestro equipo se pondrá en contacto a la brevedad.",
     newMsgBtn: "Enviar Otro Mensaje",
     kvkkNotice: "Sus datos están protegidos con total confidencialidad bajo la normativa de privacidad.",
+    kvkkConsentLabel: "Doy mi consentimiento para el tratamiento de mis datos y para ser contactado de acuerdo con la ley de protección de datos.",
+    kvkkRequiredMsg: "Debe aceptar la cláusula de protección de datos para continuar.",
+    humanVerificationLabel: "Verificación de Seguridad (Verificación Humana)",
+    humanVerificationPlaceholder: "Resultado",
     errorMsg: "Se ha producido un error al enviar el mensaje. Inténtelo de nuevo.",
     connectionError: "No se pudo conectar con el servidor. Por favor llámenos por teléfono o WhatsApp.",
   },
@@ -443,7 +448,7 @@ export const es: Translations = {
   servicesPage: {
     breadcrumbHome: "Inicio",
     breadcrumbCurrent: "Servicios",
-    badge: "Garantía de Agencia Aduanera Homologada desde 1997",
+    badge: "Garantía de Agencia Aduanera Homologada",
     title: "Nuestros Servicios de Aduana y Comercio Exterior",
     desc: "Gestionamos sus regímenes aduaneros de importación, exportación y depósito con más de 25 años de experiencia, agentes habilitados y estricto apego legal.",
     quoteAppointmentBtn: "Solicitar Cotización",
@@ -492,9 +497,10 @@ export const es: Translations = {
     ratesBoxTitle: "Banco Central y Mercados ({count} Divisas)",
     calculateBtn: "Calcular",
     buyLabel: "Compra",
-    customsSaleLabel: "Venta Aduanera",
+    customsSaleLabel: "Venta",
     goldSaleLabel: "Venta",
     caratLabel: "24 Quilates",
+    crossRateTitle: "Tipo Cruzado",
     bulletinPrefix: "Boletín: ",
     currentLabel: "Actual",
     todayLabel: "Hoy",

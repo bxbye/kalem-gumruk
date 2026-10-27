@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { gerekliBaglantilarData, GerekliBaglanti } from "@/data/gerekliBaglantilar";
 import { ExternalLink, Globe, Search } from "lucide-react";
@@ -14,8 +14,37 @@ export default function GerekliBaglantilarSection({ initialLinks }: GerekliBagla
   const { t } = useLanguage();
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [links, setLinks] = useState<GerekliBaglanti[]>(
+    initialLinks && initialLinks.length > 0 ? initialLinks : []
+  );
 
-  const activeData = initialLinks && initialLinks.length > 0 ? initialLinks : gerekliBaglantilarData;
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshLinks = async () => {
+      try {
+        const res = await fetch("/api/public/baglantilar", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.baglantilar && Array.isArray(data.baglantilar) && data.baglantilar.length > 0) {
+            if (isMounted) setLinks(data.baglantilar);
+          }
+        }
+      } catch (err) {
+        console.error("Bağlantılar alınamadı:", err);
+      }
+    };
+    fetchFreshLinks();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeData =
+    links.length > 0
+      ? links
+      : initialLinks && initialLinks.length > 0
+      ? initialLinks
+      : gerekliBaglantilarData;
 
   const categoryDefs = [
     { key: "all", label: t.usefulLinksSection.categories.all, filterValue: "Tümü" },
@@ -110,13 +139,18 @@ export default function GerekliBaglantilarSection({ initialLinks }: GerekliBagla
             <div>
               {/* Görsel Kartı */}
               <div className="relative w-full h-24 bg-white rounded-xl overflow-hidden border border-slate-200/80 mb-3.5 flex items-center justify-center p-2 group-hover:scale-[1.02] transition-transform">
-                <Image
-                  src={item.image}
-                  alt={item.title}
-                  fill
-                  className="object-contain p-2"
-                  sizes="(max-width: 768px) 100vw, 300px"
-                />
+                {item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? (
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    unoptimized
+                    className="object-contain p-2"
+                    sizes="(max-width: 768px) 100vw, 300px"
+                  />
+                ) : (
+                  <Globe className="w-8 h-8 text-slate-400 group-hover:text-[#44B9CD] transition-colors" />
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-2 mb-1.5">

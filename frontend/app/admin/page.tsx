@@ -45,10 +45,25 @@ import {
   Menu,
   LogOut,
   LayoutDashboard,
+  Database,
+  RotateCcw,
+  KeyRound,
+  UserCheck,
+  History,
+  HardDrive,
 } from "lucide-react";
 
 export default function AdminPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    username: string;
+    name: string;
+    role: "ADMIN" | "EDITOR";
+    permissions: Record<string, boolean>;
+  } | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState<
@@ -62,6 +77,8 @@ export default function AdminPage() {
     | "documents"
     | "sirkuler"
     | "feedbacks"
+    | "users"
+    | "backups"
   >("dashboard");
 
   // Veri Stateleri
@@ -73,13 +90,43 @@ export default function AdminPage() {
   const [baglantilarList, setBaglantilarList] = useState<any[]>([]);
   const [servicesList, setServicesList] = useState<any[]>([]);
   const [referencesList, setReferencesList] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [backupsList, setBackupsList] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  // Kullanıcı ve Yedek Modalleri
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState({
+    username: "",
+    name: "",
+    password: "",
+    role: "EDITOR" as "ADMIN" | "EDITOR",
+    permissions: {
+      canEditServices: true,
+      canEditSirkuler: true,
+      canEditBaglantilar: true,
+      canEditReferences: true,
+      canEditDocuments: true,
+      canEditForms: false,
+      canManageSettings: false,
+    },
+    isActive: true,
+  });
+  const [userSaving, setUserSaving] = useState(false);
+  const [userResult, setUserResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [selectedBackupToRestore, setSelectedBackupToRestore] = useState<string | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // 1. Site Ayarları Form State
   const [siteSettings, setSiteSettings] = useState<Record<string, any>>({
     name: "Kalem Gümrük Müşavirliği Ltd. Şti.",
     shortName: "Kalem Gümrük",
-    slogan: "1997'den Bugüne Güven, Hız ve Mevzuata Tam Uyum",
+    slogan: "Yetkili Gümrük Müşavirliği — Güven, Hız ve Mevzuata Tam Uyum",
     description: "25 yılı aşkın tecrübemiz, yetkili gümrük müşavirliği güvencemiz ve güçlü dijital altyapımızla dış ticaret operasyonlarınızı sorunsuz yönetiyoruz.",
     address: "Atatürk Mah. Alemdağ Cad. Gaffar Efendi Sok. Güler Han No:5 Kat:4 Ümraniye / İstanbul",
     phone: "0544 972 29 57",
@@ -89,10 +136,11 @@ export default function AdminPage() {
     email: "info@kalemgumruk.com",
     evrimPortalUrl: "https://webgumruk.com",
     workingHours: "Hafta İçi: 08:30 - 18:00 | Cumartesi: 09:00 - 13:00",
-    foundedYear: "1997",
+    foundedYear: "2024",
+    complianceRate: "%100",
     experienceYears: "25+",
     intacRate: "%99.8",
-    supportHours: "7/24",
+    supportHours: "7/24 Destek",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsResult, setSettingsResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -173,6 +221,8 @@ export default function AdminPage() {
     isPublished: true,
   });
   const [sirkulerSubmitting, setSirkulerSubmitting] = useState(false);
+  const [sirkulerPdfUploading, setSirkulerPdfUploading] = useState(false);
+  const [copiedSirkulerId, setCopiedSirkulerId] = useState<string | null>(null);
   const [sirkulerResult, setSirkulerResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Belge Yükleme Form State
@@ -231,54 +281,124 @@ export default function AdminPage() {
     ],
   });
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password) {
-      setLoginError("Lütfen yönetici şifresini giriniz.");
-      return;
-    }
-    setIsLoggedIn(true);
-    setLoginError("");
-    loadAllAdminData();
+  const getAuthHeaders = (overrideToken?: string) => {
+    const token =
+      overrideToken ||
+      authToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("kalem_admin_token") || "" : "");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (password) headers["x-admin-password"] = password;
+    return headers;
   };
 
-  const loadAllAdminData = async () => {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedToken = localStorage.getItem("kalem_admin_token");
+      if (savedToken) {
+        fetch("/api/admin/me", {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.user) {
+              setAuthToken(savedToken);
+              setCurrentUser(data.user);
+              setIsLoggedIn(true);
+              loadAllAdminData(savedToken, data.user);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) {
+      setLoginError("Lütfen giriş şifrenizi yazınız.");
+      return;
+    }
+    setLoginError("");
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setLoginError(data?.error || "Giriş başarısız. Lütfen şifrenizi kontrol ediniz.");
+        return;
+      }
+
+      setAuthToken(data.token);
+      setCurrentUser(data.user);
+      setIsLoggedIn(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("kalem_admin_token", data.token);
+      }
+      loadAllAdminData(data.token, data.user);
+    } catch (err: any) {
+      setLoginError("Sunucu bağlantı hatası: " + (err?.message || "Bilinmeyen hata"));
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    setAuthToken("");
+    setPassword("");
+    setUsername("");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("kalem_admin_token");
+    }
+  };
+
+  const loadAllAdminData = async (tokenOverride?: string, userOverride?: any) => {
     setLoadingData(true);
+    const headers = getAuthHeaders(tokenOverride);
+    const activeUser = userOverride || currentUser;
+
     try {
       // 1. Form Yanıtlarını Çek
-      const subRes = await fetch("/api/submissions");
+      const subRes = await fetch("/api/submissions", { headers });
       const subData = await subRes.json();
       if (subData.success) setSubmissions(Array.isArray(subData.submissions) ? subData.submissions : []);
 
       // 2. Form Tanımlarını Çek
-      const formRes = await fetch("/api/forms");
+      const formRes = await fetch("/api/forms", { headers });
       const formData = await formRes.json();
       if (formData.success) setFormsList(Array.isArray(formData.forms) ? formData.forms : []);
 
       // 3. Belgeleri Çek
-      const docRes = await fetch("/api/documents");
+      const docRes = await fetch("/api/documents", { headers });
       const docData = await docRes.json();
       if (docData.success) setDocumentsList(Array.isArray(docData.documents) ? docData.documents : []);
 
       // 4. Sirkülerleri Çek
-      const sirkulerRes = await fetch("/api/admin/sirkuler");
+      const sirkulerRes = await fetch("/api/admin/sirkuler", { headers });
       const sirkulerData = await sirkulerRes.json();
       if (sirkulerData.success) setSirkulerList(Array.isArray(sirkulerData.sirkuler) ? sirkulerData.sirkuler : []);
 
       // 5. Müşteri Yorumlarını Çek
-      const fbRes = await fetch("/api/feedbacks");
+      const fbRes = await fetch("/api/feedbacks", { headers });
       const fbData = await fbRes.json();
       if (fbData.success) setFeedbacksList(Array.isArray(fbData.feedbacks) ? fbData.feedbacks : []);
 
       // 6. Site ve Firma Ayarlarını Çek
-      const settingsRes = await fetch("/api/admin/settings");
+      const settingsRes = await fetch("/api/admin/settings", { headers });
       const settingsData = await settingsRes.json();
       if (settingsData.success && settingsData.settings) {
         setSiteSettings((prev) => ({ ...prev, ...settingsData.settings }));
       }
 
       // 7. Gerekli Bağlantıları Çek
-      const baglantilarRes = await fetch("/api/admin/baglantilar");
+      const baglantilarRes = await fetch("/api/admin/baglantilar", { headers });
       const baglantilarData = await baglantilarRes.json();
       if (baglantilarData.success) {
         const list = baglantilarData.items || baglantilarData.baglantilar || [];
@@ -286,7 +406,7 @@ export default function AdminPage() {
       }
 
       // 8. Hizmetleri Çek
-      const servicesRes = await fetch("/api/admin/services");
+      const servicesRes = await fetch("/api/admin/services", { headers });
       const servicesData = await servicesRes.json();
       if (servicesData.success) {
         const list = servicesData.items || servicesData.services || [];
@@ -294,11 +414,17 @@ export default function AdminPage() {
       }
 
       // 9. Referansları Çek
-      const refsRes = await fetch("/api/admin/references");
+      const refsRes = await fetch("/api/admin/references", { headers });
       const refsData = await refsRes.json();
       if (refsData.success) {
         const list = refsData.items || refsData.references || [];
         setReferencesList(Array.isArray(list) ? list : []);
+      }
+
+      // 10. Admin İse Kullanıcılar ve Yedekleri de Çek
+      if (activeUser?.role === "ADMIN") {
+        fetchUsersList(headers);
+        fetchBackupsList(headers);
       }
     } catch (err) {
       console.error("Veri yükleme hatası:", err);
@@ -306,6 +432,137 @@ export default function AdminPage() {
       setLoadingData(false);
     }
   };
+
+  const fetchUsersList = async (customHeaders?: any) => {
+    try {
+      const res = await fetch("/api/admin/users", { headers: customHeaders || getAuthHeaders() });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.users)) {
+        setUsersList(data.users);
+      }
+    } catch (e) {
+      console.error("Kullanıcılar alınamadı:", e);
+    }
+  };
+
+  const fetchBackupsList = async (customHeaders?: any) => {
+    try {
+      const res = await fetch("/api/admin/backups", { headers: customHeaders || getAuthHeaders() });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.backups)) {
+        setBackupsList(data.backups);
+      }
+    } catch (e) {
+      console.error("Yedekler alınamadı:", e);
+    }
+  };
+
+  const handleCreateManualBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const res = await fetch("/api/admin/backups/create", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ note: "Yönetici paneli üzerinden anlık alındı" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Yedek başarıyla oluşturuldu: " + data.backup.filename);
+        fetchBackupsList();
+      } else {
+        alert("❌ Hata: " + (data.error || "Yedek alınamadı."));
+      }
+    } catch (e: any) {
+      alert("Bağlantı hatası: " + e.message);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!selectedBackupToRestore) return;
+    setRestoreLoading(true);
+    setRestoreResult(null);
+
+    try {
+      const res = await fetch("/api/admin/backups/restore", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ filename: selectedBackupToRestore }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setRestoreResult({ success: true, message: data.message });
+        setTimeout(() => {
+          setRestoreModalOpen(false);
+          loadAllAdminData();
+        }, 1500);
+      } else {
+        setRestoreResult({ success: false, message: data.error || "Geri yükleme başarısız." });
+      }
+    } catch (e: any) {
+      setRestoreResult({ success: false, message: e.message || "Bağlantı hatası" });
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserSaving(true);
+    setUserResult(null);
+
+    try {
+      const payload: any = {
+        ...userForm,
+        id: editingUserId || undefined,
+      };
+
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setUserResult({ success: true, message: data.message });
+        fetchUsersList();
+        setTimeout(() => {
+          setUserModalOpen(false);
+          setEditingUserId(null);
+        }, 1000);
+      } else {
+        setUserResult({ success: false, message: data.error || "Kullanıcı kaydedilemedi." });
+      }
+    } catch (e: any) {
+      setUserResult({ success: false, message: e.message || "Bağlantı hatası" });
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string, name: string) => {
+    if (!confirm(`'${name}' kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchUsersList();
+      } else {
+        alert("Hata: " + data.error);
+      }
+    } catch (e: any) {
+      alert("Hata: " + e.message);
+    }
+  };
+
+  const isRoleAdmin = currentUser?.role === "ADMIN";
+  const canDelete = isRoleAdmin;
 
   // Site Ayarlarını Kaydet
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -637,7 +894,7 @@ export default function AdminPage() {
       id: "",
       title: "",
       category: "İthalat & Vergi",
-      regulationType: "Cumhurbaşkanı Kararı",
+      regulationType: "Tebliğ",
       officialGazetteNumber: "",
       relatedGtip: "",
       summary: "",
@@ -648,6 +905,104 @@ export default function AdminPage() {
       isPublished: true,
     });
     setSirkulerModalOpen(true);
+  };
+
+  const handleSirkulerPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSirkulerPdfUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success && data.file) {
+        setSirkulerForm((prev) => ({
+          ...prev,
+          pdfUrl: data.file.url,
+        }));
+      } else {
+        alert(data.error || "PDF yüklenemedi.");
+      }
+    } catch (err) {
+      alert("PDF yüklenirken bir hata oluştu.");
+    } finally {
+      setSirkulerPdfUploading(false);
+    }
+  };
+
+  const applySirkulerTemplate = (type: "gozetim" | "igv" | "pdf_only" | "clear") => {
+    if (type === "clear") {
+      setSirkulerForm((prev) => ({
+        ...prev,
+        title: "",
+        officialGazetteNumber: "",
+        relatedGtip: "",
+        summary: "",
+        content: "",
+        expertNote: "",
+        sourceUrl: "",
+        pdfUrl: "",
+      }));
+      return;
+    }
+
+    if (type === "gozetim") {
+      setSirkulerForm((prev) => ({
+        ...prev,
+        title: "İTHALATI KAYIT BELGESİNE TABİ TEKSTİL VE KONFEKSİYON ÜRÜNLERİNE İLİŞKİN 2020/9 SAYILI GÖZETİM TEBLİĞİNDE DEĞİŞİKLİK YAPILDI",
+        category: "İthalat & Vergi",
+        regulationType: "Tebliğ",
+        officialGazetteNumber: "32700",
+        relatedGtip: "50-63. Fasıllar (Tekstil ve Konfeksiyon)",
+        summary: "İthalatı kayda bağlı ürünlerin beyannamesinin tescili sırasında tolerans uygulamasına ilişkin yeni düzenleme yapılmıştır. Miktar toleransı kaldırılarak tolerans yalnızca kıymet unsuruyla sınırlandırılmıştır.",
+        content: `İthalatta Gözetim Uygulanmasına İlişkin Tebliğ (Tebliğ No: 2020/9)'in ilgili maddesinin yeni hali;
+
+(3) Gümrük beyannamesinin tescili sırasında gümrüklerce tespit ve kabul edilen kıymetin, Kayıt Belgesinde kayıtlı kıymeti %5'ten (%5 dâhil) daha az bir oranda aşması ithalatın yapılmasını engellemez.
+
+İthalatta Gözetim Uygulanmasına İlişkin Tebliğ (Tebliğ No: 2020/9)'in ilgili maddesinin değiştirilmeden önceki hali;
+
+(3) Gümrük beyannamesinin tescili sırasında gümrüklerce tespit ve kabul edilen kıymet veya miktarın, Kayıt Belgesinde kayıtlı kıymet veya miktarı, toplam %5'ten (%5 dâhil) daha az bir oranda aşması ithalatın yapılmasını engellemez.`,
+        expertNote: "",
+      }));
+    } else if (type === "igv") {
+      setSirkulerForm((prev) => ({
+        ...prev,
+        title: "İTHALATTA İLAVE GÜMRÜK VERGİSİ UYGULANMASINA DAİR KARARDA DEĞİŞİKLİK YAPILMASI HAKKINDA KARAR",
+        category: "İthalat & Vergi",
+        regulationType: "Cumhurbaşkanı Kararı",
+        officialGazetteNumber: "32705",
+        relatedGtip: "84. ve 85. Fasıllar",
+        summary: "Belirtilen fasıllarda yer alan bazı sanayi ürünlerinin ithalatında uygulanan ilave gümrük vergisi (İGV) oranları güncellenmiş ve yürürlük tarihi belirlenmiştir.",
+        content: `İthalatta İlave Gümrük Vergisi Uygulanmasına İlişkin Karar kapsamında Ek-1 ve Ek-2 sayılı listelerde yer alan GTİP ve ürün gruplarının gümrük vergisi oranları yeniden düzenlenmiştir.
+
+Öne çıkan düzenlemeler:
+1. İlgili GTİP'lerde AB ve Serbest Ticaret Anlaşması (STA) olan ülkeler için muafiyet şartları korunmuştur.
+2. Üçüncü ülkeler menşeli ithalatlarda %5 ila %20 arasında ilave gümrük vergisi uygulanacaktır.
+3. Yürürlük tarihinden önce tescil edilmiş beyannameler önceki hükümlere tabidir.`,
+        expertNote: "",
+      }));
+    } else if (type === "pdf_only") {
+      setSirkulerForm((prev) => ({
+        ...prev,
+        title: "GÜMRÜKLER GENEL MÜDÜRLÜĞÜ GENELGESİ / RESMİ TEBLİĞ DUYURUSU",
+        category: "İthalat & Vergi",
+        regulationType: "Genelge",
+        summary: "Ticaret Bakanlığı tarafından yayımlanan güncel resmi genelge / tebliğ metni ekte bilgilerinize sunulmuştur.",
+        content: "İlgili konuya ilişkin resmi karar ve uygulama esasları ekteki PDF dosyasında ve resmi kaynak bağlantısında yer almaktadır.",
+        expertNote: "",
+      }));
+    }
+  };
+
+  const handleCopyWhatsAppSirkuler = (item: any) => {
+    const text = `📢 *GÜMRÜK MEVZUAT DUYURUSU*\n\n*KONU:* ${item.title}\n*Tarih:* ${item.date || "Güncel"}\n*Kategori:* ${item.category || "Gümrük Mevzuatı"}${item.officialGazetteNumber ? `\n*Resmi Gazete Sayı:* ${item.officialGazetteNumber}` : ""}${item.relatedGtip ? `\n*İlgili Kapsam / GTİP:* ${item.relatedGtip}` : ""}\n\n*Haber Özeti:*\n${item.summary}\n\n📄 *Tebliğ & Karar Detayı:*\nhttps://kalemgumruk.com/tr/sirkuler/${item.slug}\n\nℹ️ *Önemli Not:* Bu mevzuat paylaşımı genel duyuru amaçlıdır. Mevzuatın firmanıza ve operasyonlarınıza etkileri ile nasıl hareket edilmesi gerektiği konusunda destek ve profesyonel danışmanlık almak için bizimle iletişime geçebilirsiniz:\n📞 0544 972 29 57 | ✉️ info@kalemgumruk.com`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedSirkulerId(item.id);
+    setTimeout(() => setCopiedSirkulerId(null), 3000);
   };
 
   const openEditSirkulerModal = (item: any) => {
@@ -1061,14 +1416,32 @@ export default function AdminPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300">Yönetici Şifresi</label>
+              <label className="text-xs font-semibold text-slate-300">Kullanıcı Adı (Opsiyonel)</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin veya editor"
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-[#44B9CD] transition"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300">Şifre *</label>
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-[#44B9CD] transition"
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-[#44B9CD] transition"
               />
+            </div>
+            <div className="p-3 bg-slate-900/60 border border-slate-700/50 rounded-xl text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>Giriş Rolleri:</strong>
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                <li><strong className="text-emerald-400">Admin:</strong> Tüm yetkilere ve silme hakkına sahiptir.</li>
+                <li><strong className="text-amber-400">Editör:</strong> Mevzuat, hizmet ve içerik ekleyip güncelleyebilir; silme yetkisi yoktur.</li>
+              </ul>
             </div>
             <button
               type="submit"
@@ -1174,6 +1547,24 @@ export default function AdminPage() {
       badge: null,
       badgeColor: "",
     },
+    ...(isRoleAdmin
+      ? [
+          {
+            id: "users" as const,
+            label: "Kullanıcı & Yetki Yönetimi",
+            icon: UserCheck,
+            badge: usersList.length || null,
+            badgeColor: "bg-indigo-100 text-indigo-800",
+          },
+          {
+            id: "backups" as const,
+            label: "Veritabanı Yedekleri",
+            icon: Database,
+            badge: backupsList.length || null,
+            badgeColor: "bg-emerald-100 text-emerald-800",
+          },
+        ]
+      : []),
   ];
 
   const currentTabInfo = menuItems.find((m) => m.id === activeTab) || menuItems[0];
@@ -1298,7 +1689,7 @@ export default function AdminPage() {
 
           <button
             type="button"
-            onClick={() => setIsLoggedIn(false)}
+            onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/40 transition-all group"
             title="Oturumu Kapat"
           >
@@ -1336,11 +1727,33 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Sağ Aksiyonlar */}
+          {/* Sağ Aksiyonlar & Kullanıcı Bilgisi */}
           <div className="flex items-center gap-2 shrink-0">
+            {currentUser && (
+              <div className="hidden sm:flex items-center gap-2 mr-1">
+                {currentUser.role === "ADMIN" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Yönetici (Admin)</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
+                    title="Editör Modu: Yeni kayıt ve düzenleme yapabilir. Silme yetkisi kapalıdır."
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Editör (Silme Yetkisi Yok)</span>
+                  </span>
+                )}
+                <span className="text-xs font-semibold text-slate-700">
+                  {currentUser.name}
+                </span>
+              </div>
+            )}
+
             <button
               type="button"
-              onClick={loadAllAdminData}
+              onClick={() => loadAllAdminData()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
               title="Tüm veritabanı kayıtlarını yenile"
             >
@@ -1351,11 +1764,20 @@ export default function AdminPage() {
             <Link
               href="/tr"
               target="_blank"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-[#0e7490] text-xs font-bold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-[#0e7490] text-xs font-bold transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Web Sitesi</span>
+              <span className="hidden sm:inline">Web Sitesi</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-bold transition-colors"
+              title="Güvenli Çıkış"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </header>
 
@@ -1513,7 +1935,7 @@ export default function AdminPage() {
                     cat === "ALL"
                       ? "Tüm Talepler"
                       : cat === "chatbot"
-                      ? "💬 Chatbot Talepleri"
+                      ? "Chatbot Talepleri"
                       : (matchingForm?.title || cat);
                   const count = cat === "ALL" ? submissions.length : submissions.filter((s) => s.formSlug === cat).length;
                   return (
@@ -1572,7 +1994,7 @@ export default function AdminPage() {
                           <td className="py-3 px-4">
                             {sub.formSlug === "chatbot" ? (
                               <span className="px-2.5 py-1 rounded-full bg-cyan-50 text-[#1E2A3A] font-bold inline-flex items-center gap-1 border border-cyan-200">
-                                💬 Chatbot Danışma
+                                Chatbot Danışma
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
@@ -1766,15 +2188,17 @@ export default function AdminPage() {
                           <span>Düzenle</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteForm(f)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-colors"
-                          title="Formu Sil"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Sil</span>
-                        </button>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteForm(f)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-colors"
+                            title="Formu Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Sil</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1891,13 +2315,15 @@ export default function AdminPage() {
                       >
                         <Download className="w-4 h-4" />
                       </a>
-                      <button
-                        onClick={() => handleDeleteDoc(doc.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 transition"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDeleteDoc(doc.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 transition"
+                          title="Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2079,7 +2505,43 @@ export default function AdminPage() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {item.pdfUrl && (
+                              <a
+                                href={item.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition-colors"
+                                title="Yüklenmiş PDF Dosyasını Aç"
+                              >
+                                <FileDown className="w-3.5 h-3.5" />
+                                <span>PDF Eki</span>
+                              </a>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyWhatsAppSirkuler(item)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                                copiedSirkulerId === item.id
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
+                              }`}
+                              title="Müşterilere Göndermek İçin WhatsApp Metnini Kopyala"
+                            >
+                              {copiedSirkulerId === item.id ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Kopyalandı!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>WhatsApp Metni</span>
+                                </>
+                              )}
+                            </button>
+
                             <Link
                               href={`/tr/sirkuler/${item.slug}`}
                               target="_blank"
@@ -2098,15 +2560,17 @@ export default function AdminPage() {
                               <span>Düzenle</span>
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSirkuler(item)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-colors"
-                              title="Sirküleri Sil"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Sil</span>
-                            </button>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSirkuler(item)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-colors"
+                                title="Sirküleri Sil"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Sil</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2369,13 +2833,23 @@ export default function AdminPage() {
                   <Sparkles className="w-4 h-4 text-[#44B9CD]" />
                   <span>Güven Sayaçları & Rakamlar</span>
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700">Kuruluş Yılı</label>
                     <input
                       type="text"
                       value={siteSettings.foundedYear || ""}
                       onChange={(e) => setSiteSettings({ ...siteSettings, foundedYear: e.target.value })}
+                      placeholder="2024"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Mevzuat Uyumu</label>
+                    <input
+                      type="text"
+                      value={siteSettings.complianceRate || ""}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, complianceRate: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     />
                   </div>
@@ -2398,11 +2872,12 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Destek Saatleri</label>
+                    <label className="text-xs font-bold text-slate-700">Destek / Takip</label>
                     <input
                       type="text"
                       value={siteSettings.supportHours || ""}
                       onChange={(e) => setSiteSettings({ ...siteSettings, supportHours: e.target.value })}
+                      placeholder="7/24 Destek"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     />
                   </div>
@@ -2526,14 +3001,16 @@ export default function AdminPage() {
                         <span>Düzenle</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBaglanti(item.id)}
-                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBaglanti(item.id)}
+                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2602,14 +3079,16 @@ export default function AdminPage() {
                         <span>Düzenle</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteService(srv.id)}
-                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteService(srv.id)}
+                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2665,17 +3144,292 @@ export default function AdminPage() {
                       <Edit3 className="w-3 h-3" />
                       <span>Düzenle</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReference(ref.id)}
-                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReference(ref.id)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* 11. KULLANICI VE YETKİ YÖNETİMİ (ADMIN ONLY) */}
+        {activeTab === "users" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div>
+                <h3 className="text-lg font-bold text-[#1E2A3A] flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-[#44B9CD]" />
+                  <span>Kullanıcı &amp; Yetki Yönetimi</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Yönetici (Admin) ve Editör hesaplarını yönetin. Editörlerin mevzuat, hizmet ve içerik yetkilerini özelleştirin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingUserId(null);
+                  setUserResult(null);
+                  setUserForm({
+                    username: "",
+                    name: "",
+                    password: "",
+                    role: "EDITOR",
+                    permissions: {
+                      canEditServices: true,
+                      canEditSirkuler: true,
+                      canEditBaglantilar: true,
+                      canEditReferences: true,
+                      canEditDocuments: true,
+                      canEditForms: false,
+                      canManageSettings: false,
+                    },
+                    isActive: true,
+                  });
+                  setUserModalOpen(true);
+                }}
+                className="px-4 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-[#44B9CD]" />
+                <span>Yeni Editör / Kullanıcı Ekle</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {usersList.map((u) => {
+                const isAdmin = u.role === "ADMIN";
+                const isSelf = currentUser?.id === u.id || currentUser?.username === u.username;
+                const perms = u.permissions || {};
+
+                return (
+                  <div
+                    key={u.id}
+                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{u.name}</h4>
+                          <span className="text-xs text-slate-400 font-mono">@{u.username}</span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                            isAdmin
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
+                        >
+                          {isAdmin ? "Admin (Tam Yetki)" : "Editör (Sınırlı)"}
+                        </span>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-[11px]">
+                        <span className="font-bold text-slate-500 block uppercase tracking-wider text-[10px]">
+                          Yetki Özeti:
+                        </span>
+                        <div className="grid grid-cols-2 gap-1 text-slate-700">
+                          <span className={isAdmin || perms.canEditSirkuler ? "text-emerald-700 font-medium" : "text-slate-400 line-through"}>
+                            {isAdmin || perms.canEditSirkuler ? "✓" : "✗"} Mevzuat
+                          </span>
+                          <span className={isAdmin || perms.canEditServices ? "text-emerald-700 font-medium" : "text-slate-400 line-through"}>
+                            {isAdmin || perms.canEditServices ? "✓" : "✗"} Hizmetler
+                          </span>
+                          <span className={isAdmin || perms.canEditBaglantilar ? "text-emerald-700 font-medium" : "text-slate-400 line-through"}>
+                            {isAdmin || perms.canEditBaglantilar ? "✓" : "✗"} Portallar
+                          </span>
+                          <span className={isAdmin || perms.canEditReferences ? "text-emerald-700 font-medium" : "text-slate-400 line-through"}>
+                            {isAdmin || perms.canEditReferences ? "✓" : "✗"} Referanslar
+                          </span>
+                          <span className={isAdmin || perms.canEditDocuments ? "text-emerald-700 font-medium" : "text-slate-400 line-through"}>
+                            {isAdmin || perms.canEditDocuments ? "✓" : "✗"} Belgeler
+                          </span>
+                          <span className={isAdmin ? "text-emerald-700 font-medium" : "text-red-600 font-bold"}>
+                            {isAdmin ? "✓ Silme" : "✗ Silme Yasak"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUserId(u.id);
+                          setUserResult(null);
+                          setUserForm({
+                            username: u.username,
+                            name: u.name,
+                            password: "",
+                            role: u.role || "EDITOR",
+                            permissions: u.permissions || {},
+                            isActive: u.isActive !== undefined ? u.isActive : true,
+                          });
+                          setUserModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Düzenle &amp; Yetkiler</span>
+                      </button>
+
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(u.id, u.name)}
+                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          title="Kullanıcıyı Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 12. VERİTABANI YEDEKLERİ (BACKUPS - ADMIN ONLY) */}
+        {activeTab === "backups" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div>
+                <h3 className="text-lg font-bold text-[#1E2A3A] flex items-center gap-2">
+                  <Database className="w-5 h-5 text-emerald-600" />
+                  <span>Veritabanı Yedekleme &amp; Geri Yükleme (Disaster Recovery)</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Her gece otomatik yedekler alınır. İstediğiniz zaman anlık manuel yedek alabilir veya seçtiğiniz bir yedeğe tek tıkla geri dönebilirsiniz.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateManualBackup}
+                disabled={backupLoading}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition cursor-pointer"
+              >
+                <Database className={`w-4 h-4 ${backupLoading ? "animate-spin" : ""}`} />
+                <span>{backupLoading ? "Yedek Alınıyor..." : "Hemen Yeni Yedek Al"}</span>
+              </button>
+            </div>
+
+            {/* Linux Sunucu CLI Bilgilendirme Kartı */}
+            <div className="bg-[#1E2A3A] text-white p-5 rounded-2xl border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#44B9CD]">
+                <HardDrive className="w-4 h-4" />
+                <span>Linux Sunucu Terminal / Bash Komutları</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Web paneline erişemediğiniz acil durumlarda Linux sunucunuzda terminalden doğrudan şu komutları çalıştırabilirsiniz:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/60">
+                  <span className="text-slate-400 block mb-1"># Anlık Yedek Al:</span>
+                  <span className="text-emerald-400">./scripts/backup.sh</span>
+                </div>
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/60">
+                  <span className="text-slate-400 block mb-1"># İstenen Yedekten Geri Yükle:</span>
+                  <span className="text-cyan-400">./scripts/restore.sh</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Yedekler Tablosu */}
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <History className="w-4 h-4 text-slate-500" />
+                  <span>Kayıtlı Veritabanı Yedekleri ({backupsList.length})</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => fetchBackupsList()}
+                  className="text-xs text-[#0e7490] hover:underline font-semibold flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" /> Yenile
+                </button>
+              </div>
+
+              {backupsList.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Henüz kayıtlı veritabanı yedeği bulunmuyor. Yukarıdaki butona tıklayarak ilk yedeği alabilirsiniz.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                      <tr>
+                        <th className="py-3 px-4">Dosya Adı</th>
+                        <th className="py-3 px-4">Tür</th>
+                        <th className="py-3 px-4">Boyut</th>
+                        <th className="py-3 px-4">Oluşturulma Tarihi</th>
+                        <th className="py-3 px-4">Açıklama</th>
+                        <th className="py-3 px-4 text-right">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {backupsList.map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">{b.filename}</td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                b.backupType === "AUTOMATIC"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : b.backupType === "PRE_RESTORE"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              }`}
+                            >
+                              {b.backupType === "AUTOMATIC"
+                                ? "Otomatik Gece"
+                                : b.backupType === "PRE_RESTORE"
+                                ? "Emniyet Yedeği"
+                                : "Manuel Alındı"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono">{b.sizeFormatted}</td>
+                          <td className="py-3 px-4 text-slate-500">{b.createdAtFormatted}</td>
+                          <td className="py-3 px-4 text-slate-500 text-[11px]">{b.note || "-"}</td>
+                          <td className="py-3 px-4 text-right space-x-2">
+                            <a
+                              href={`/api/admin/backups/download/${encodeURIComponent(b.filename)}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                              title="Yedek Dosyasını İndir"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>İndir</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedBackupToRestore(b.filename);
+                                setRestoreResult(null);
+                                setRestoreModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                              title="Bu yedeğe geri dön"
+                            >
+                              <RotateCcw className="w-3 h-3 text-amber-700" />
+                              <span>Bu Yedeğe Dön</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2693,7 +3447,7 @@ export default function AdminPage() {
                 </span>
                 <h3 className="text-xl font-bold text-[#1E2A3A]">
                   {selectedSubmission.formSlug === "chatbot"
-                    ? "💬 Canlı Chatbot Danışma & Sohbet Kaydı"
+                    ? "Chatbot Danışma & Sohbet Kaydı"
                     : `Talep Detayı: ${formsList.find((f) => f.slug === selectedSubmission.formSlug)?.title || selectedSubmission.formSlug}`}
                 </h3>
                 <span className="text-xs text-slate-400">
@@ -2841,14 +3595,18 @@ export default function AdminPage() {
             </div>
 
             <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => deleteSubmission(selectedSubmission.id)}
-                className="text-xs font-semibold text-red-600 hover:underline flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Kaydı Sil</span>
-              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => deleteSubmission(selectedSubmission.id)}
+                  className="text-xs font-semibold text-red-600 hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Kaydı Sil</span>
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400 font-medium">Editör Modu (Silme Kapalı)</span>
+              )}
 
               <button
                 type="button"
@@ -3673,15 +4431,55 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Hızlı Şablon Butonları (Verimlilik & Hız Çubuğu) */}
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-1.5 text-[#1E2A3A]">
+                  <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
+                  <span>Hızlı Mevzuat Şablonları (Tek Tıkla Doldur):</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => applySirkulerTemplate("clear")}
+                  className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  Formu Temizle
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => applySirkulerTemplate("gozetim")}
+                  className="px-3 py-1.5 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                >
+                  📋 Gözetim &amp; Tolerans Tebliği Şablonu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applySirkulerTemplate("igv")}
+                  className="px-3 py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-800 rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                >
+                  🏷️ İlave Gümrük Vergisi (İGV) Şablonu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applySirkulerTemplate("pdf_only")}
+                  className="px-3 py-1.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                >
+                  📄 Sade PDF / Genelge Duyurusu
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleSirkulerPublish} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Sirküler / Mevzuat Başlığı *</label>
+                <label className="text-xs font-bold text-slate-700">Sirküler / Mevzuat Başlığı (Konu) *</label>
                 <input
                   type="text"
                   required
                   value={sirkulerForm.title}
                   onChange={(e) => setSirkulerForm({ ...sirkulerForm, title: e.target.value })}
-                  placeholder="Örn: İthalatta İlave Gümrük Vergisi Uygulanmasına Dair Karar Değişikliği (2026)"
+                  placeholder="Örn: İTHALATI KAYIT BELGESİNE TABİ TEKSTİL VE KONFEKSİYON ÜRÜNLERİNE İLİŞKİN 2020/9 SAYILI GÖZETİM TEBLİĞİNDE DEĞİŞİKLİK YAPILDI"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
                 />
               </div>
@@ -3708,7 +4506,7 @@ export default function AdminPage() {
                     type="text"
                     value={sirkulerForm.regulationType}
                     onChange={(e) => setSirkulerForm({ ...sirkulerForm, regulationType: e.target.value })}
-                    placeholder="Cumhurbaşkanı Kararı / Tebliğ"
+                    placeholder="Tebliğ / Cumhurbaşkanı Kararı / Genelge"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
                   />
                 </div>
@@ -3732,13 +4530,13 @@ export default function AdminPage() {
                     type="text"
                     value={sirkulerForm.relatedGtip}
                     onChange={(e) => setSirkulerForm({ ...sirkulerForm, relatedGtip: e.target.value })}
-                    placeholder="Örn: 84. ve 85. Fasıllar (Elektronik & Makine)"
+                    placeholder="Örn: 50-63. Fasıllar veya 8471"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Resmi Kaynak / Gazete URL</label>
+                  <label className="text-xs font-bold text-slate-700">Resmi Kaynak / Gazete URL Bağlantısı</label>
                   <input
                     type="text"
                     value={sirkulerForm.sourceUrl}
@@ -3749,8 +4547,62 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* PDF DOSYASI YÜKLEME ALANI (SÜRÜKLE - BIRAK / SEÇ) */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <FileDown className="w-4 h-4 text-[#44B9CD]" />
+                    <span>Resmi Tebliğ / Karar Metni PDF Dosyası Yükle</span>
+                  </label>
+                  {sirkulerForm.pdfUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSirkulerForm({ ...sirkulerForm, pdfUrl: "" })}
+                      className="text-xs text-red-600 hover:underline font-semibold"
+                    >
+                      PDF&apos;i Kaldır
+                    </button>
+                  )}
+                </div>
+
+                {sirkulerForm.pdfUrl ? (
+                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2 text-emerald-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="font-semibold">PDF Dosyası Yüklendi ve Bağlandı</span>
+                      <a
+                        href={sirkulerForm.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-700 hover:underline font-mono text-[11px]"
+                      >
+                        (Önizle)
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleSirkulerPdfUpload}
+                      disabled={sirkulerPdfUploading}
+                      className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#1E2A3A] file:text-[#44B9CD] hover:file:bg-[#2A3B50] cursor-pointer"
+                    />
+                    {sirkulerPdfUploading && (
+                      <span className="text-[11px] text-blue-600 font-semibold block pt-1">
+                        PDF yükleniyor, lütfen bekleyin...
+                      </span>
+                    )}
+                    <p className="text-[11px] text-slate-400">
+                      Ziyaretçiler sayfada &quot;İlgili Tebliğ için lütfen tıklayınız&quot; butonuna bastığında bu PDF açılır.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Kısa Özet *</label>
+                <label className="text-xs font-bold text-slate-700">Haber Özeti *</label>
                 <textarea
                   rows={2}
                   required
@@ -3762,13 +4614,16 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Detaylı Mevzuat Metni &amp; Analiz *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Detaylı Mevzuat Metni &amp; Madde Değişiklikleri *</label>
+                  <span className="text-[11px] text-slate-400">Yeni hali / Değiştirilmeden önceki hali maddelerini yazabilirsiniz</span>
+                </div>
                 <textarea
-                  rows={6}
+                  rows={7}
                   required
                   value={sirkulerForm.content}
                   onChange={(e) => setSirkulerForm({ ...sirkulerForm, content: e.target.value })}
-                  placeholder="Mevzuatın madde madde açıklamaları, gümrük tarifesi oranları ve istisnalar..."
+                  placeholder="İthalatta Gözetim Uygulanmasına İlişkin Tebliğ'in yeni hali;&#10;&#10;(3) Gümrük beyannamesinin tescili sırasında...&#10;&#10;Değiştirilmeden önceki hali;&#10;(3) Gümrük beyannamesinin..."
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-sans focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
                 />
               </div>
@@ -3776,15 +4631,18 @@ export default function AdminPage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#0e7490] flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
-                  <span>Kalem Gümrük Müşavirlik Uzman Tavsiyesi / Kritik Yorumu</span>
+                  <span>Özel Müşavir Yorumu / Operasyonel Tavsiye (İsteğe Bağlı)</span>
                 </label>
                 <textarea
                   rows={3}
                   value={sirkulerForm.expertNote}
                   onChange={(e) => setSirkulerForm({ ...sirkulerForm, expertNote: e.target.value })}
-                  placeholder="Firmaların cezai yaptırımlardan kaçınması ve mevzuat uyumu için önerilerimiz..."
+                  placeholder="İthalatçılar veya ihracatçılar için bu mevzuata özel kritik bir tavsiyeniz varsa buraya yazabilirsiniz..."
                   className="w-full px-3.5 py-2.5 bg-cyan-50/40 border border-cyan-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
                 />
+                <p className="text-[11px] text-slate-400">
+                  Genel mevzuat bilgilendirme ve danışmanlık uyarısı sitenin altında ve WhatsApp metninde otomatik olarak tek sefer yer alır.
+                </p>
               </div>
 
               <div className="flex items-center gap-3 pt-2">
@@ -3825,6 +4683,297 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. KULLANICI & EDİTÖR HESABI DÜZENLEME MODALI (ADMIN ONLY) */}
+      {userModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    {editingUserId ? "Kullanıcı / Yetkileri Düzenle" : "Yeni Editör / Kullanıcı Tanımla"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Kullanıcı rolünü ve editörlerin erişim izinlerini yapılandırın.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUserModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {userResult && (
+              <div
+                className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 ${
+                  userResult.success
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}
+              >
+                {userResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{userResult.message}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUser} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Ad Soyad *</label>
+                  <input
+                    type="text"
+                    required
+                    value={userForm.name}
+                    onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                    placeholder="Örn: Ayşe Kaya"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#44B9CD]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Kullanıcı Adı *</label>
+                  <input
+                    type="text"
+                    required
+                    value={userForm.username}
+                    onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                    placeholder="Örn: editor"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#44B9CD]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Şifre {editingUserId ? "(Değiştirmek istemiyorsanız boş bırakın)" : "*"}
+                  </label>
+                  <input
+                    type="password"
+                    required={!editingUserId}
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#44B9CD]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Hesap Rolü *</label>
+                  <select
+                    value={userForm.role}
+                    onChange={(e) => setUserForm({ ...userForm, role: e.target.value as any })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#44B9CD]"
+                  >
+                    <option value="EDITOR">Editör (Mevzuat &amp; İçerik Düzenleme)</option>
+                    <option value="ADMIN">Sistem Yöneticisi (Admin - Tam Yetki)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Editör İzinleri (Yalnızca Editör seçiliyse gösterilir) */}
+              {userForm.role === "EDITOR" && (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                  <span className="text-xs font-bold text-slate-800 block">Editör Yetki Ayarları:</span>
+                  <div className="space-y-2 text-xs text-slate-700">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canEditSirkuler}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canEditSirkuler: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>Mevzuat ve Sirküler CMS (Ekleme ve Düzenleme)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canEditServices}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canEditServices: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>Hizmet Yönetimi (Ekleme ve Düzenleme)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canEditBaglantilar}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canEditBaglantilar: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>Müşavir Masası &amp; Gerekli Bağlantılar</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canEditReferences}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canEditReferences: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>Müşteri Referansları Portföyü</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canEditDocuments}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canEditDocuments: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>İndirilebilir Evrak ve Belgeler</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={userForm.permissions.canManageSettings}
+                        onChange={(e) =>
+                          setUserForm({
+                            ...userForm,
+                            permissions: { ...userForm.permissions, canManageSettings: e.target.checked },
+                          })
+                        }
+                        className="rounded text-[#1E2A3A] focus:ring-[#44B9CD]"
+                      />
+                      <span>Site &amp; İletişim Ayarları Değiştirme</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 text-[11px] text-red-600 font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>Güvenlik Kuralı: Editör kullanıcılarının silme yetkisi kesin olarak kapalıdır.</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setUserModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={userSaving}
+                  className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg transition"
+                >
+                  <Save className="w-4 h-4 text-[#44B9CD]" />
+                  <span>{userSaving ? "Kaydediliyor..." : "Kullanıcıyı Kaydet"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. VERİTABANI GERİ YÜKLEME ONAY MODALI (ADMIN ONLY) */}
+      {restoreModalOpen && selectedBackupToRestore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mx-auto">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="font-bold text-slate-900 text-lg">
+                Veritabanını Bu Yedekten Geri Yükle?
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-mono bg-slate-100 p-2 rounded-xl text-slate-900 font-bold break-all">
+                {selectedBackupToRestore}
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl text-xs text-amber-900 space-y-1.5 leading-relaxed">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
+                <span>Dikkat: Canlı Veritabanı Değişecektir</span>
+              </p>
+              <p>
+                Program veritabanı seçilen yedek dosyasındaki durumuna geri dönecektir. Güvenlik amacıyla, mevcut verilerinizin kaybolmaması için işlem öncesinde otomatik bir <strong>Emniyet Yedeği (PRE_RESTORE)</strong> alınacaktır.
+              </p>
+            </div>
+
+            {restoreResult && (
+              <div
+                className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 ${
+                  restoreResult.success
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}
+              >
+                {restoreResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{restoreResult.message}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={restoreLoading}
+                onClick={() => setRestoreModalOpen(false)}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 transition"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                disabled={restoreLoading}
+                onClick={handleConfirmRestore}
+                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-400 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition"
+              >
+                <RotateCcw className={`w-4 h-4 ${restoreLoading ? "animate-spin" : ""}`} />
+                <span>{restoreLoading ? "Geri Yükleniyor..." : "Evet, Bu Yedeği Geri Yükle"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

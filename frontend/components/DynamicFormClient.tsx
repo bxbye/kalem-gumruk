@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import HumanVerification from "./HumanVerification";
 import {
   Send,
   CheckCircle2,
@@ -53,6 +54,7 @@ interface DynamicFormProps {
 }
 
 export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
+  const ui = getFormUIStrings(lang as any);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [uploadedFiles, setUploadedFiles] = useState<
     Array<{ name: string; url: string; size: string }>
@@ -60,6 +62,9 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
   const [fileUploading, setFileUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [kvkkConsent, setKvkkConsent] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [challengeAnswer, setChallengeAnswer] = useState("");
   const [successInfo, setSuccessInfo] = useState<{
     refCode: string;
     message: string;
@@ -127,18 +132,37 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrorMsg("");
+
+    if (!kvkkConsent) {
+      setErrorMsg(ui.kvkkRequired || "Devam edebilmek için lütfen KVKK onay kutusunu işaretleyiniz.");
+      return;
+    }
+
+    if (!challengeAnswer.trim()) {
+      setErrorMsg("Lütfen güvenlik doğrulamasını (insan doğrulaması) yanıtlayınız.");
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       const res = await fetch(`/api/forms/${form.slug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          formData,
+          formData: {
+            ...formData,
+            kvkkConsent,
+            challengeToken,
+            challengeAnswer,
+          },
           files: uploadedFiles,
           honeypot: formData.honeypot,
           formLoadedAt: formLoadedAtRef.current,
+          challengeToken,
+          challengeAnswer,
+          kvkkConsent,
           lang,
         }),
       });
@@ -436,6 +460,52 @@ export default function DynamicFormClient({ form, lang }: DynamicFormProps) {
                   </div>
                 );
               })}
+
+              {/* İnsan Doğrulaması (Anti-Bot Challenge - Dev ve Prod Uyumlu) */}
+              <div className="pt-2">
+                <HumanVerification
+                  label={ui.humanVerification || "Güvenlik Doğrulaması (İnsan Doğrulaması)"}
+                  placeholder={ui.humanVerificationPlaceholder || "Sonuç"}
+                  refreshText={ui.refreshQuestion || "Yenile"}
+                  value={challengeAnswer}
+                  onChange={(tok, ans) => {
+                    setChallengeToken(tok);
+                    setChallengeAnswer(ans);
+                  }}
+                  isRTL={lang === "ar"}
+                />
+              </div>
+
+              {/* KVKK Onay Kutusu (Zorunlu) */}
+              <div className="pt-1">
+                <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={kvkkConsent}
+                    onChange={(e) => setKvkkConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-[#44B9CD] border-slate-300 rounded focus:ring-[#44B9CD] accent-[#1E2A3A]"
+                  />
+                  <span className="leading-relaxed">
+                    <Link
+                      href={`/${lang}/kurumsal#kvkk`}
+                      target="_blank"
+                      className="text-[#44B9CD] hover:underline font-bold"
+                    >
+                      6698 sayılı KVKK
+                    </Link>{" "}
+                    {ui.kvkkConsent || "kapsamında kişisel verilerimin işlenmesine ve tarafımla iletişime geçilmesine açık rıza veriyorum."}{" "}
+                    <span className="text-red-500">*</span>
+                  </span>
+                </label>
+              </div>
+
+              {errorMsg && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               <div className="pt-4 flex items-center justify-between border-t border-slate-100">
                 <div className="flex items-center gap-2 text-[11px] text-slate-400">
