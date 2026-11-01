@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@types/better-sqlite3": "^9.6.0",
@@ -16,6 +17,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^8.0.2",
+    "@types/sharp": "^0.31.1",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -25,6 +27,7 @@
     "fast-xml-parser": "^4.5.3",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^10.1.7",
+    "sharp": "^0.35.5",
     "typescript": "^5.7.2"
   },
   "devDependencies": {

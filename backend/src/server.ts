@@ -133,8 +133,10 @@ app.use(
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-// 4. Statik Dosyalar (Yüklenen CV'ler, evraklar vb.)
+// 4. Statik Dosyalar (Yüklenen evraklar, belgeler, CV'ler vb.)
 app.use("/uploads", express.static(uploadsDir));
+// Geriye dönük uyumluluk: Eski /documents/... linklerinin de sorunsuz çalışması için alias
+app.use("/documents", express.static(uploadsDir));
 
 // 5. Sağlık Kontrolü (Healthcheck)
 app.get("/health", (_req, res) => {

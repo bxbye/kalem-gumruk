@@ -16,7 +16,8 @@
     "build:frontend": "npm run build --prefix frontend",
     "start": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run start --prefix backend\" \"npm run start --prefix frontend\"",
     "start:backend": "npm run start --prefix backend",
-    "start:frontend": "npm run start --prefix frontend"
+    "start:frontend": "npm run start --prefix frontend",
+    "db:studio": "npm run db:studio --prefix backend"
   },
   "dependencies": {
     "concurrently": "^9.2.5"

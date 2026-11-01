@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -259,4 +260,52 @@ export async function verifyFileSignature(filePath: string): Promise<{ valid: bo
   } catch (err: any) {
     return { valid: false, reason: "Dosya taranırken hata oluştu: " + err.message };
   }
+}
+
+/**
+ * Referans logolarını web sitesi görünümünü bozmayacak profesyonel bir standarda kavuşturur:
+ * 1. En/boy oranını bozmadan (asla ezmeden veya esnetmeden) maksimum 360x140 px içine orantılar.
+ * 2. Şeffaf (transparent) kanvas üzerine ortalar ve kenarlardan estetik nefes payı bırakır.
+ * 3. Optimize edilmiş hafif bir PNG olarak kaydeder.
+ * 4. Çıktı dosya adını döner.
+ */
+export async function standardizeReferenceLogo(
+  inputPath: string,
+  baseSlug: string = "logo"
+): Promise<{ filename: string; filepath: string; sizeFormatted: string }> {
+  const cleanSlug = baseSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 30);
+
+  const outputFilename = `logo-${cleanSlug || "ref"}-${Date.now()}.png`;
+  const outputPath = path.join(uploadsDir, outputFilename);
+
+  // Sharp ile 360x140 şeffaf kutu içine orantılı yerleştir (fit: contain)
+  await sharp(inputPath)
+    .resize(360, 140, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 }, // Tam şeffaf arkaplan
+    })
+    .png({
+      quality: 90,
+      compressionLevel: 9,
+      adaptiveFiltering: true,
+    })
+    .toFile(outputPath);
+
+  // Orijinal geçici yüklenen dosyayı siliyoruz (eğer farklı bir dosyaysa)
+  if (inputPath !== outputPath && fs.existsSync(inputPath)) {
+    try {
+      fs.unlinkSync(inputPath);
+    } catch {}
+  }
+
+  const stats = fs.statSync(outputPath);
+  return {
+    filename: outputFilename,
+    filepath: outputPath,
+    sizeFormatted: formatBytes(stats.size),
+  };
 }

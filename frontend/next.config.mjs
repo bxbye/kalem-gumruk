@@ -56,6 +56,10 @@ const nextConfig = {
         source: "/uploads/:path*",
         destination: `${BACKEND_URL}/uploads/:path*`,
       },
+      {
+        source: "/documents/:path*",
+        destination: `${BACKEND_URL}/uploads/:path*`,
+      },
     ];
   },
   async headers() {

@@ -47,7 +47,17 @@ const updateSubmissionHandler = async (req: any, res: any) => {
       return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
 
-    const { id, status, adminNotes } = req.body || {};
+    const { id, status, adminNotes, markAllAsReviewed } = req.body || {};
+
+    if (markAllAsReviewed) {
+      await db
+        .update(formSubmissions)
+        .set({ status: "REVIEWED", updatedAt: new Date() })
+        .where(eq(formSubmissions.status, "NEW"));
+
+      return res.json({ success: true, message: "Tüm yeni başvurular incelendi olarak güncellendi." });
+    }
+
     if (!id) {
       return res.status(400).json({ error: "Kayıt ID belirtilmelidir." });
     }

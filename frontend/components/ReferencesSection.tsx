@@ -227,12 +227,12 @@ function ReferenceCard({ client }: { client: ReferenceClient }) {
       className="group relative shrink-0 w-[220px] sm:w-[250px] h-[138px] bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-[#44B9CD] rounded-2xl p-4 shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center justify-center text-center cursor-default select-none"
     >
       {/* Logo veya Vektörel Sektör İşareti */}
-      <div className="h-12 w-full flex items-center justify-center mb-2">
+      <div className="h-12 w-full flex items-center justify-center mb-2 px-2 overflow-hidden">
         {hasValidLogo ? (
           <img
             src={client.logoUrl!}
             alt={client.name}
-            className="max-h-10 max-w-[130px] w-auto h-auto object-contain filter grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+            className="max-h-11 max-w-[150px] w-auto h-auto object-contain filter grayscale contrast-125 opacity-80 group-hover:grayscale-0 group-hover:contrast-100 group-hover:opacity-100 transition-all duration-300 drop-shadow-2xs"
             onError={() => setImgFailed(true)}
             loading="lazy"
           />

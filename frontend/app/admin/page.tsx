@@ -42,6 +42,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   LogOut,
   LayoutDashboard,
@@ -51,6 +52,8 @@ import {
   UserCheck,
   History,
   HardDrive,
+  Paperclip,
+  ArrowUpDown,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -182,6 +185,8 @@ export default function AdminPage() {
   // 4. Referans Form State
   const [refModalOpen, setRefModalOpen] = useState(false);
   const [editingRef, setEditingRef] = useState<any | null>(null);
+  const [refLogoUploading, setRefLogoUploading] = useState(false);
+  const [refLogoStandardized, setRefLogoStandardized] = useState(false);
   const [refForm, setRefForm] = useState({
     id: "",
     name: "",
@@ -199,6 +204,13 @@ export default function AdminPage() {
   // Modal ve Seçim Stateleri
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
   const [subFilter, setSubFilter] = useState("ALL");
+  const [subStatusFilter, setSubStatusFilter] = useState("ALL");
+  const [subDateFilter, setSubDateFilter] = useState("ALL");
+  const [subSearch, setSubSearch] = useState("");
+  const [subHasFileOnly, setSubHasFileOnly] = useState(false);
+  const [subSort, setSubSort] = useState<"NEWEST" | "OLDEST">("NEWEST");
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState<20 | 50>(20);
   const [adminNoteInput, setAdminNoteInput] = useState("");
 
   // Sirküler Ekleme / Düzenleme Form State
@@ -782,6 +794,7 @@ export default function AdminPage() {
   // Referans İşlemleri
   const openNewRef = () => {
     setEditingRef(null);
+    setRefLogoStandardized(false);
     setRefForm({
       id: "",
       name: "",
@@ -796,6 +809,7 @@ export default function AdminPage() {
 
   const openEditRef = (item: any) => {
     setEditingRef(item);
+    setRefLogoStandardized(false);
     setRefForm({
       id: item.id,
       name: item.name,
@@ -806,6 +820,36 @@ export default function AdminPage() {
       isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
     });
     setRefModalOpen(true);
+  };
+
+  const handleRefLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setRefLogoUploading(true);
+      setRefLogoStandardized(false);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRefForm((prev) => ({ ...prev, logoUrl: data.fileUrl }));
+        setRefLogoStandardized(true);
+      } else {
+        alert(data.error || "Logo yüklenemedi.");
+      }
+    } catch (err: any) {
+      alert("Logo yüklenirken bir hata oluştu: " + err.message);
+    } finally {
+      setRefLogoUploading(false);
+    }
   };
 
   const handleSaveReference = async (e: React.FormEvent) => {
@@ -852,19 +896,63 @@ export default function AdminPage() {
   // Başvuru Durumunu Güncelle
   const updateSubmissionStatus = async (id: string, status: string, notes?: string) => {
     try {
-      const res = await fetch("/api/submissions", {
+      // Optimistic update
+      setSubmissions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status, adminNotes: notes !== undefined ? notes : s.adminNotes } : s))
+      );
+      if (selectedSubmission && selectedSubmission.id === id) {
+        setSelectedSubmission((prev: any) => ({ ...prev, status, adminNotes: notes !== undefined ? notes : prev.adminNotes }));
+      }
+
+      await fetch("/api/submissions", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ password, id, status, adminNotes: notes }),
       });
-      if (res.ok) {
-        setSubmissions((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, status, adminNotes: notes || s.adminNotes } : s))
-        );
-        if (selectedSubmission && selectedSubmission.id === id) {
-          setSelectedSubmission((prev: any) => ({ ...prev, status, adminNotes: notes || prev.adminNotes }));
-        }
-      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Başvuruyu İncele (Eğer yeni ise otomatik olarak İNCELENDİ durumuna geçir)
+  const handleViewSubmission = (sub: any) => {
+    setSelectedSubmission(sub);
+    setAdminNoteInput(sub.adminNotes || "");
+
+    // Eğer daha önce incelenmemiş (NEW) ise hemen incelendi yap
+    if (sub.status === "NEW") {
+      updateSubmissionStatus(sub.id, "REVIEWED", sub.adminNotes);
+    }
+  };
+
+  // Tüm Yeni Başvuruları İncelendi Olarak İşaretle
+  const markAllSubmissionsAsReviewed = async () => {
+    const hasNew = submissions.some((s) => s.status === "NEW");
+    if (!hasNew) return;
+
+    if (!confirm("Bekleyen tüm yeni başvuruları 'İncelendi' olarak işaretlemek istediğinize emin misiniz?")) {
+      return;
+    }
+
+    setSubmissions((prev) =>
+      prev.map((s) => (s.status === "NEW" ? { ...s, status: "REVIEWED" } : s))
+    );
+    if (selectedSubmission && selectedSubmission.status === "NEW") {
+      setSelectedSubmission((prev: any) => ({ ...prev, status: "REVIEWED" }));
+    }
+
+    try {
+      await fetch("/api/submissions", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ password, markAllAsReviewed: true }),
+      });
     } catch (err) {
       console.error(err);
     }
@@ -1456,10 +1544,116 @@ export default function AdminPage() {
   }
 
   // Filtrelenmiş Talepler
-  const filteredSubmissions = submissions.filter((sub) => {
-    if (subFilter === "ALL") return true;
-    return sub.formSlug === subFilter;
-  });
+  const filteredSubmissions = submissions
+    .filter((sub) => {
+      // 1. Form Slug / Kaynak Filtresi
+      if (subFilter !== "ALL" && sub.formSlug !== subFilter) {
+        return false;
+      }
+
+      // 2. Durum Filtresi
+      if (subStatusFilter !== "ALL" && sub.status !== subStatusFilter) {
+        return false;
+      }
+
+      // 3. Dosya / CV Filtresi
+      if (subHasFileOnly) {
+        if (!sub.files || sub.files.length === 0) return false;
+      }
+
+      // 4. Tarih Filtresi
+      if (subDateFilter !== "ALL" && sub.createdAt) {
+        const subTime = new Date(sub.createdAt).getTime();
+        const now = new Date();
+        if (subDateFilter === "TODAY") {
+          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          if (subTime < startOfDay) return false;
+        } else if (subDateFilter === "THIS_WEEK") {
+          const oneWeekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+          if (subTime < oneWeekAgo) return false;
+        } else if (subDateFilter === "THIS_MONTH") {
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+          if (subTime < startOfMonth) return false;
+        }
+      }
+
+      // 5. Arama Filtresi (ID, İsim, Firma, E-posta, Telefon, Yönetici Notu, Veri Değerleri)
+      const q = subSearch.toLowerCase().trim();
+      if (q) {
+        const matchId = sub.id?.toLowerCase().includes(q);
+        const matchName = sub.data?.fullName?.toLowerCase().includes(q);
+        const matchCompany = sub.data?.company?.toLowerCase().includes(q);
+        const matchEmail = sub.data?.email?.toLowerCase().includes(q);
+        const matchPhone = sub.data?.phone?.toLowerCase().includes(q);
+        const matchNotes = sub.adminNotes?.toLowerCase().includes(q);
+        const matchData = Object.values(sub.data || {}).some((val) =>
+          typeof val === "string" && val.toLowerCase().includes(q)
+        );
+        if (!matchId && !matchName && !matchCompany && !matchEmail && !matchPhone && !matchNotes && !matchData) {
+          return false;
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime() || 0;
+      const timeB = new Date(b.createdAt).getTime() || 0;
+      return subSort === "NEWEST" ? timeB - timeA : timeA - timeB;
+    });
+
+  // Sayfalama (Pagination) Hesaplamaları
+  const totalSubmissions = filteredSubmissions.length;
+  const totalSubPages = Math.max(1, Math.ceil(totalSubmissions / subPageSize));
+  const validSubPage = Math.min(Math.max(1, subPage), totalSubPages);
+  const startSubIndex = (validSubPage - 1) * subPageSize;
+  const endSubIndex = Math.min(startSubIndex + subPageSize, totalSubmissions);
+  const paginatedSubmissions = filteredSubmissions.slice(startSubIndex, endSubIndex);
+
+  // Dinamik Akıllı Sayaçlar (Aktif diğer filtrelere göre kendini güncelleyen sayaçlar)
+  const getDynamicStatusCount = (status: string) => {
+    return submissions.filter((s) => {
+      if (subFilter !== "ALL" && s.formSlug !== subFilter) return false;
+      if (subHasFileOnly && (!s.files || s.files.length === 0)) return false;
+      if (status === "ALL") return true;
+      return s.status === status;
+    }).length;
+  };
+
+  const getDynamicFormCount = (slug: string) => {
+    return submissions.filter((s) => {
+      if (subStatusFilter !== "ALL" && s.status !== subStatusFilter) return false;
+      if (subHasFileOnly && (!s.files || s.files.length === 0)) return false;
+      if (slug === "ALL") return true;
+      return s.formSlug === slug;
+    }).length;
+  };
+
+  const getDynamicFileCount = () => {
+    return submissions.filter((s) => {
+      if (subFilter !== "ALL" && s.formSlug !== subFilter) return false;
+      if (subStatusFilter !== "ALL" && s.status !== subStatusFilter) return false;
+      return s.files && s.files.length > 0;
+    }).length;
+  };
+
+  const isAnyFilterActive =
+    Boolean(subSearch) ||
+    subFilter !== "ALL" ||
+    subStatusFilter !== "ALL" ||
+    subDateFilter !== "ALL" ||
+    subHasFileOnly ||
+    subSort !== "NEWEST";
+
+  const resetAllSubFilters = () => {
+    setSubSearch("");
+    setSubFilter("ALL");
+    setSubStatusFilter("ALL");
+    setSubDateFilter("ALL");
+    setSubHasFileOnly(false);
+    setSubSort("NEWEST");
+    setSubPage(1);
+  };
 
   // Filtrelenmiş Sirkülerler
   const filteredSirkuler = sirkulerList.filter((item) => {
@@ -1475,7 +1669,9 @@ export default function AdminPage() {
     return matchCat && matchSearch;
   });
 
-  // Sol Kenar Çubuğu Menü Öğeleri
+  // Sol Kenar Çubuğu Menü Öğeleri (Sadece yeni/incelenmemiş müşteri etkileşimleri için rozet gösterilir)
+  const newSubmissionsCount = submissions.filter((s) => s.status === "NEW").length;
+
   const menuItems = [
     {
       id: "dashboard" as const,
@@ -1488,57 +1684,57 @@ export default function AdminPage() {
       id: "submissions" as const,
       label: "Gelen Başvurular & CRM",
       icon: Inbox,
-      badge: submissions.filter((s) => s.status === "NEW").length || null,
+      badge: newSubmissionsCount > 0 ? newSubmissionsCount : null,
       badgeColor: "bg-red-500 text-white",
     },
     {
       id: "sirkuler" as const,
       label: "Mevzuat & Sirküler CMS",
       icon: BookOpen,
-      badge: sirkulerList.length || null,
-      badgeColor: "bg-blue-100 text-blue-700",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "forms" as const,
       label: "Form Yöneticisi (Builder)",
       icon: Layers,
-      badge: formsList.length || null,
-      badgeColor: "bg-cyan-100 text-[#0e7490]",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "documents" as const,
       label: "Belgeler & Sertifikalar",
       icon: FileText,
-      badge: documentsList.length || null,
-      badgeColor: "bg-amber-100 text-amber-800",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "services" as const,
       label: "Hizmet Yönetimi",
       icon: Briefcase,
-      badge: servicesList.length || null,
-      badgeColor: "bg-slate-200 text-slate-700",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "references" as const,
       label: "Referanslar Portföyü",
       icon: Award,
-      badge: referencesList.length || null,
-      badgeColor: "bg-purple-100 text-purple-700",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "baglantilar" as const,
       label: "Müşavir Masası (Portallar)",
       icon: Globe,
-      badge: baglantilarList.length || null,
-      badgeColor: "bg-slate-200 text-slate-700",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "feedbacks" as const,
       label: "Müşteri Yorumları",
       icon: Star,
-      badge: feedbacksList.filter((f) => !f.isApproved).length || null,
-      badgeColor: "bg-amber-500 text-white",
+      badge: null,
+      badgeColor: "",
     },
     {
       id: "settings" as const,
@@ -1553,15 +1749,15 @@ export default function AdminPage() {
             id: "users" as const,
             label: "Kullanıcı & Yetki Yönetimi",
             icon: UserCheck,
-            badge: usersList.length || null,
-            badgeColor: "bg-indigo-100 text-indigo-800",
+            badge: null,
+            badgeColor: "",
           },
           {
             id: "backups" as const,
             label: "Veritabanı Yedekleri",
             icon: Database,
-            badge: backupsList.length || null,
-            badgeColor: "bg-emerald-100 text-emerald-800",
+            badge: null,
+            badgeColor: "",
           },
         ]
       : []),
@@ -1885,10 +2081,7 @@ export default function AdminPage() {
                   {submissions.slice(0, 5).map((sub) => (
                     <div
                       key={sub.id}
-                      onClick={() => {
-                        setSelectedSubmission(sub);
-                        setAdminNoteInput(sub.adminNotes || "");
-                      }}
+                      onClick={() => handleViewSubmission(sub)}
                       className="py-3 flex items-center justify-between hover:bg-slate-50 px-2 rounded-xl cursor-pointer transition"
                     >
                       <div className="space-y-1">
@@ -1927,41 +2120,349 @@ export default function AdminPage() {
         {/* 2. GELEN TALEPLER & CRM */}
         {activeTab === "submissions" && (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
-              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                {["ALL", ...Array.from(new Set([...formsList.map((f) => f.slug), ...submissions.map((s) => s.formSlug)].filter(Boolean)))].map((cat) => {
-                  const matchingForm = formsList.find((f) => f.slug === cat);
-                  const label =
-                    cat === "ALL"
-                      ? "Tüm Talepler"
-                      : cat === "chatbot"
-                      ? "Chatbot Talepleri"
-                      : (matchingForm?.title || cat);
-                  const count = cat === "ALL" ? submissions.length : submissions.filter((s) => s.formSlug === cat).length;
+            {/* CRM Başlık ve Üst Panel */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-lg font-bold text-[#1E2A3A]">Gelen Başvurular &amp; CRM</h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold font-mono">
+                    Toplam {submissions.length} Başvuru
+                  </span>
+                  {newSubmissionsCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      {newSubmissionsCount} Yeni Bekleyen
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Web formları ve canlı chatbot danışma hattından iletilen tüm müşteri taleplerini filtreleyin ve yönetin.
+                </p>
+              </div>
+
+              {submissions.some((s) => s.status === "NEW") && (
+                <button
+                  type="button"
+                  onClick={markAllSubmissionsAsReviewed}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap self-start md:self-auto"
+                  title="Yeni gelen tüm talepleri incelendi olarak işaretle"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Tümünü İncelendi İşaretle ({submissions.filter((s) => s.status === "NEW").length})</span>
+                </button>
+              )}
+            </div>
+
+            {/* Gelişmiş Filtreleme & Arama Kontrol Paneli */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
+              {/* 1. Satır: Dinamik Durum Filtreleri (Sade ve Şık Segmented Tab) */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl w-fit flex-wrap">
+                {[
+                  { id: "ALL", label: "Tüm Başvurular", count: getDynamicStatusCount("ALL") },
+                  { id: "NEW", label: "Yeni", count: getDynamicStatusCount("NEW"), dot: "bg-red-500" },
+                  { id: "REVIEWED", label: "İncelendi", count: getDynamicStatusCount("REVIEWED"), dot: "bg-amber-500" },
+                  { id: "CONTACTED", label: "Görüşüldü", count: getDynamicStatusCount("CONTACTED"), dot: "bg-blue-500" },
+                  { id: "COMPLETED", label: "Tamamlandı", count: getDynamicStatusCount("COMPLETED"), dot: "bg-emerald-500" },
+                ].map((st) => {
+                  const isActive = subStatusFilter === st.id;
                   return (
                     <button
-                      key={cat}
+                      key={st.id}
                       type="button"
-                      onClick={() => setSubFilter(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
-                        subFilter === cat
+                      onClick={() => {
+                        setSubStatusFilter(st.id);
+                        setSubPage(1);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isActive
                           ? "bg-[#1E2A3A] text-[#44B9CD] shadow-sm"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                       }`}
                     >
-                      <span>{label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                        subFilter === cat ? "bg-[#44B9CD]/20 text-[#44B9CD]" : "bg-slate-200 text-slate-700"
-                      }`}>
-                        {count}
+                      {st.dot && <span className={`w-2 h-2 rounded-full ${st.dot} shrink-0`} />}
+                      <span>{st.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isActive ? "bg-[#44B9CD]/20 text-[#44B9CD]" : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {st.count}
                       </span>
                     </button>
                   );
                 })}
               </div>
-              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                Toplam {filteredSubmissions.length} kayıt listeleniyor
-              </span>
+
+              {/* 2. Satır: Arama ve Seçici Filtreler (Hizalı, Düzgün İkonlu ve Eşit Yükseklikte) */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {/* Arama Input'u */}
+                <div className="relative flex-1 min-w-[220px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Search className="w-4 h-4 shrink-0" />
+                  </div>
+                  <input
+                    type="text"
+                    value={subSearch}
+                    onChange={(e) => {
+                      setSubSearch(e.target.value);
+                      setSubPage(1);
+                    }}
+                    placeholder="İsim, firma, telefon, no ile ara..."
+                    className="w-full h-10 pl-9 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD] transition"
+                  />
+                  {subSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubSearch("");
+                        setSubPage(1);
+                      }}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Form / Kaynak Seçici */}
+                <div className="relative min-w-[190px] max-w-xs">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Inbox className="w-4 h-4 shrink-0" />
+                  </div>
+                  <select
+                    value={subFilter}
+                    onChange={(e) => {
+                      setSubFilter(e.target.value);
+                      setSubPage(1);
+                    }}
+                    className="w-full h-10 pl-9 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD] cursor-pointer appearance-none truncate"
+                  >
+                    <option value="ALL">Tüm Kaynaklar ({getDynamicFormCount("ALL")})</option>
+                    <option value="chatbot">
+                      🤖 Chatbot Danışma ({getDynamicFormCount("chatbot")})
+                    </option>
+                    {Array.from(new Set([...formsList.map((f) => f.slug), ...submissions.map((s) => s.formSlug)].filter(Boolean)))
+                      .filter((slug) => slug !== "chatbot")
+                      .map((slug) => {
+                        const matchingForm = formsList.find((f) => f.slug === slug);
+                        const label = matchingForm?.title || slug;
+                        const count = getDynamicFormCount(slug);
+                        return (
+                          <option key={slug} value={slug}>
+                            📋 {label} ({count})
+                          </option>
+                        );
+                      })}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Tarih Filtresi */}
+                <div className="relative min-w-[140px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Clock className="w-4 h-4 shrink-0" />
+                  </div>
+                  <select
+                    value={subDateFilter}
+                    onChange={(e) => {
+                      setSubDateFilter(e.target.value);
+                      setSubPage(1);
+                    }}
+                    className="w-full h-10 pl-9 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD] cursor-pointer appearance-none"
+                  >
+                    <option value="ALL">Tüm Tarihler</option>
+                    <option value="TODAY">Bugün</option>
+                    <option value="THIS_WEEK">Son 7 Gün</option>
+                    <option value="THIS_MONTH">Bu Ay</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Sıralama */}
+                <div className="relative min-w-[130px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+                  </div>
+                  <select
+                    value={subSort}
+                    onChange={(e) => setSubSort(e.target.value as "NEWEST" | "OLDEST")}
+                    className="w-full h-10 pl-8 pr-7 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer appearance-none"
+                    title="Sıralama Ölçütü"
+                  >
+                    <option value="NEWEST">Tarih: En Yeni</option>
+                    <option value="OLDEST">Tarih: En Eski</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Ekli Dosyalı Toggle Buton */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubHasFileOnly(!subHasFileOnly);
+                    setSubPage(1);
+                  }}
+                  className={`h-10 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition cursor-pointer whitespace-nowrap ${
+                    subHasFileOnly
+                      ? "bg-[#1E2A3A] text-[#44B9CD] border-[#1E2A3A] shadow-xs"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                  title="Yalnızca CV veya ek evrak yüklenmiş başvuruları göster"
+                >
+                  <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                  <span>Dosyalı</span>
+                  <span className="text-[10px] font-mono opacity-80">
+                    ({getDynamicFileCount()})
+                  </span>
+                </button>
+
+                {/* Sayfa Başına (20 / 50) */}
+                <div className="h-10 flex items-center gap-0.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 px-1 uppercase">Sayfa:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubPageSize(20);
+                      setSubPage(1);
+                    }}
+                    className={`h-full px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subPageSize === 20
+                        ? "bg-[#1E2A3A] text-[#44B9CD] shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                    title="Sayfa başına 20 kayıt"
+                  >
+                    20
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubPageSize(50);
+                      setSubPage(1);
+                    }}
+                    className={`h-full px-2.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subPageSize === 50
+                        ? "bg-[#1E2A3A] text-[#44B9CD] shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                    title="Sayfa başına 50 kayıt"
+                  >
+                    50
+                  </button>
+                </div>
+
+                {/* Filtreleri Temizle Butonu (Aktif Filtre Varsa) */}
+                {isAnyFilterActive && (
+                  <button
+                    type="button"
+                    onClick={resetAllSubFilters}
+                    className="h-10 inline-flex items-center gap-1.5 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl transition cursor-pointer whitespace-nowrap"
+                    title="Tüm filtreleri sıfırla"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                    <span>Sıfırla</span>
+                  </button>
+                )}
+              </div>
+
+              {/* 3. Satır: Aktif Filtre Rozetleri */}
+              {isAnyFilterActive && (
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-slate-400 font-semibold text-[11px]">Aktif Filtre:</span>
+
+                    {subStatusFilter !== "ALL" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
+                        Durum: {subStatusFilter === "NEW" ? "Yeni" : subStatusFilter === "REVIEWED" ? "İncelendi" : subStatusFilter === "CONTACTED" ? "Görüşüldü" : "Tamamlandı"}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubStatusFilter("ALL");
+                            setSubPage(1);
+                          }}
+                          className="hover:text-red-500 cursor-pointer ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+
+                    {subFilter !== "ALL" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
+                        Kaynak: {formsList.find((f) => f.slug === subFilter)?.title || subFilter}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubFilter("ALL");
+                            setSubPage(1);
+                          }}
+                          className="hover:text-red-500 cursor-pointer ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+
+                    {subDateFilter !== "ALL" && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
+                        Tarih: {subDateFilter === "TODAY" ? "Bugün" : subDateFilter === "THIS_WEEK" ? "Son 7 Gün" : "Bu Ay"}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubDateFilter("ALL");
+                            setSubPage(1);
+                          }}
+                          className="hover:text-red-500 cursor-pointer ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+
+                    {subHasFileOnly && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
+                        Sadece Dosyalı
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubHasFileOnly(false);
+                            setSubPage(1);
+                          }}
+                          className="hover:text-red-500 cursor-pointer ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+
+                    {subSearch && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-cyan-50 text-cyan-800 rounded-lg text-[11px] font-semibold">
+                        &quot;{subSearch}&quot;
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubSearch("");
+                            setSubPage(1);
+                          }}
+                          className="hover:text-red-500 cursor-pointer ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="text-slate-500 text-[11px]">
+                    <strong className="text-slate-800 font-mono">{filteredSubmissions.length}</strong> sonuç
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Tablo */}
@@ -1981,15 +2482,38 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredSubmissions.length === 0 ? (
+                    {paginatedSubmissions.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-12 text-center text-slate-400">
-                          Bu filtreye ait talep kaydı bulunamadı.
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Search className="w-8 h-8 text-slate-300" />
+                            <p className="text-sm font-semibold text-slate-600">Bu filtreye ait talep kaydı bulunamadı.</p>
+                            <p className="text-xs text-slate-400">Arama terimini değiştirebilir veya filtreleri sıfırlayabilirsiniz.</p>
+                            {(subSearch || subStatusFilter !== "ALL" || subDateFilter !== "ALL" || subFilter !== "ALL") && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSubSearch("");
+                                  setSubStatusFilter("ALL");
+                                  setSubDateFilter("ALL");
+                                  setSubFilter("ALL");
+                                  setSubPage(1);
+                                }}
+                                className="mt-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                              >
+                                Filtreleri Sıfırla
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ) : (
-                      filteredSubmissions.map((sub) => (
-                        <tr key={sub.id} className="hover:bg-slate-50/80 transition">
+                      paginatedSubmissions.map((sub) => (
+                        <tr
+                          key={sub.id}
+                          onClick={() => handleViewSubmission(sub)}
+                          className="hover:bg-slate-50/80 transition cursor-pointer"
+                        >
                           <td className="py-3 px-4 font-mono font-bold text-slate-900">{sub.id}</td>
                           <td className="py-3 px-4">
                             {sub.formSlug === "chatbot" ? (
@@ -2038,11 +2562,12 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button
-                              onClick={() => {
-                                setSelectedSubmission(sub);
-                                setAdminNoteInput(sub.adminNotes || "");
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewSubmission(sub);
                               }}
-                              className="px-2.5 py-1 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] rounded-lg text-xs font-bold transition"
+                              className="px-2.5 py-1 bg-[#1E2A3A] hover:bg-[#2A3B50] text-[#44B9CD] rounded-lg text-xs font-bold transition cursor-pointer"
                             >
                               İncele
                             </button>
@@ -2053,6 +2578,96 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Sayfalama (Pagination) Alt Barı */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              {/* Kayıt Özeti */}
+              <div className="text-xs text-slate-500 font-medium">
+                {totalSubmissions > 0 ? (
+                  <>
+                    Toplam <span className="font-bold text-slate-800">{totalSubmissions}</span> kayıttan{" "}
+                    <span className="font-bold text-slate-800">
+                      {startSubIndex + 1} - {endSubIndex}
+                    </span>{" "}
+                    arası listeleniyor (Sayfa {validSubPage} / {totalSubPages})
+                  </>
+                ) : (
+                  <span>Kayıt bulunamadı</span>
+                )}
+              </div>
+
+              {/* Sayfa Değiştirme Butonları */}
+              {totalSubPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  {/* Önceki Sayfa */}
+                  <button
+                    type="button"
+                    onClick={() => setSubPage((p) => Math.max(1, p - 1))}
+                    disabled={validSubPage <= 1}
+                    className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer"
+                    title="Önceki Sayfa"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Önceki</span>
+                  </button>
+
+                  {/* Sayfa Numaraları */}
+                  {Array.from({ length: totalSubPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      if (totalSubPages <= 7) return true;
+                      return (
+                        page === 1 ||
+                        page === totalSubPages ||
+                        Math.abs(page - validSubPage) <= 1
+                      );
+                    })
+                    .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                        acc.push("...");
+                      }
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) => {
+                      if (item === "...") {
+                        return (
+                          <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400 text-xs select-none">
+                            ...
+                          </span>
+                        );
+                      }
+                      const pageNum = item as number;
+                      const isCurrent = pageNum === validSubPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setSubPage(pageNum)}
+                          className={`min-w-8 h-8 px-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            isCurrent
+                              ? "bg-[#1E2A3A] text-[#44B9CD] shadow-xs"
+                              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                  {/* Sonraki Sayfa */}
+                  <button
+                    type="button"
+                    onClick={() => setSubPage((p) => Math.min(totalSubPages, p + 1))}
+                    disabled={validSubPage >= totalSubPages}
+                    className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer"
+                    title="Sonraki Sayfa"
+                  >
+                    <span className="hidden sm:inline">Sonraki</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3999,14 +4614,99 @@ export default function AdminPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Logo URL (İsteğe Bağlı)</label>
-                  <input
-                    type="text"
-                    value={refForm.logoUrl}
-                    onChange={(e) => setRefForm({ ...refForm, logoUrl: e.target.value })}
-                    placeholder="/images/references/logo.svg"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">Firma Logosu</label>
+                    <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Otomatik Standartlaştırma
+                    </span>
+                  </div>
+
+                  {/* Dosya Yükleme ve Standardizasyon Kutusu */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          onChange={handleRefLogoUpload}
+                          disabled={refLogoUploading}
+                          className="hidden"
+                        />
+                        <div className="w-full py-2 px-3 bg-white border border-dashed border-slate-300 hover:border-[#44B9CD] rounded-lg text-xs font-medium text-slate-600 hover:text-[#0d788a] flex items-center justify-center gap-2 transition-all">
+                          {refLogoUploading ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#44B9CD]" />
+                              <span>Logo standartlaştırılıyor (360x140)...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5 text-[#44B9CD]" />
+                              <span>{refForm.logoUrl ? "Logoyu Değiştir" : "Logo Dosyası Seç (PNG, JPG, WebP)"}</span>
+                            </>
+                          )}
+                        </div>
+                      </label>
+                      {refForm.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRefForm({ ...refForm, logoUrl: "" });
+                            setRefLogoStandardized(false);
+                          }}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Logoyu Kaldır"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={refForm.logoUrl}
+                      onChange={(e) => setRefForm({ ...refForm, logoUrl: e.target.value })}
+                      placeholder="veya dosya yolu girin: /uploads/logo-...png"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#44B9CD]"
+                    />
+
+                    {refLogoStandardized && (
+                      <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Logo en/boy oranı korunarak 360x140 şeffaf standarda uyarlandı.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Canlı Kart Önizlemesi */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-[#44B9CD]" />
+                  <span>Sitedeki Canlı Kart Görünümü (Önizleme)</span>
+                </label>
+                <div className="p-4 bg-slate-100/70 border border-slate-200 rounded-2xl flex items-center justify-center">
+                  <div className="w-[230px] h-[134px] bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col items-center justify-center text-center">
+                    <div className="h-12 w-full flex items-center justify-center mb-2 px-2 overflow-hidden">
+                      {refForm.logoUrl ? (
+                        <img
+                          src={refForm.logoUrl}
+                          alt={refForm.name || "Önizleme"}
+                          className="max-h-11 max-w-[140px] w-auto h-auto object-contain filter grayscale hover:grayscale-0 transition-all"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[#44B9CD]">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="font-extrabold text-xs text-slate-800 line-clamp-1 mb-1 max-w-full">
+                      {refForm.name || "Firma Adı"}
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-medium line-clamp-1 max-w-full">
+                      {refForm.sector || "Sektör Bilgisi"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
