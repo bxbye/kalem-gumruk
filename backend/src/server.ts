@@ -21,7 +21,7 @@ import { adminRouter } from "./routes/admin.js";
 import { publicDataRouter } from "./routes/publicData.js";
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 5001;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 5001;
 
 // Render, Cloudflare vb. reverse proxy arkasında gerçek istemci IP'sini tespit edebilmek için
 app.set("trust proxy", 1);
@@ -178,13 +178,14 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-// 8. Sunucuyu Başlat
-app.listen(Number(PORT), "0.0.0.0", async () => {
+// 8. Sunucuyu Başlat (Plesk / Passenger / Doğrudan Port uyumlu)
+const isSocket = typeof PORT === "string" && isNaN(Number(PORT));
+const onListening = async () => {
   console.log(`=================================================`);
   console.log(`🚀 Kalem Gümrük Backend Servisi Hazır!`);
-  console.log(`📡 URL: http://localhost:${PORT}`);
+  console.log(`📡 URL / Socket: ${PORT}`);
   console.log(`📁 Uploads: ${uploadsDir}`);
-  console.log(`🩺 Health: http://localhost:${PORT}/health`);
+  console.log(`🩺 Health: /health`);
 
   // E-Posta Bildirim Bağlantısını Doğrula (SMTP)
   const smtpStatus = await verifySmtp();
@@ -197,4 +198,10 @@ app.listen(Number(PORT), "0.0.0.0", async () => {
   // 9. Günlük Otomatik Yedekleme Servisini Başlat
   startDailyBackupScheduler();
   console.log(`=================================================`);
-});
+};
+
+if (isSocket) {
+  app.listen(PORT, onListening);
+} else {
+  app.listen(Number(PORT), "0.0.0.0", onListening);
+}
