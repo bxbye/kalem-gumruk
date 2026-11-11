@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Award, ShieldCheck, Clock, Users, FileDown, FileText } from "lucide-react";
 import { translations, availableLanguages, Language } from "@/data/translations";
-import { companyInfo } from "@/data/company";
+import { getSiteSettingsAsync } from "@/lib/settings";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -44,6 +46,7 @@ export default async function KurumsalPage({ params }: Props) {
   const currentLang: Language =
     availableLanguages.find((l) => l.code === lang)?.code || "tr";
   const t = translations[currentLang]?.corporatePage || translations.tr.corporatePage;
+  const siteSettings = await getSiteSettingsAsync();
 
   return (
     <div className="py-16 bg-slate-50 min-h-screen">
@@ -146,7 +149,7 @@ export default async function KurumsalPage({ params }: Props) {
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <a
-                href="/uploads/kalem-kvkk-aydinlatma-metni.pdf"
+                href="/api/documents/kvkk-pdf"
                 target="_blank"
                 rel="noopener noreferrer"
                 download="Kalem-Gumruk-KVKK-Aydinlatma-Metni.pdf"
@@ -183,17 +186,17 @@ export default async function KurumsalPage({ params }: Props) {
 
           <div className="p-4 bg-slate-50 border border-slate-200/80 border-l-4 border-l-[#44B9CD] rounded-r-xl text-xs text-slate-700 space-y-1">
             <div>
-              <strong>Veri Sorumlusu:</strong> {companyInfo.name}
+              <strong>Veri Sorumlusu:</strong> {siteSettings.name}
             </div>
             <div>
-              <strong>Adres:</strong> {companyInfo.address}
+              <strong>Adres:</strong> {siteSettings.address}
             </div>
             <div>
               <strong>Telefon:</strong>{" "}
-              <span dir="ltr">{companyInfo.phone}</span> &nbsp;|&nbsp;{" "}
+              <span dir="ltr">{siteSettings.phone}</span> &nbsp;|&nbsp;{" "}
               <strong>E-Posta:</strong>{" "}
-              <a href={`mailto:${companyInfo.email}`} className="text-[#0e7490] hover:underline">
-                {companyInfo.email}
+              <a href={`mailto:${siteSettings.email}`} className="text-[#0e7490] hover:underline">
+                {siteSettings.email}
               </a>
             </div>
           </div>
@@ -224,9 +227,9 @@ export default async function KurumsalPage({ params }: Props) {
               <h3 className="text-sm font-bold text-[#1E2A3A]">4. KVKK Madde 11 Kapsamındaki Haklarınız ve Başvuru</h3>
               <p>
                 KVKK m. 11 uyarınca kişisel verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini/yok edilmesini isteme, aktarılan üçüncü kişileri bilme ve kanuna aykırı işleme nedeniyle zararın giderilmesini talep etme haklarına sahipsiniz. Taleplerinizi ıslak imzalı dilekçe ile{" "}
-                <strong>{companyInfo.address}</strong> adresimize veya sistemimizde kayıtlı e-posta adresiniz üzerinden{" "}
-                <a href={`mailto:${companyInfo.email}`} className="text-[#0e7490] font-semibold hover:underline">
-                  {companyInfo.email}
+                <strong>{siteSettings.address}</strong> adresimize veya sistemimizde kayıtlı e-posta adresiniz üzerinden{" "}
+                <a href={`mailto:${siteSettings.email}`} className="text-[#0e7490] font-semibold hover:underline">
+                  {siteSettings.email}
                 </a>{" "}
                 adresine iletebilirsiniz; başvurularınız en geç 30 gün içinde ücretsiz sonuçlandırılır.
               </p>

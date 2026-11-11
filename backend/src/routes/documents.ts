@@ -8,8 +8,26 @@ import { authenticateRequest } from "../services/auth.js";
 import { uploadsDir } from "../services/storage.js";
 import { defaultDocuments } from "../data/defaults.js";
 import { setNoStoreHeaders } from "../utils/http.js";
+import { getCompanySettings } from "../services/settings.js";
+import { generateKvkkPdfBuffer } from "../services/kvkkPdf.js";
 
 export const documentsRouter = Router();
+
+// Dinamik KVKK Aydınlatma Metni PDF (Güncel firma/iletişim ayarlarıyla üretilir)
+documentsRouter.get("/kvkk-pdf", async (_req, res) => {
+  setNoStoreHeaders(res);
+  try {
+    const company = await getCompanySettings();
+    const pdfBuffer = await generateKvkkPdfBuffer(company);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="Kalem-Gumruk-KVKK-Aydinlatma-Metni.pdf"');
+    res.setHeader("Content-Length", String(pdfBuffer.length));
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error("[KVKK Dynamic PDF Error]:", error);
+    return res.status(500).json({ error: "KVKK PDF belgesi oluşturulamadı." });
+  }
+});
 
 // Belgeleri Listele
 documentsRouter.get("/", async (req, res) => {

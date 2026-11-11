@@ -543,9 +543,9 @@ export async function ensureDatabaseInitialized() {
           title: "KVKK Kişisel Verilerin Korunması Aydınlatma Metni",
           description: "6698 sayılı KVKK m.10 uyarınca müşteri, iş ortağı ve aday kişisel verilerinin işlenmesine ilişkin kurumsal aydınlatma metni.",
           category: "SOZLESME",
-          fileUrl: "/uploads/kalem-kvkk-aydinlatma-metni.pdf",
+          fileUrl: "/api/documents/kvkk-pdf",
           fileKey: null,
-          fileSize: "39 KB",
+          fileSize: "Dinamik PDF",
           fileType: "pdf",
           downloadCount: 0,
         },
@@ -644,9 +644,9 @@ export async function ensureDatabaseInitialized() {
           "KVKK Kişisel Verilerin Korunması Aydınlatma Metni",
           "6698 sayılı KVKK m.10 uyarınca müşteri, iş ortağı ve aday kişisel verilerinin işlenmesine ilişkin kurumsal aydınlatma metni.",
           "SOZLESME",
-          "/uploads/kalem-kvkk-aydinlatma-metni.pdf",
+          "/api/documents/kvkk-pdf",
           null,
-          "39 KB",
+          "Dinamik PDF",
           "pdf",
           0,
           1,
@@ -657,6 +657,12 @@ export async function ensureDatabaseInitialized() {
         ["kvkk_doc_seed_v1", JSON.stringify({ completedAt: new Date().toISOString() })]
       );
     }
+
+    // Daha önce statik URL ile kaydedilmiş doc-5 varsa dinamik PDF endpointine geçir
+    await pool.query(
+      `UPDATE documents SET file_url = ?, file_size = ? WHERE id = ? AND file_url = ?`,
+      ["/api/documents/kvkk-pdf", "Dinamik PDF", "doc-5", "/uploads/kalem-kvkk-aydinlatma-metni.pdf"]
+    );
 
     // 9. Başlangıç Kullanıcılarını Oluştur (Admin & Editör)
     const [userRows]: any = await pool.query("SELECT count(*) as count FROM users");
