@@ -5,7 +5,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
-const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
+const BACKEND_URL =
+  process.env.BACKEND_INTERNAL_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "http://test-api.kalemgumruk.com"
+    : "http://localhost:5001");
 
 const nextConfig = {
   experimental: {
@@ -34,6 +38,26 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "http",
+        hostname: "test-api.kalemgumruk.com",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "https",
+        hostname: "test-api.kalemgumruk.com",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "http",
+        hostname: "api.kalemgumruk.com",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "https",
+        hostname: "api.kalemgumruk.com",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "http",
         hostname: "localhost",
         port: "5001",
         pathname: "/uploads/**",
@@ -47,18 +71,23 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    const targetUrl =
+      process.env.BACKEND_INTERNAL_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://test-api.kalemgumruk.com"
+        : "http://localhost:5001");
     return [
       {
         source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
+        destination: `${targetUrl}/api/:path*`,
       },
       {
         source: "/uploads/:path*",
-        destination: `${BACKEND_URL}/uploads/:path*`,
+        destination: `${targetUrl}/uploads/:path*`,
       },
       {
         source: "/documents/:path*",
-        destination: `${BACKEND_URL}/uploads/:path*`,
+        destination: `${targetUrl}/uploads/:path*`,
       },
     ];
   },
