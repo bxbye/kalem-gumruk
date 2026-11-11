@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllSirkulerAsync, getSirkulerBySlugAsync } from "@/lib/sirkuler";
-import { companyInfo } from "@/data/company";
+import { getSiteSettingsAsync } from "@/lib/settings";
 import {
   Calendar,
   Tag,
@@ -77,7 +77,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SirkulerDetailPage({ params }: Props) {
   const { slug, lang } = await params;
-  const item = await getSirkulerBySlugAsync(slug, lang);
+  const [item, siteSettings] = await Promise.all([
+    getSirkulerBySlugAsync(slug, lang),
+    getSiteSettingsAsync(),
+  ]);
 
   if (!item) {
     notFound();
@@ -133,7 +136,7 @@ export default async function SirkulerDetailPage({ params }: Props) {
     },
     publisher: {
       "@type": "Organization",
-      name: companyInfo.name,
+      name: siteSettings.name,
       logo: {
         "@type": "ImageObject",
         url: "https://kalemgumruk.com/logo.svg",
@@ -335,6 +338,7 @@ export default async function SirkulerDetailPage({ params }: Props) {
                     type: "circular",
                     lang,
                     serviceTitle: item.title,
+                    whatsappNumber: siteSettings.whatsapp,
                   })}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -345,19 +349,19 @@ export default async function SirkulerDetailPage({ params }: Props) {
                 </a>
 
                 <a
-                  href={`tel:${companyInfo.phoneRaw}`}
+                  href={`tel:${siteSettings.phoneRaw}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#1E2A3A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all"
                 >
                   <Phone className="w-3.5 h-3.5 text-[#44B9CD]" />
-                  <span>Müşavirimizle Görüşün: {companyInfo.phone}</span>
+                  <span>Müşavirimizle Görüşün: {siteSettings.phone}</span>
                 </a>
 
                 <a
-                  href={`mailto:${companyInfo.email}?subject=${encodeURIComponent(`Mevzuat Destek Talebi: ${item.title}`)}`}
+                  href={`mailto:${siteSettings.email}?subject=${encodeURIComponent(`Mevzuat Destek Talebi: ${item.title}`)}`}
                   className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-amber-200 transition-colors"
                 >
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{companyInfo.email}</span>
+                  <span>{siteSettings.email}</span>
                 </a>
               </div>
             </div>

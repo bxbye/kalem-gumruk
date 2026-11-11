@@ -5,6 +5,7 @@ import Link from "next/link";
 import HumanVerification from "./HumanVerification";
 import { companyInfo } from "@/data/company";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import {
   getTranslatedFieldLabel,
   getTranslatedFieldPlaceholder,
@@ -133,6 +134,7 @@ export default function KariyerClient({
   initialForm?: FormDefinition | null;
 }) {
   const { t, language, localePath, isRTL } = useLanguage();
+  const settings = useSiteSettings();
   const c = t.careerPage;
   const ui = getFormUIStrings(language);
 
@@ -357,17 +359,17 @@ export default function KariyerClient({
               </a>
 
               <a
-                href={`mailto:${companyInfo.email}?subject=${encodeURIComponent(
-                  `${companyInfo.name} - ${c.title}`
+                href={`mailto:${settings.email}?subject=${encodeURIComponent(
+                  `${settings.name} - ${c.title}`
                 )}`}
                 className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/20 flex items-center gap-1.5"
               >
                 <Mail className="w-4 h-4 text-slate-300" />
-                <span dir="ltr">{companyInfo.email}</span>
+                <span dir="ltr">{settings.email}</span>
               </a>
 
               <a
-                href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(waCareerMessage)}`}
+                href={`https://wa.me/${(settings.whatsapp || companyInfo.whatsapp).replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waCareerMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] flex items-center gap-1.5"
@@ -834,15 +836,15 @@ export default function KariyerClient({
 
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href={`mailto:${companyInfo.email}`}
+                href={`mailto:${settings.email}`}
                 className="px-4 py-2.5 bg-[#44B9CD] hover:bg-[#3597a8] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5"
               >
                 <Mail className="w-3.5 h-3.5" />
-                <span dir="ltr">{companyInfo.email}</span>
+                <span dir="ltr">{settings.email}</span>
               </a>
 
               <a
-                href={`https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(waCareerMessage)}`}
+                href={`https://wa.me/${(settings.whatsapp || companyInfo.whatsapp).replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waCareerMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5"

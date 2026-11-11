@@ -3,8 +3,9 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
-import { companyInfo } from "@/data/company";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { SiteSettingsProvider } from "@/context/SiteSettingsContext";
+import { getSiteSettingsAsync } from "@/lib/settings";
 
 export const viewport: Viewport = {
   themeColor: "#1E2A3A",
@@ -97,11 +98,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteSettings = await getSiteSettingsAsync();
+
   // Schema.org Structured Data (Google Zengin Sonuçları için çoklu şema)
   const schemaData = {
     "@context": "https://schema.org",
@@ -109,23 +112,23 @@ export default function RootLayout({
       {
         "@type": ["ProfessionalService", "LocalBusiness"],
         "@id": "https://kalemgumruk.com/#organization",
-        name: companyInfo.name,
-        alternateName: ["Kalem Gümrük", "Kalem Gümrük Müşavirliği"],
+        name: siteSettings.name,
+        alternateName: [siteSettings.shortName, "Kalem Gümrük", "Kalem Gümrük Müşavirliği"],
         url: "https://kalemgumruk.com",
         logo: {
           "@type": "ImageObject",
           url: "https://kalemgumruk.com/logo.svg",
         },
         image: "https://kalemgumruk.com/kalem-gumruk-hero.jpg",
-        description: companyInfo.description,
-        telephone: companyInfo.phoneRaw,
-        email: companyInfo.email,
+        description: siteSettings.description,
+        telephone: siteSettings.phoneRaw,
+        email: siteSettings.email,
         priceRange: "$$",
         currenciesAccepted: "TRY, USD, EUR",
         paymentAccepted: "Banka Havalesi, Nakit",
         address: {
           "@type": "PostalAddress",
-          streetAddress: "Atatürk Mah. Alemdağ Cad. Gaffar Efendi Sok. Güler Han No:5 K:4",
+          streetAddress: siteSettings.address,
           addressLocality: "Ümraniye",
           addressRegion: "İstanbul",
           postalCode: "34764",
@@ -194,12 +197,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans min-h-screen flex flex-col bg-white text-slate-900 antialiased selection:bg-[#44B9CD] selection:text-white">
-        <LanguageProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <ChatBot />
-        </LanguageProvider>
+        <SiteSettingsProvider initialSettings={siteSettings}>
+          <LanguageProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <ChatBot />
+          </LanguageProvider>
+        </SiteSettingsProvider>
       </body>
     </html>
   );

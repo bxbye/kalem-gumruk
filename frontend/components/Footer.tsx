@@ -6,11 +6,19 @@ import { usePathname } from "next/navigation";
 import { companyInfo } from "@/data/company";
 import { navigationConfig } from "@/data/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import { MapPin, Phone, Mail, Clock, Shield } from "lucide-react";
 
 export default function Footer() {
   const pathname = usePathname();
-  const { t, localePath } = useLanguage();
+  const { t, language, localePath } = useLanguage();
+  const settings = useSiteSettings();
+  const displayWorkingHours =
+    language === "tr"
+      ? settings.workingHours || t.topBar.workingHours
+      : settings.workingHours && settings.workingHours !== companyInfo.workingHours
+      ? settings.workingHours
+      : t.topBar.workingHours;
 
   if (pathname?.startsWith("/admin")) {
     return null;
@@ -155,31 +163,31 @@ export default function Footer() {
               <div className="space-y-3 text-[11px] sm:text-xs text-slate-300">
                 <div className="flex items-start gap-2 sm:gap-2.5">
                   <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44B9CD] shrink-0 mt-0.5" />
-                  <span className="leading-snug">{companyInfo.address}</span>
+                  <span className="leading-snug">{settings.address}</span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44B9CD] shrink-0" />
                   <a
-                    href={`tel:${companyInfo.phoneRaw}`}
+                    href={`tel:${settings.phoneRaw}`}
                     className="text-white font-bold hover:text-[#44B9CD]"
                     dir="ltr"
                   >
-                    {companyInfo.phone}
+                    {settings.phone}
                   </a>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44B9CD] shrink-0" />
                   <a
-                    href={`mailto:${companyInfo.email}`}
+                    href={`mailto:${settings.email}`}
                     className="text-[#44B9CD] font-medium hover:underline break-all"
                     dir="ltr"
                   >
-                    {companyInfo.email}
+                    {settings.email}
                   </a>
                 </div>
                 <div className="flex items-start gap-2 sm:gap-2.5">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44B9CD] shrink-0 mt-0.5" />
-                  <span className="leading-snug">{t.topBar.workingHours}</span>
+                  <span className="leading-snug">{displayWorkingHours}</span>
                 </div>
               </div>
             </div>
@@ -189,7 +197,7 @@ export default function Footer() {
         {/* Alt Telif & Bilgi (En alt kısım) */}
         <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="text-center sm:text-left text-[11px] sm:text-xs leading-relaxed">
-            © {new Date().getFullYear()} {companyInfo.name.replace(/\.$/, "")}. {t.footer.rights}
+            © {new Date().getFullYear()} {settings.name.replace(/\.$/, "")}. {t.footer.rights}
           </div>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-4 sm:gap-x-6 gap-y-2 text-[11px] sm:text-xs text-center">
             <Link href={localePath("/kurumsal#kvkk")} className="hover:text-white transition-colors">

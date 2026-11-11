@@ -460,9 +460,9 @@ export default function AdminPage() {
 
   const fetchUsersList = async (customHeaders?: any) => {
     try {
-      const res = await fetch("/api/admin/users", { headers: customHeaders || getAuthHeaders() });
+      const res = await adminFetch("/api/admin/users", customHeaders ? { headers: customHeaders } : {});
       const data = await res.json();
-      if (data.success && Array.isArray(data.users)) {
+      if (res.ok && data.success && Array.isArray(data.users)) {
         setUsersList(data.users);
       }
     } catch (e) {
@@ -472,9 +472,9 @@ export default function AdminPage() {
 
   const fetchBackupsList = async (customHeaders?: any) => {
     try {
-      const res = await fetch("/api/admin/backups", { headers: customHeaders || getAuthHeaders() });
+      const res = await adminFetch("/api/admin/backups", customHeaders ? { headers: customHeaders } : {});
       const data = await res.json();
-      if (data.success && Array.isArray(data.backups)) {
+      if (res.ok && data.success && Array.isArray(data.backups)) {
         setBackupsList(data.backups);
       }
     } catch (e) {
@@ -482,16 +482,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleDownloadBackup = async (filename: string) => {
+    try {
+      const res = await adminFetch(`/api/admin/backups/download/${encodeURIComponent(filename)}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert("❌ Hata: " + (data.error || "Yedek dosyası indirilemedi."));
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("İndirme hatası: " + (e?.message || "Bilinmeyen hata"));
+    }
+  };
+
   const handleCreateManualBackup = async () => {
     setBackupLoading(true);
     try {
-      const res = await fetch("/api/admin/backups/create", {
+      const res = await adminFetch("/api/admin/backups/create", {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ note: "Yönetici paneli üzerinden anlık alındı" }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         alert("✅ Yedek başarıyla oluşturuldu: " + data.backup.filename);
         fetchBackupsList();
       } else {
@@ -510,14 +531,13 @@ export default function AdminPage() {
     setRestoreResult(null);
 
     try {
-      const res = await fetch("/api/admin/backups/restore", {
+      const res = await adminFetch("/api/admin/backups/restore", {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ filename: selectedBackupToRestore }),
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         setRestoreResult({ success: true, message: data.message });
         setTimeout(() => {
           setRestoreModalOpen(false);
@@ -544,14 +564,13 @@ export default function AdminPage() {
         id: editingUserId || undefined,
       };
 
-      const res = await fetch("/api/admin/users", {
+      const res = await adminFetch("/api/admin/users", {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         setUserResult({ success: true, message: data.message });
         fetchUsersList();
         setTimeout(() => {
@@ -571,12 +590,11 @@ export default function AdminPage() {
   const handleDeleteUser = async (id: string, name: string) => {
     if (!confirm(`'${name}' kullanıcısını silmek istediğinize emin misiniz?`)) return;
     try {
-      const res = await fetch(`/api/admin/users?id=${encodeURIComponent(id)}`, {
+      const res = await adminFetch(`/api/admin/users?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         fetchUsersList();
       } else {
         alert("Hata: " + data.error);
@@ -603,8 +621,11 @@ export default function AdminPage() {
       if (res.ok && data.success) {
         setSettingsResult({
           success: true,
-          message: "Site ve firma bilgileri başarıyla güncellendi ve tüm siteye uygulandı!",
+          message: "Site ve firma bilgileri başarıyla güncellendi ve tüm siteye (arayüz + e-posta şablonları) uygulandı!",
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("kalem:settings-updated"));
+        }
       } else {
         setSettingsResult({
           success: false,
@@ -4074,14 +4095,15 @@ export default function AdminPage() {
                           <td className="py-3 px-4 text-slate-500">{b.createdAtFormatted}</td>
                           <td className="py-3 px-4 text-slate-500 text-[11px]">{b.note || "-"}</td>
                           <td className="py-3 px-4 text-right space-x-2">
-                            <a
-                              href={`/api/admin/backups/download/${encodeURIComponent(b.filename)}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadBackup(b.filename)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
                               title="Yedek Dosyasını İndir"
                             >
                               <Download className="w-3 h-3" />
                               <span>İndir</span>
-                            </a>
+                            </button>
                             <button
                               type="button"
                               onClick={() => {

@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { fixUtf8Mojibake } from "./storage.js";
 import { renderFormSubmissionAdminEmail, renderCustomerConfirmationEmail, } from "./emailTemplates.js";
 import { getLogoWhiteBuffer } from "../assets/logoWhiteBase64.js";
+import { getCompanySettings } from "./settings.js";
 let cachedTransporter = null;
 let lastSmtpConfigHash = "";
 /**
@@ -164,7 +165,8 @@ export function getCustomerConfirmationEmail(params) {
 }
 // 1. İletişim & Teklif Formu Bildirimi (Yetkili Müşavire)
 export async function sendContactEmail({ refCode, fullName, company, phone, email, serviceType, message, lang = "tr", }) {
-    const receiverEmail = process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
+    const companySettings = await getCompanySettings();
+    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
     const smtpUser = process.env.SMTP_USER;
     if (!getMailer() || !smtpUser) {
         console.warn(`[Mailer] SMTP yapilandirmasi eksik. Bildirim iletilemedi: [${refCode}] ${fullName} (${phone}) -> ${receiverEmail}`);
@@ -184,6 +186,7 @@ export async function sendContactEmail({ refCode, fullName, company, phone, emai
         },
         lang,
         siteBaseUrl: process.env.SITE_URL || "https://kalemgumruk.com",
+        company: companySettings,
     });
     // Müşavire bildirim
     try {
@@ -206,6 +209,7 @@ export async function sendContactEmail({ refCode, fullName, company, phone, emai
                 fullName,
                 serviceOrTitle: serviceType || "İletişim ve Danışmanlık",
                 lang,
+                company: companySettings,
             });
             const custRes = await sendEmailUnified({
                 to: email,
@@ -221,7 +225,8 @@ export async function sendContactEmail({ refCode, fullName, company, phone, emai
 }
 // 2. Chatbot Mesajları & Ziyaretçi Bildirimi (Yetkili Müşavire)
 export async function sendChatLeadEmail({ refCode, contactInfo, contactName, question, messages, lang = "tr", }) {
-    const receiverEmail = process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
+    const companySettings = await getCompanySettings();
+    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
     const smtpUser = process.env.SMTP_USER;
     const cleanLang = (lang || "tr").toLowerCase();
     const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
@@ -308,8 +313,9 @@ export async function sendChatLeadEmail({ refCode, contactInfo, contactName, que
           ${messagesHtml || "<p style='color: #94a3b8;'>Mesaj kaydı bulunmuyor.</p>"}
         </div>
       </div>
-      <div style="background-color: #1E2A3A; padding: 14px 24px; font-size: 11px; color: #94a3b8; text-align: center;">
-        Kalem Gümrük Müşavirliği Ltd. Şti. | Ref: #${refCode}
+      <div style="background-color: #1E2A3A; padding: 14px 24px; font-size: 11px; color: #94A3B8; text-align: center; line-height: 1.5;">
+        <div><strong>${companySettings.name}</strong> | Ref: #${refCode}</div>
+        <div>Tel: ${companySettings.phone} • ${companySettings.email}</div>
       </div>
     </div>
   `;
@@ -327,7 +333,8 @@ export async function sendChatLeadEmail({ refCode, contactInfo, contactName, que
 }
 // 3. Test E-postası Gönderimi
 export async function sendTestEmail(targetEmail) {
-    const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || "kadir.kaya@kayapermit.com";
+    const companySettings = await getCompanySettings();
+    const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
     const smtpUser = process.env.SMTP_USER;
     if (!getMailer() || !smtpUser) {
         return {
@@ -380,8 +387,9 @@ export async function sendTestEmail(targetEmail) {
             </table>
             <p style="margin-bottom: 0; font-size: 11.5px; color: #64748b;">Tüm form ve danışma bildirimleri Kalem Gümrük kurumsal standartlarında iletilmektedir.</p>
           </div>
-          <div style="background-color: #1E2A3A; padding: 14px 24px; font-size: 11px; color: #94a3b8; text-align: center;">
-            Kalem Gümrük Müşavirliği Ltd. Şti. | Ümraniye, İstanbul
+          <div style="background-color: #1E2A3A; padding: 14px 24px; font-size: 11px; color: #94A3B8; text-align: center; line-height: 1.5;">
+            <div><strong>${companySettings.name}</strong> | ${companySettings.address}</div>
+            <div>Tel: ${companySettings.phone} • ${companySettings.email}</div>
           </div>
         </div>
       `,

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServiceBySlugAsync, getAllServices } from "@/lib/services";
-import { companyInfo } from "@/data/company";
+import { getSiteSettingsAsync } from "@/lib/settings";
 import { CheckCircle2, Phone, MessageSquare, ShieldCheck, FileText } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
 import { getWhatsAppUrl } from "@/lib/whatsappMessages";
@@ -63,7 +63,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServiceDetailPage({ params }: Props) {
   const { slug, lang } = await params;
-  const service = await getServiceBySlugAsync(slug, lang);
+  const [service, siteSettings] = await Promise.all([
+    getServiceBySlugAsync(slug, lang),
+    getSiteSettingsAsync(),
+  ]);
 
   if (!service) {
     notFound();
@@ -150,9 +153,9 @@ export default async function ServiceDetailPage({ params }: Props) {
     description: service.detailedContent || service.shortDesc,
     provider: {
       "@type": "LocalBusiness",
-      name: companyInfo.name,
+      name: siteSettings.name,
       url: "https://kalemgumruk.com",
-      telephone: companyInfo.phoneRaw,
+      telephone: siteSettings.phoneRaw,
       address: {
         "@type": "PostalAddress",
         addressLocality: "Ümraniye",
@@ -251,6 +254,7 @@ export default async function ServiceDetailPage({ params }: Props) {
                   type: "service",
                   lang,
                   serviceTitle: service.title,
+                  whatsappNumber: siteSettings.whatsapp,
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -260,11 +264,11 @@ export default async function ServiceDetailPage({ params }: Props) {
                 <span>WhatsApp</span>
               </a>
               <a
-                href={`tel:${companyInfo.phoneRaw}`}
+                href={`tel:${siteSettings.phoneRaw}`}
                 className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-[#44B9CD]" />
-                <span dir="ltr">{companyInfo.phone}</span>
+                <span dir="ltr">{siteSettings.phone}</span>
               </a>
             </div>
           </div>

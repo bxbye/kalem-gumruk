@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { companyInfo } from "@/data/company";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import {
   getTranslatedFieldLabel,
   getTranslatedFieldPlaceholder,
@@ -124,6 +125,7 @@ export default function ContactForm({
   initialForm?: FormDefinition | null;
 }) {
   const { t, localePath, language, isRTL } = useLanguage();
+  const settings = useSiteSettings();
   const cf = t.contactForm;
   const ui = getFormUIStrings(language);
 
@@ -342,11 +344,11 @@ export default function ContactForm({
                   <div>
                     <div className="text-[11px] text-slate-400">{cf.phoneTitle}</div>
                     <a
-                      href={`tel:${companyInfo.phoneRaw}`}
+                      href={`tel:${settings.phoneRaw}`}
                       className="text-xs sm:text-sm font-bold text-white hover:text-[#44B9CD] transition-colors"
                       dir="ltr"
                     >
-                      {companyInfo.phone}
+                      {settings.phone}
                     </a>
                   </div>
                 </div>
@@ -358,13 +360,18 @@ export default function ContactForm({
                   <div>
                     <div className="text-[11px] text-slate-400">{cf.waTitle}</div>
                     <a
-                      href={getWhatsAppUrl({ type: "general", lang: language })}
+                      href={getWhatsAppUrl({
+                        type: "general",
+                        lang: language,
+                        whatsappNumber: settings.whatsapp,
+                        defaultMessage: settings.whatsappDefaultMessage,
+                      })}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs sm:text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
                       dir="ltr"
                     >
-                      {companyInfo.phone} (WhatsApp)
+                      {settings.phone} (WhatsApp)
                     </a>
                   </div>
                 </div>
@@ -376,11 +383,11 @@ export default function ContactForm({
                   <div>
                     <div className="text-[11px] text-slate-400">{cf.emailTitle}</div>
                     <a
-                      href={`mailto:${companyInfo.email}`}
+                      href={`mailto:${settings.email}`}
                       className="text-xs sm:text-sm font-bold text-white hover:text-[#44B9CD] transition-colors"
                       dir="ltr"
                     >
-                      {companyInfo.email}
+                      {settings.email}
                     </a>
                   </div>
                 </div>
@@ -392,7 +399,7 @@ export default function ContactForm({
                   <div>
                     <div className="text-[11px] text-slate-400">{cf.hoursTitle}</div>
                     <span className="text-xs text-slate-200">
-                      {companyInfo.workingHours}
+                      {settings.workingHours}
                     </span>
                   </div>
                 </div>

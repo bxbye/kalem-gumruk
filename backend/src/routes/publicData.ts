@@ -8,6 +8,7 @@ import { defaultSirkuler } from "../data/sirkuler.js";
 import { gerekliBaglantilarData } from "../data/gerekliBaglantilar.js";
 import { generateHumanChallenge } from "../services/security.js";
 import { setNoStoreHeaders, safeJsonParse } from "../utils/http.js";
+import { getCompanySettings } from "../services/settings.js";
 
 export const publicDataRouter = Router();
 
@@ -329,22 +330,6 @@ publicDataRouter.get("/references", async (_req, res) => {
 
 // ==================== SİTE VE FİRMA AYARLARI (PUBLIC) ====================
 publicDataRouter.get("/settings", async (_req, res) => {
-  if (!isDbConnected) {
-    return res.json({ success: true, settings: companyInfo });
-  }
-
-  try {
-    const [record] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
-    const dbSettings = safeJsonParse<Record<string, any>>(record?.value, {});
-
-    const merged = {
-      ...companyInfo,
-      ...dbSettings,
-    };
-
-    return res.json({ success: true, settings: merged });
-  } catch (error) {
-    console.warn("[Public Settings] DB sorgu hatası, varsayılan ayarlar kullanılıyor:", error instanceof Error ? error.message : error);
-    return res.json({ success: true, settings: companyInfo });
-  }
+  const settings = await getCompanySettings();
+  return res.json({ success: true, settings });
 });

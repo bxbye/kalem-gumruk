@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { companyInfo } from "@/data/company";
 import { navigationConfig } from "@/data/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   Phone,
@@ -21,7 +22,14 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { t, localePath } = useLanguage();
+  const { t, language, localePath } = useLanguage();
+  const settings = useSiteSettings();
+  const displayWorkingHours =
+    language === "tr"
+      ? settings.workingHours || t.topBar.workingHours
+      : settings.workingHours && settings.workingHours !== companyInfo.workingHours
+      ? settings.workingHours
+      : t.topBar.workingHours;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [openMobileAccordion, setOpenMobileAccordion] = useState<string | null>(null);
@@ -43,18 +51,18 @@ export default function Navbar() {
             <span className="hidden md:inline text-slate-500">|</span>
             <span className="hidden md:flex items-center gap-1 text-slate-400">
               <Clock className="w-3.5 h-3.5 text-[#44B9CD]" />
-              {t.topBar.workingHours}
+              {displayWorkingHours}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-slate-400">{t.topBar.consultantLine}</span>
             <a
-              href={`tel:${companyInfo.phoneRaw}`}
+              href={`tel:${settings.phoneRaw}`}
               className="flex items-center gap-1.5 text-white font-bold hover:text-[#44B9CD] transition-colors"
             >
               <Phone className="w-3.5 h-3.5 text-[#44B9CD]" />
-              <span dir="ltr">{companyInfo.phone}</span>
+              <span dir="ltr">{settings.phone}</span>
             </a>
           </div>
         </div>
@@ -238,7 +246,7 @@ export default function Navbar() {
           <LanguageSwitcher variant="desktop" />
 
           <a
-            href={companyInfo.evrimPortalUrl}
+            href={settings.evrimPortalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 bg-[#1E2A3A] hover:bg-[#25364b] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs border border-slate-700 hover:border-[#44B9CD]/50 group"
@@ -334,7 +342,7 @@ export default function Navbar() {
           {/* Alt Müşteri Girişi Butonu */}
           <div className="pt-3">
             <a
-              href={companyInfo.evrimPortalUrl}
+              href={settings.evrimPortalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-2.5 px-4 bg-[#1E2A3A] hover:bg-[#25364b] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-[#44B9CD]/30"

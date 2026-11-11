@@ -112,7 +112,12 @@ export default async function IletisimPage({ params }: Props) {
               </div>
               <div>
                 <a
-                  href={getWhatsAppUrl({ type: "general", lang })}
+                  href={getWhatsAppUrl({
+                    type: "general",
+                    lang,
+                    whatsappNumber: siteSettings.whatsapp,
+                    defaultMessage: siteSettings.whatsappDefaultMessage,
+                  })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-600 font-bold hover:text-emerald-500 inline-flex items-center gap-1"

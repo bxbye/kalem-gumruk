@@ -36,6 +36,9 @@ const TABLES = [
  * MySQL veritabanındaki tabloları JSON formatında yedekler.
  */
 export async function createDatabaseBackup(type = "MANUAL", note) {
+    if (!isDbConnected) {
+        throw new Error("Veritabanı bağlantısı aktif olmadığı için yedek alınamıyor.");
+    }
     const timestamp = new Date();
     const dateStr = timestamp
         .toISOString()
@@ -150,10 +153,23 @@ export async function listDatabaseBackups() {
     result.sort((a, b) => b.createdAt - a.createdAt);
     return result;
 }
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+function normalizeRestoreValue(val) {
+    if (typeof val === "string" && ISO_DATE_RE.test(val)) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            return d;
+        }
+    }
+    return val;
+}
 /**
  * Seçilen JSON yedeğinden verileri geri yükler
  */
 export async function restoreDatabaseBackup(filename) {
+    if (!isDbConnected) {
+        throw new Error("Veritabanı bağlantısı aktif olmadığı için geri yükleme yapılamıyor.");
+    }
     const targetFile = path.basename(filename);
     const backupPath = path.join(backupsDir, targetFile);
     if (!fs.existsSync(backupPath)) {
@@ -168,21 +184,28 @@ export async function restoreDatabaseBackup(filename) {
     catch (err) {
         console.error("[Restore] Emniyet yedeği alınamadı:", err);
     }
+    const conn = await pool.getConnection();
     try {
         const raw = fs.readFileSync(backupPath, "utf-8");
         const data = JSON.parse(raw);
+        await conn.beginTransaction();
+        await conn.query("SET FOREIGN_KEY_CHECKS = 0");
         for (const [table, rows] of Object.entries(data)) {
-            if (!TABLES.includes(table))
+            if (!TABLES.includes(table) || !Array.isArray(rows))
                 continue;
-            if (Array.isArray(rows) && rows.length > 0) {
-                for (const row of rows) {
-                    const keys = Object.keys(row).map((k) => `\`${k}\``).join(", ");
-                    const placeholders = Object.keys(row).map(() => "?").join(", ");
-                    const values = Object.values(row);
-                    await pool.query(`REPLACE INTO \`${table}\` (${keys}) VALUES (${placeholders})`, values);
-                }
+            await conn.query(`DELETE FROM \`${table}\``);
+            for (const row of rows) {
+                const rawKeys = Object.keys(row);
+                if (rawKeys.length === 0)
+                    continue;
+                const keys = rawKeys.map((k) => `\`${k}\``).join(", ");
+                const placeholders = rawKeys.map(() => "?").join(", ");
+                const values = rawKeys.map((k) => normalizeRestoreValue(row[k]));
+                await conn.query(`INSERT INTO \`${table}\` (${keys}) VALUES (${placeholders})`, values);
             }
         }
+        await conn.query("SET FOREIGN_KEY_CHECKS = 1");
+        await conn.commit();
         console.log(`[Restore] ✅ Veritabanı '${targetFile}' yedeğinden başarıyla geri yüklendi!`);
         return {
             success: true,
@@ -191,8 +214,16 @@ export async function restoreDatabaseBackup(filename) {
         };
     }
     catch (error) {
+        try {
+            await conn.query("SET FOREIGN_KEY_CHECKS = 1");
+            await conn.rollback();
+        }
+        catch { }
         console.error("[Restore] Geri yükleme hatası:", error);
         throw new Error(`Geri yükleme başarısız oldu: ${error?.message || String(error)}`);
+    }
+    finally {
+        conn.release();
     }
 }
 /**

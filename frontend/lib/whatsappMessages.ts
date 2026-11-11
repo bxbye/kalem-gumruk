@@ -7,6 +7,8 @@ export interface WhatsAppMessageParams {
   serviceTitle?: string;
   refCode?: string;
   topic?: string;
+  whatsappNumber?: string;
+  defaultMessage?: string;
 }
 
 /**
@@ -96,7 +98,7 @@ export function getLocalizedWhatsAppMessage(params: WhatsAppMessageParams): stri
           return "Hola Kalem Aduanas, me comunico a través de su sitio web. Quisiera recibir información sobre despacho aduanero y asesoría en comercio exterior.";
         case "tr":
         default:
-          return companyInfo.whatsappDefaultMessage;
+          return params.defaultMessage || companyInfo.whatsappDefaultMessage;
       }
     }
   }
@@ -107,5 +109,6 @@ export function getLocalizedWhatsAppMessage(params: WhatsAppMessageParams): stri
  */
 export function getWhatsAppUrl(params: WhatsAppMessageParams): string {
   const text = getLocalizedWhatsAppMessage(params);
-  return `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(text)}`;
+  const targetNumber = (params.whatsappNumber || companyInfo.whatsapp).replace(/[^0-9]/g, "") || companyInfo.whatsapp;
+  return `https://wa.me/${targetNumber}?text=${encodeURIComponent(text)}`;
 }

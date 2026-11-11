@@ -1,5 +1,6 @@
 import path from "path";
 import { fixUtf8Mojibake } from "./storage.js";
+import { companyInfo } from "../data/company.js";
 // Standart Alan Adı -> İnsan Okur Başlık Eşlemesi
 export const FIELD_LABEL_MAP = {
     fullName: "Adı Soyadı",
@@ -96,7 +97,9 @@ function formatWhatsAppPhone(rawPhone) {
  * 1. FORM BİLDİRİMİ E-POSTASI (Yetkili Müşavir / Admin İçin)
  * Kalem Gümrük Marka Renkleri (#1E2A3A Navy, #44B9CD Teal) ve Şirket Logosu ile Kurumsal Tasarım
  */
-export function renderFormSubmissionAdminEmail({ formTitle, refCode, data, fieldsDef = [], files = [], lang = "tr", createdAt = new Date(), siteBaseUrl = "https://kalemgumruk.com", }) {
+export function renderFormSubmissionAdminEmail({ formTitle, refCode, data, fieldsDef = [], files = [], lang = "tr", createdAt = new Date(), siteBaseUrl = "https://kalemgumruk.com", company, }) {
+    const activeCompany = { ...companyInfo, ...(company || {}) };
+    const siteHost = siteBaseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
     const cleanLang = (lang || "tr").toLowerCase();
     const langLabels = {
         tr: "Türkçe",
@@ -160,7 +163,7 @@ export function renderFormSubmissionAdminEmail({ formTitle, refCode, data, field
     }
     // Hızlı Aksiyon Butonları (Kurumsal Lacivert & Teal)
     const waPhone = formatWhatsAppPhone(customerPhone);
-    const waMessage = encodeURIComponent(`Sayın ${customerName}, Kalem Gümrük Müşavirliği (#${refCode}) talebiniz ile ilgili iletişime geçiyoruz.`);
+    const waMessage = encodeURIComponent(`Sayın ${customerName}, ${activeCompany.shortName || activeCompany.name} (#${refCode}) talebiniz ile ilgili iletişime geçiyoruz.`);
     const actionButtonsHtml = `
     <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #E2E8F0;">
       <table cellpadding="0" cellspacing="0" border="0">
@@ -370,16 +373,18 @@ export function renderFormSubmissionAdminEmail({ formTitle, refCode, data, field
           <tr>
             <td style="background-color: #1E2A3A; padding: 18px 24px; text-align: center; color: #94A3B8; font-size: 11px; line-height: 1.5;">
               <div style="font-weight: 700; color: #FFFFFF; font-size: 12px; margin-bottom: 2px;">
-                Kalem Gümrük Müşavirliği Ltd. Şti.
+                ${activeCompany.name}
               </div>
               <div>
-                Saray Mah. Dr. Adnan Büyükdeniz Cad. Akkom Ofis Park No:4 Ümraniye / İstanbul
+                ${activeCompany.address}
               </div>
               <div style="margin-top: 4px;">
-                Tel: +90 (216) 481 80 80 • <a href="https://kalemgumruk.com" style="color: #44B9CD; text-decoration: none;">kalemgumruk.com</a>
+                Tel: <a href="tel:${activeCompany.phoneRaw}" style="color: #FFFFFF; text-decoration: none;">${activeCompany.phone}</a> •
+                <a href="mailto:${activeCompany.email}" style="color: #44B9CD; text-decoration: none;">${activeCompany.email}</a> •
+                <a href="${siteBaseUrl}" style="color: #44B9CD; text-decoration: none;">${siteHost}</a>
               </div>
               <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 10px; color: #64748B;">
-                Ref: #${refCode} • Kalem Gümrük Müşavirliği Portalı Otomatik Bildirimi
+                Ref: #${refCode} • ${activeCompany.shortName || activeCompany.name} Portalı Otomatik Bildirimi
               </div>
             </td>
           </tr>
@@ -409,17 +414,19 @@ export function renderFormSubmissionAdminEmail({ formTitle, refCode, data, field
  * 2. MÜŞTERİ / BAŞVURU SAHİBİNE GİDEN ONAY E-POSTASI
  * Kurumsal kimlik ve marka logosu ile güven veren tasarım
  */
-export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTitle, lang = "tr", siteBaseUrl = "https://kalemgumruk.com", }) {
+export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTitle, lang = "tr", siteBaseUrl = "https://kalemgumruk.com", company, }) {
+    const activeCompany = { ...companyInfo, ...(company || {}) };
     const cleanLang = (lang || "tr").toLowerCase();
     const cleanName = fixUtf8Mojibake(fullName || "Değerli Müşterimiz");
     const cleanService = fixUtf8Mojibake(serviceOrTitle || "Gümrük Danışmanlığı");
     switch (cleanLang) {
         case "en":
             return {
-                subject: `[${refCode}] Application Received - Kalem Customs Brokerage`,
+                subject: `[${refCode}] Application Received - ${activeCompany.shortName || "Kalem Customs Brokerage"}`,
                 html: buildCustomerEmailHtml({
                     lang: "en",
                     siteBaseUrl,
+                    company: activeCompany,
                     refCode,
                     titleText: "Inquiry Confirmation",
                     greeting: `Dear <strong>${cleanName}</strong>,`,
@@ -430,7 +437,7 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
                     nextStepsTitle: "Next Steps:",
                     step1: "Our licensed customs broker is reviewing your requirements.",
                     step2: "We will contact you during business hours.",
-                    footerNote: "Kalem Customs Brokerage Ltd. | Istanbul, Turkey",
+                    footerNote: `${activeCompany.name} | ${activeCompany.address}`,
                 }),
             };
         case "ar":
@@ -440,6 +447,7 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
                     lang: "ar",
                     dir: "rtl",
                     siteBaseUrl,
+                    company: activeCompany,
                     refCode,
                     titleText: "تأكيد استلام الطلب",
                     greeting: `السادة / <strong>${cleanName}</strong> المحترمون،`,
@@ -450,15 +458,16 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
                     nextStepsTitle: "الخطوات التالية:",
                     step1: "يقوم المستشار الجمركي بدراسة التفاصيل وبنود المعاملة.",
                     step2: "سيتواصل معكم أحد خبرائنا خلال ساعات العمل الرسمية.",
-                    footerNote: "شركة قلم للتخليص الجمركي المحدودة | إسطنبول - تركيا",
+                    footerNote: `${activeCompany.name} | ${activeCompany.address}`,
                 }),
             };
         case "es":
             return {
-                subject: `[${refCode}] Solicitud Recibida - Kalem Aduanas`,
+                subject: `[${refCode}] Solicitud Recibida - ${activeCompany.shortName || "Kalem Aduanas"}`,
                 html: buildCustomerEmailHtml({
                     lang: "es",
                     siteBaseUrl,
+                    company: activeCompany,
                     refCode,
                     titleText: "Confirmación de Solicitud",
                     greeting: `Estimado/a <strong>${cleanName}</strong>,`,
@@ -469,16 +478,17 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
                     nextStepsTitle: "Próximos pasos:",
                     step1: "Nuestro agente colegiado analizará la documentación.",
                     step2: "Nos pondremos en contacto con usted en horario comercial.",
-                    footerNote: "Kalem Gümrük Müşavirliği | Estambul, Turquía",
+                    footerNote: `${activeCompany.name} | ${activeCompany.address}`,
                 }),
             };
         case "tr":
         default:
             return {
-                subject: `[${refCode}] Talebiniz Alındı - Kalem Gümrük Müşavirliği`,
+                subject: `[${refCode}] Talebiniz Alındı - ${activeCompany.shortName || activeCompany.name}`,
                 html: buildCustomerEmailHtml({
                     lang: "tr",
                     siteBaseUrl,
+                    company: activeCompany,
                     refCode,
                     titleText: "Başvuru Teyidi",
                     greeting: `Sayın <strong>${cleanName}</strong>,`,
@@ -489,7 +499,7 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
                     nextStepsTitle: "İşlem Süreci:",
                     step1: "Yetkili gümrük müşavirimiz başvuru detaylarınızı incelemektedir.",
                     step2: "Uzmanımız mesai saatleri içerisinde tarafınızla iletişime geçecektir.",
-                    footerNote: "Kalem Gümrük Müşavirliği Ltd. Şti. | Ümraniye, İstanbul",
+                    footerNote: `${activeCompany.name} | ${activeCompany.address}`,
                 }),
             };
     }
@@ -497,7 +507,8 @@ export function renderCustomerConfirmationEmail({ refCode, fullName, serviceOrTi
 /**
  * Müşteri onay e-postası şablonu (Marka Logolu ve Şık)
  */
-function buildCustomerEmailHtml({ lang = "tr", dir = "ltr", siteBaseUrl = "https://kalemgumruk.com", refCode, titleText, greeting, intro, statusLabel, statusValue, refLabel, nextStepsTitle, step1, step2, footerNote, }) {
+function buildCustomerEmailHtml({ lang = "tr", dir = "ltr", siteBaseUrl = "https://kalemgumruk.com", company, refCode, titleText, greeting, intro, statusLabel, statusValue, refLabel, nextStepsTitle, step1, step2, footerNote, }) {
+    const waHref = company.whatsapp ? `https://wa.me/${company.whatsapp}` : "";
     return `
 <!DOCTYPE html>
 <html lang="${lang}" dir="${dir}">
@@ -579,8 +590,13 @@ function buildCustomerEmailHtml({ lang = "tr", dir = "ltr", siteBaseUrl = "https
 
           <!-- Altbilgi -->
           <tr>
-            <td style="background-color: #F8FAFC; padding: 12px 24px; text-align: center; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B;">
-              Kalem Gümrük Müşavirliği Ltd. Şti. | Ümraniye, İstanbul | Tel: +90 (216) 481 80 80
+            <td style="background-color: #F8FAFC; padding: 14px 24px; text-align: center; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.6;">
+              <div><strong>${company.name}</strong> | ${company.address}</div>
+              <div>
+                Tel: <a href="tel:${company.phoneRaw}" style="color: #1E2A3A; text-decoration: none; font-weight: 600;">${company.phone}</a>
+                ${waHref ? ` • <a href="${waHref}" target="_blank" style="color: #059669; text-decoration: none; font-weight: 600;">WhatsApp</a>` : ""}
+                • <a href="mailto:${company.email}" style="color: #0e7490; text-decoration: none; font-weight: 600;">${company.email}</a>
+              </div>
             </td>
           </tr>
 

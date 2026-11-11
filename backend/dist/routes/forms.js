@@ -5,6 +5,7 @@ import { db, isDbConnected } from "../db/index.js";
 import { forms, formSubmissions } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import { getMailer, sendEmailUnified } from "../services/mailer.js";
+import { getCompanySettings } from "../services/settings.js";
 import { uploadsDir, fixUtf8Mojibake } from "../services/storage.js";
 import { authenticateRequest } from "../services/auth.js";
 import { validateFormSpamGuard } from "../services/security.js";
@@ -273,8 +274,9 @@ formsRouter.post("/:slug", formRateLimiter, async (req, res) => {
 async function handleFormSubmissionEmail(formSlug, formTitle, data, files, refCode, settings, lang = "tr", fieldsDef = []) {
     const transporter = getMailer();
     const smtpUser = process.env.SMTP_USER;
-    // Hedef e-posta: Öncelik kadir.kaya@kayapermit.com (CONTACT_RECEIVER)
-    const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || "kadir.kaya@kayapermit.com";
+    const companySettings = await getCompanySettings();
+    // Hedef e-posta: Öncelik CONTACT_RECEIVER -> form ayarı -> firma ayarı
+    const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || companySettings.email || "kadir.kaya@kayapermit.com";
     if (!transporter || !smtpUser) {
         console.warn(`[Form Mailer] SMTP yapilandirmasi eksik. Form e-postasi gonderilemedi: [${refCode}] -> ${companyEmail}`);
         return;
@@ -309,11 +311,12 @@ async function handleFormSubmissionEmail(formSlug, formTitle, data, files, refCo
         files,
         lang,
         siteBaseUrl,
+        company: companySettings,
     });
     // Yetkili Gümrük Müşaviri / Admin Bildirimi Gönder
     try {
         const res = await sendEmailUnified({
-            from: `"Kalem Gümrük Web Formu" <${process.env.SMTP_FROM || smtpUser || "bilgi@kalemgumruk.com"}>`,
+            from: `"${companySettings.shortName || "Kalem Gümrük"} Web Formu" <${process.env.SMTP_FROM || smtpUser || companySettings.email}>`,
             to: companyEmail,
             replyTo: customerEmail || undefined,
             subject: renderedAdmin.subject,
@@ -333,9 +336,11 @@ async function handleFormSubmissionEmail(formSlug, formTitle, data, files, refCo
                 fullName: customerName,
                 serviceOrTitle: formTitle,
                 lang,
+                siteBaseUrl,
+                company: companySettings,
             });
             const custRes = await sendEmailUnified({
-                from: `"Kalem Gümrük Müşavirliği" <${process.env.SMTP_FROM || smtpUser || "bilgi@kalemgumruk.com"}>`,
+                from: `"${companySettings.name}" <${process.env.SMTP_FROM || smtpUser || companySettings.email}>`,
                 to: customerEmail,
                 subject: conf.subject,
                 html: conf.html,

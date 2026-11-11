@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import { usePathname } from "next/navigation";
 import {
   X,
@@ -32,6 +33,7 @@ interface Message {
 export default function ChatBot() {
   const pathname = usePathname();
   const { language, isRTL } = useLanguage();
+  const settings = useSiteSettings();
 
   if (pathname?.startsWith("/admin")) {
     return null;
@@ -134,8 +136,9 @@ export default function ChatBot() {
       refCode,
       topic: userFirstQuestion,
     });
-    return `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(waText)}`;
-  }, [refCode, userFirstQuestion, language]);
+    const waTarget = (settings.whatsapp || companyInfo.whatsapp).replace(/[^0-9]/g, "");
+    return `https://wa.me/${waTarget}?text=${encodeURIComponent(waText)}`;
+  }, [refCode, userFirstQuestion, language, settings.whatsapp]);
 
   // Kullanıcının yazdığı mesaja göre kısa ve net kurumsal yönlendirme
   const getSmartBotReply = (text: string, currentCount: number): { text: string; link?: { href: string; text: string } } => {
