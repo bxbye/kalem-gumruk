@@ -15,8 +15,10 @@ import {
   Clock,
   Sparkles,
   SlidersHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import type { SirkulerItem } from "@/lib/sirkuler";
+import { stripHtml } from "@/lib/htmlUtils";
 
 interface Props {
   initialItems: SirkulerItem[];
@@ -49,6 +51,7 @@ export default function SirkulerListClient({ initialItems, lang }: Props) {
   const categories = useMemo(() => {
     const defaultOrder = [
       "ALL",
+      "Genel Mevzuat",
       "İthalat & Vergi",
       "İhracat Rejimi",
       "Tarife & GTİP",
@@ -76,11 +79,11 @@ export default function SirkulerListClient({ initialItems, lang }: Props) {
       result = result.filter(
         (item) =>
           item.title?.toLowerCase().includes(q) ||
-          item.summary?.toLowerCase().includes(q) ||
+          stripHtml(item.summary).toLowerCase().includes(q) ||
           item.relatedGtip?.toLowerCase().includes(q) ||
           item.officialGazetteNumber?.toLowerCase().includes(q) ||
           item.regulationType?.toLowerCase().includes(q) ||
-          item.content?.toLowerCase().includes(q)
+          stripHtml(item.content).toLowerCase().includes(q)
       );
     }
 
@@ -120,7 +123,8 @@ export default function SirkulerListClient({ initialItems, lang }: Props) {
 
   // Tahmini okuma süresi hesaplama
   const getReadingTime = (text: string) => {
-    const wordCount = (text || "").split(/\s+/).length;
+    const plain = stripHtml(text);
+    const wordCount = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
     const mins = Math.max(1, Math.ceil(wordCount / 160));
     return `${mins} ${isEn ? "min read" : "dk okuma"}`;
   };
@@ -298,6 +302,13 @@ export default function SirkulerListClient({ initialItems, lang }: Props) {
                       </span>
                     )}
 
+                    {item.sourceUrl && (
+                      <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px] font-semibold border border-blue-100">
+                        <ExternalLink className="w-3 h-3 text-blue-500" />
+                        {isEn ? "Official Source" : "Resmi Kaynak"}
+                      </span>
+                    )}
+
                     <span className="inline-flex items-center gap-1 text-slate-400 text-[11px] ml-auto">
                       <Clock className="w-3 h-3" />
                       {readingTime}
@@ -320,7 +331,7 @@ export default function SirkulerListClient({ initialItems, lang }: Props) {
 
                   {/* Kısa Özet */}
                   <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed font-normal">
-                    {item.summary}
+                    {stripHtml(item.summary || item.content)}
                   </p>
                 </div>
 

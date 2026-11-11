@@ -244,6 +244,44 @@ adminRouter.get("/sirkuler", async (req: AuthenticatedRequest, res) => {
   }
 });
 
+function stripHtmlToPlainText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildAutoSummary(rawSummary: unknown, rawContent: unknown, rawExpertNote: unknown, sourceUrl: unknown, pdfUrl: unknown): string {
+  const manualSummary = typeof rawSummary === "string" ? stripHtmlToPlainText(rawSummary) : "";
+  if (manualSummary) return manualSummary;
+
+  const plainContent = typeof rawContent === "string" ? stripHtmlToPlainText(rawContent) : "";
+  const plainNote = typeof rawExpertNote === "string" ? stripHtmlToPlainText(rawExpertNote) : "";
+  const sourceText = plainContent || plainNote;
+
+  if (sourceText) {
+    return sourceText.length > 220 ? `${sourceText.slice(0, 217).trimEnd()}...` : sourceText;
+  }
+
+  if (typeof sourceUrl === "string" && sourceUrl.trim()) {
+    return "Resmi kaynak bağlantısı üzerinden yayımlanan güncel mevzuat duyurusu.";
+  }
+  if (typeof pdfUrl === "string" && pdfUrl.trim()) {
+    return "Resmi mevzuat belgesi ekte bilgilerinize sunulmuştur.";
+  }
+  return "Güncel mevzuat paylaşımı.";
+}
+
 adminRouter.post("/sirkuler", async (req: AuthenticatedRequest, res) => {
   if (!(await authorize(req, res, { requiredPermission: "canEditSirkuler" }))) return;
   try {
@@ -266,64 +304,98 @@ adminRouter.post("/sirkuler", async (req: AuthenticatedRequest, res) => {
       isPublished,
     } = req.body || {};
 
-    if (!title || !summary || !content) {
-      return res.status(400).json({ error: "Başlık, özet ve içerik alanları zorunludur." });
+    const cleanTitle = typeof title === "string" ? title.trim() : "";
+    const rawContent = typeof content === "string" ? content.trim() : "";
+    const rawSummary = typeof summary === "string" ? summary.trim() : "";
+    const rawExpertNote = typeof expertNote === "string" ? expertNote.trim() : "";
+    const cleanSourceUrl = typeof sourceUrl === "string" ? sourceUrl.trim() : "";
+    const cleanPdfUrl = typeof pdfUrl === "string" ? pdfUrl.trim() : "";
+
+    if (!cleanTitle) {
+      return res.status(400).json({ error: "Başlık alanı zorunludur." });
     }
 
-    const sirkulerSlug = slug ? slugify(slug) : slugify(title);
+    const plainContentCheck = stripHtmlToPlainText(rawContent);
+    const hasImageInContent = /<img\b/i.test(rawContent);
+    if (!plainContentCheck && !hasImageInContent && !rawSummary && !rawExpertNote && !cleanSourceUrl && !cleanPdfUrl) {
+      return res.status(400).json({
+        error: "Lütfen en azından bir yorum/içerik yazınız veya resmi kaynak linki/belgesi ekleyiniz.",
+      });
+    }
+
+    const finalContent = rawContent || rawSummary || rawExpertNote || "";
+    const finalSummary = buildAutoSummary(rawSummary, finalContent, rawExpertNote, cleanSourceUrl, cleanPdfUrl);
     const sirkulerId = id || `sirkuler-${Date.now()}`;
+    const baseSlug = (slug ? slugify(slug) : slugify(cleanTitle)) || `mevzuat-${Date.now()}`;
     const now = new Date();
 
     const [existing] = await db.select().from(sirkuler).where(eq(sirkuler.id, sirkulerId)).limit(1);
+
+    // Slug benzersizliğini garanti altına al
+    let sirkulerSlug = baseSlug;
+    const [slugOwner] = await db
+      .select({ id: sirkuler.id })
+      .from(sirkuler)
+      .where(eq(sirkuler.slug, sirkulerSlug))
+      .limit(1);
+    if (slugOwner && slugOwner.id !== sirkulerId) {
+      sirkulerSlug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
+    }
 
     if (existing) {
       await db
         .update(sirkuler)
         .set({
           slug: sirkulerSlug,
-          title,
-          category: category || "İthalat & Vergi",
-          regulationType: regulationType || null,
-          officialGazetteNumber: officialGazetteNumber || null,
-          relatedGtip: relatedGtip || null,
-          summary,
-          content,
-          expertNote: expertNote || null,
-          sourceUrl: sourceUrl || null,
-          pdfUrl: pdfUrl || null,
-          author: author || "Kalem Gümrük Mevzuat Kurulu",
-          date: date || new Date().toISOString().split("T")[0],
+          title: cleanTitle,
+          category: (typeof category === "string" && category.trim()) || existing.category || "Genel Mevzuat",
+          regulationType: typeof regulationType === "string" && regulationType.trim() ? regulationType.trim() : null,
+          officialGazetteNumber:
+            typeof officialGazetteNumber === "string" && officialGazetteNumber.trim()
+              ? officialGazetteNumber.trim()
+              : null,
+          relatedGtip: typeof relatedGtip === "string" && relatedGtip.trim() ? relatedGtip.trim() : null,
+          summary: finalSummary,
+          content: finalContent,
+          expertNote: rawExpertNote || null,
+          sourceUrl: cleanSourceUrl || null,
+          pdfUrl: cleanPdfUrl || null,
+          author: (typeof author === "string" && author.trim()) || existing.author || "Kalem Gümrük Mevzuat Kurulu",
+          date: date || existing.date || new Date().toISOString().split("T")[0],
           translations: typeof translations === "string" ? translations : JSON.stringify(translations || {}),
           isPublished: isPublished !== undefined ? isPublished : true,
         })
         .where(eq(sirkuler.id, sirkulerId));
-      return res.json({ success: true, message: "Sirküler güncellendi." });
+      return res.json({ success: true, message: "Mevzuat paylaşımı güncellendi." });
     } else {
       await db.insert(sirkuler).values({
         id: sirkulerId,
         slug: sirkulerSlug,
-        title,
-        category: category || "İthalat & Vergi",
-        regulationType: regulationType || null,
-        officialGazetteNumber: officialGazetteNumber || null,
-        relatedGtip: relatedGtip || null,
-        summary,
-        content,
-        expertNote: expertNote || null,
-        sourceUrl: sourceUrl || null,
-        pdfUrl: pdfUrl || null,
-        author: author || "Kalem Gümrük Mevzuat Kurulu",
+        title: cleanTitle,
+        category: (typeof category === "string" && category.trim()) || "Genel Mevzuat",
+        regulationType: typeof regulationType === "string" && regulationType.trim() ? regulationType.trim() : null,
+        officialGazetteNumber:
+          typeof officialGazetteNumber === "string" && officialGazetteNumber.trim()
+            ? officialGazetteNumber.trim()
+            : null,
+        relatedGtip: typeof relatedGtip === "string" && relatedGtip.trim() ? relatedGtip.trim() : null,
+        summary: finalSummary,
+        content: finalContent,
+        expertNote: rawExpertNote || null,
+        sourceUrl: cleanSourceUrl || null,
+        pdfUrl: cleanPdfUrl || null,
+        author: (typeof author === "string" && author.trim()) || "Kalem Gümrük Mevzuat Kurulu",
         viewsCount: 0,
         isPublished: isPublished !== undefined ? isPublished : true,
         date: date || new Date().toISOString().split("T")[0],
         translations: typeof translations === "string" ? translations : JSON.stringify(translations || {}),
         createdAt: now,
       });
-      return res.json({ success: true, message: "Sirküler eklendi.", id: sirkulerId });
+      return res.json({ success: true, message: "Mevzuat paylaşımı yayınlandı.", id: sirkulerId });
     }
   } catch (error) {
     console.error("[Admin Sirkuler Save Error]:", error);
-    return res.status(500).json({ error: "Sirküler kaydedilemedi." });
+    return res.status(500).json({ error: "Mevzuat paylaşımı kaydedilemedi." });
   }
 });
 

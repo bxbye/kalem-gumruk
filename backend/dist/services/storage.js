@@ -66,9 +66,9 @@ const storage = multer.diskStorage({
         cb(null, uniqueName);
     },
 });
-// Sadece gümrük evrakları için geçerli ve güvenli formatlar
+// Sadece gümrük evrakları ve blog görselleri için geçerli ve güvenli formatlar
 // Arşiv dosyaları (.zip, .rar) ve script çalıştırabilecek SVG'ler KESİNLİKLE yasak
-export const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
+export const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".doc", ".docx"];
 // Tehlikeli uzantı kara listesi (Çift uzantı saldırıları için)
 const DANGEROUS_EXTENSIONS_BLACKLIST = [
     ".exe", ".bat", ".cmd", ".sh", ".php", ".phtml", ".php5", ".js", ".vbs",
@@ -94,7 +94,7 @@ export const uploadMiddleware = multer({
         }
         // 2. İzin Verilen Uzantı Kontrolü
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            return cb(new Error(`Güvenlik nedeniyle yalnızca PDF, JPG, PNG ve Word (.docx) dosyaları kabul edilmektedir. (${ext} uzantısı kabul edilmez)`));
+            return cb(new Error(`Güvenlik nedeniyle yalnızca PDF, JPG, PNG, WebP ve Word (.docx) dosyaları kabul edilmektedir. (${ext} uzantısı kabul edilmez)`));
         }
         // 3. Tehlikeli MIME Türü Engellemesi
         const dangerousMimes = [
@@ -174,6 +174,15 @@ export async function verifyFileSignature(filePath) {
             if (!isJpg) {
                 fs.closeSync(fd);
                 return { valid: false, reason: "Dosya uzantısı JPG olarak belirtilmiş ancak içeriği geçerli bir JPG resmi değil." };
+            }
+        }
+        // 5b. WEBP Kontrolü (RIFF....WEBP)
+        else if (ext === ".webp") {
+            const isRiff = headerBuffer.slice(0, 4).toString("ascii") === "RIFF";
+            const isWebp = headerBuffer.slice(8, 12).toString("ascii") === "WEBP";
+            if (!isRiff || !isWebp) {
+                fs.closeSync(fd);
+                return { valid: false, reason: "Dosya uzantısı WebP olarak belirtilmiş ancak içeriği geçerli bir WebP resmi değil." };
             }
         }
         // 6. DOCX Kontrolü (PK\x03\x04 - ZIP tabanlı OpenXML)

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { availableLanguages } from "@/data/translations";
 import { getWhatsAppUrl } from "@/lib/whatsappMessages";
+import { isHtmlContent, sanitizeRichHtml, stripHtml } from "@/lib/htmlUtils";
 
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
@@ -44,9 +45,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const item = await getSirkulerBySlugAsync(slug, lang);
   if (!item) return {};
 
+  const plainDescription = stripHtml(item.summary || item.content).slice(0, 160);
+
   return {
     title: `${item.title} | Gümrük Mevzuatı | Kalem Gümrük`,
-    description: item.summary || item.content.slice(0, 160),
+    description: plainDescription,
     authors: [{ name: item.author || "Kalem Gümrük Mevzuat Kurulu" }],
     keywords: [
       item.category,
@@ -67,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     openGraph: {
       title: item.title,
-      description: item.summary,
+      description: plainDescription,
       url: `https://kalemgumruk.com/${lang}/sirkuler/${item.slug}`,
       type: "article",
       publishedTime: item.date,
@@ -107,10 +110,27 @@ export default async function SirkulerDetailPage({ params }: Props) {
     }
   );
 
-  // Okuma süresi hesaplama
-  const fullText = `${item.title || ""} ${item.summary || ""} ${item.content || ""}`;
-  const wordCount = fullText.trim().split(/\s+/).length;
+  // Okuma süresi hesaplama (HTML etiketleri temizlenerek)
+  const plainSummary = stripHtml(item.summary);
+  const plainContent = stripHtml(item.content);
+  const fullText = `${item.title || ""} ${plainSummary} ${plainContent}`;
+  const wordCount = fullText.trim().split(/\s+/).filter(Boolean).length;
   const readingTimeMins = Math.max(1, Math.ceil(wordCount / 160));
+
+  // Özet içerikten otomatik üretilmişse veya içerikle aynıysa detay sayfasında tekrar kutu olarak gösterme
+  const normalizedSummaryPrefix = plainSummary.replace(/\.\.\.$/, "").trim();
+  const isSummaryAutoExcerpt =
+    !plainSummary ||
+    (plainContent.length > 0 &&
+      normalizedSummaryPrefix.length > 0 &&
+      plainContent.startsWith(normalizedSummaryPrefix)) ||
+    plainSummary === "Resmi kaynak bağlantısı üzerinden yayımlanan güncel mevzuat duyurusu." ||
+    plainSummary === "Resmi mevzuat belgesi ekte bilgilerinize sunulmuştur." ||
+    plainSummary === "Güncel mevzuat paylaşımı.";
+
+  const hasCustomSummary = Boolean(plainSummary && !isSummaryAutoExcerpt);
+  const contentIsHtml = isHtmlContent(item.content);
+  const safeContentHtml = contentIsHtml ? sanitizeRichHtml(item.content) : "";
 
   // Uzman notu, genel bilgilendirme uyarısını tekrar etmiyorsa özel yorum kutusu olarak göster
   const isGenericDisclaimer =
@@ -126,7 +146,7 @@ export default async function SirkulerDetailPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     headline: item.title,
-    description: item.summary,
+    description: plainSummary || plainContent.slice(0, 160),
     datePublished: item.date,
     dateModified: item.date,
     author: {
@@ -220,22 +240,31 @@ export default async function SirkulerDetailPage({ params }: Props) {
             </div>
           </header>
 
-          {/* 2. HABER ÖZETİ (Vurgulu Lead Paragraf) */}
-          {item.summary && (
+          {/* 2. HABER ÖZETİ (Sadece özel bir özet girildiyse göster) */}
+          {hasCustomSummary && (
             <div className="p-4 sm:p-5 bg-slate-50/80 border-l-4 border-[#44B9CD] rounded-r-2xl space-y-1">
               <span className="text-[11px] font-bold text-[#0e7490] uppercase tracking-wider block">
                 {isEn ? "Executive Summary" : "Haber Özeti"}
               </span>
               <p className="text-sm sm:text-base text-slate-800 leading-relaxed font-normal">
-                {item.summary}
+                {plainSummary}
               </p>
             </div>
           )}
 
-          {/* 3. MEVZUAT METNİ & KARŞILAŞTIRMALI MADDELER (Rahat Okuma Tipografisi) */}
-          <div className="text-slate-700 text-sm sm:text-[16px] leading-[1.85] font-normal whitespace-pre-wrap space-y-4 font-sans">
-            {item.content}
-          </div>
+          {/* 3. MÜŞAVİR YAZISI / MEVZUAT METNİ (Zengin HTML veya Düz Metin) */}
+          {item.content && item.content.trim().length > 0 && (
+            contentIsHtml ? (
+              <div
+                className="rich-editor-content text-slate-700 text-sm sm:text-[16px] leading-[1.85] font-normal font-sans"
+                dangerouslySetInnerHTML={{ __html: safeContentHtml }}
+              />
+            ) : (
+              <div className="text-slate-700 text-sm sm:text-[16px] leading-[1.85] font-normal whitespace-pre-wrap space-y-4 font-sans">
+                {item.content}
+              </div>
+            )
+          )}
 
           {/* 4. ÖZEL MÜŞAVİR YORUMU (SADECE GERÇEKTEN FARKLI BİR MÜŞAVİR ANALİZİ VARSA GÖSTERİLİR) */}
           {hasDistinctExpertNote && (
@@ -261,19 +290,19 @@ export default async function SirkulerDetailPage({ params }: Props) {
                 {isEn ? "Official Documents & Source" : "Resmi Belge ve Kaynaklar"}
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 ${item.pdfUrl && item.sourceUrl ? "sm:grid-cols-2" : ""} gap-3`}>
                 {item.pdfUrl && (
                   <a
                     href={item.pdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-800 hover:text-[#0e7490] flex items-center gap-3 transition-colors group"
+                    className="p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-800 hover:text-[#0e7490] flex items-center gap-3 transition-colors group"
                   >
                     <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                       <FileDown className="w-4 h-4" />
                     </div>
                     <div className="text-xs leading-snug">
-                      <span className="font-bold block">Resmi Tebliğ Metni (PDF)</span>
+                      <span className="font-bold block">Resmi Mevzuat Belgesi (PDF)</span>
                       <span className="text-[11px] text-slate-400 group-hover:underline">
                         Görüntülemek için tıklayınız ↗
                       </span>
@@ -286,15 +315,15 @@ export default async function SirkulerDetailPage({ params }: Props) {
                     href={item.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-800 hover:text-[#0e7490] flex items-center gap-3 transition-colors group"
+                    className="p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-800 hover:text-[#0e7490] flex items-center gap-3 transition-colors group"
                   >
                     <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                       <ExternalLink className="w-4 h-4" />
                     </div>
-                    <div className="text-xs leading-snug">
+                    <div className="text-xs leading-snug min-w-0">
                       <span className="font-bold block">Resmi Gazete / Kaynak Linki</span>
-                      <span className="text-[11px] text-slate-400 group-hover:underline">
-                        Mevzuat sayfasına git ↗
+                      <span className="text-[11px] text-slate-400 group-hover:underline truncate block">
+                        {item.sourceUrl.replace(/^https?:\/\/(www\.)?/i, "").slice(0, 60)} ↗
                       </span>
                     </div>
                   </a>

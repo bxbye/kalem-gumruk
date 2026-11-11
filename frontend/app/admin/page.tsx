@@ -54,7 +54,10 @@ import {
   HardDrive,
   Paperclip,
   ArrowUpDown,
+  Link2,
 } from "lucide-react";
+import RichTextEditor from "@/components/RichTextEditor";
+import { stripHtml } from "@/lib/htmlUtils";
 
 export default function AdminPage() {
   const [username, setUsername] = useState("");
@@ -216,13 +219,14 @@ export default function AdminPage() {
   // Sirküler Ekleme / Düzenleme Form State
   const [sirkulerModalOpen, setSirkulerModalOpen] = useState(false);
   const [editingSirkulerId, setEditingSirkulerId] = useState<string | null>(null);
+  const [sirkulerAdvancedOpen, setSirkulerAdvancedOpen] = useState(false);
   const [sirkulerSearch, setSirkulerSearch] = useState("");
   const [sirkulerCategoryFilter, setSirkulerCategoryFilter] = useState("ALL");
   const [sirkulerForm, setSirkulerForm] = useState({
     id: "",
     title: "",
-    category: "İthalat & Vergi",
-    regulationType: "Cumhurbaşkanı Kararı",
+    category: "Genel Mevzuat",
+    regulationType: "",
     officialGazetteNumber: "",
     relatedGtip: "",
     summary: "",
@@ -1022,11 +1026,12 @@ export default function AdminPage() {
   const openCreateSirkulerModal = () => {
     setEditingSirkulerId(null);
     setSirkulerResult(null);
+    setSirkulerAdvancedOpen(false);
     setSirkulerForm({
       id: "",
       title: "",
-      category: "İthalat & Vergi",
-      regulationType: "Tebliğ",
+      category: "Genel Mevzuat",
+      regulationType: "",
       officialGazetteNumber: "",
       relatedGtip: "",
       summary: "",
@@ -1037,6 +1042,18 @@ export default function AdminPage() {
       isPublished: true,
     });
     setSirkulerModalOpen(true);
+  };
+
+  const handleSirkulerImageUpload = async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await adminFetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.file?.url) {
+      throw new Error(data.error || "Fotoğraf yüklenemedi.");
+    }
+    return data.file.url;
   };
 
   const handleSirkulerPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1070,6 +1087,8 @@ export default function AdminPage() {
       setSirkulerForm((prev) => ({
         ...prev,
         title: "",
+        category: "Genel Mevzuat",
+        regulationType: "",
         officialGazetteNumber: "",
         relatedGtip: "",
         summary: "",
@@ -1130,7 +1149,8 @@ export default function AdminPage() {
   };
 
   const handleCopyWhatsAppSirkuler = (item: any) => {
-    const text = `📢 *GÜMRÜK MEVZUAT DUYURUSU*\n\n*KONU:* ${item.title}\n*Tarih:* ${item.date || "Güncel"}\n*Kategori:* ${item.category || "Gümrük Mevzuatı"}${item.officialGazetteNumber ? `\n*Resmi Gazete Sayı:* ${item.officialGazetteNumber}` : ""}${item.relatedGtip ? `\n*İlgili Kapsam / GTİP:* ${item.relatedGtip}` : ""}\n\n*Haber Özeti:*\n${item.summary}\n\n📄 *Tebliğ & Karar Detayı:*\nhttps://kalemgumruk.com/tr/sirkuler/${item.slug}\n\nℹ️ *Önemli Not:* Bu mevzuat paylaşımı genel duyuru amaçlıdır. Mevzuatın firmanıza ve operasyonlarınıza etkileri ile nasıl hareket edilmesi gerektiği konusunda destek ve profesyonel danışmanlık almak için bizimle iletişime geçebilirsiniz:\n📞 0544 972 29 57 | ✉️ info@kalemgumruk.com`;
+    const plainSummary = stripHtml(item.summary || item.content || "");
+    const text = `📢 *GÜMRÜK MEVZUAT DUYURUSU*\n\n*KONU:* ${item.title}\n*Tarih:* ${item.date || "Güncel"}\n*Kategori:* ${item.category || "Gümrük Mevzuatı"}${item.officialGazetteNumber ? `\n*Resmi Gazete Sayı:* ${item.officialGazetteNumber}` : ""}${item.relatedGtip ? `\n*İlgili Kapsam / GTİP:* ${item.relatedGtip}` : ""}${plainSummary ? `\n\n*Müşavir Özeti:*\n${plainSummary}` : ""}${item.sourceUrl ? `\n\n🔗 *Resmi Kaynak:*\n${item.sourceUrl}` : ""}\n\n📄 *Detay & Yorum:*\nhttps://kalemgumruk.com/tr/sirkuler/${item.slug}\n\nℹ️ *Önemli Not:* Bu mevzuat paylaşımı genel duyuru amaçlıdır. Mevzuatın firmanıza ve operasyonlarınıza etkileri ile nasıl hareket edilmesi gerektiği konusunda destek ve profesyonel danışmanlık almak için bizimle iletişime geçebilirsiniz:\n📞 0544 972 29 57 | ✉️ info@kalemgumruk.com`;
 
     navigator.clipboard.writeText(text);
     setCopiedSirkulerId(item.id);
@@ -1140,11 +1160,12 @@ export default function AdminPage() {
   const openEditSirkulerModal = (item: any) => {
     setEditingSirkulerId(item.id);
     setSirkulerResult(null);
+    setSirkulerAdvancedOpen(false);
     setSirkulerForm({
       id: item.id,
       title: item.title || "",
-      category: item.category || "İthalat & Vergi",
-      regulationType: item.regulationType || "Cumhurbaşkanı Kararı",
+      category: item.category || "Genel Mevzuat",
+      regulationType: item.regulationType || "",
       officialGazetteNumber: item.officialGazetteNumber || "",
       relatedGtip: item.relatedGtip || "",
       summary: item.summary || "",
@@ -3065,7 +3086,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
-                  {["ALL", "İthalat & Vergi", "İhracat Rejimi", "Tarife & GTİP", "Menşe & Dolaşım", "Antrepo & Transit"].map((cat) => (
+                  {["ALL", "Genel Mevzuat", "İthalat & Vergi", "İhracat Rejimi", "Tarife & GTİP", "Menşe & Dolaşım", "Antrepo & Transit"].map((cat) => (
                     <button
                       key={cat}
                       type="button"
@@ -3164,7 +3185,7 @@ export default function AdminPage() {
 
                         {/* Özet ve Uzman Yorumu */}
                         <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                          {item.summary}
+                          {stripHtml(item.summary || item.content || "")}
                         </p>
 
                         {item.expertNote && (
@@ -3172,7 +3193,7 @@ export default function AdminPage() {
                             <span className="text-[10px] font-bold text-[#0e7490] uppercase tracking-wider block">
                               💡 Uzman Müşavir Yorumu:
                             </span>
-                            <p className="line-clamp-2 text-slate-600">{item.expertNote}</p>
+                            <p className="line-clamp-2 text-slate-600">{stripHtml(item.expertNote)}</p>
                           </div>
                         )}
 
@@ -3188,6 +3209,19 @@ export default function AdminPage() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
+                            {item.sourceUrl && (
+                              <a
+                                href={item.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold transition-colors"
+                                title="Resmi Kaynak Linkini Aç"
+                              >
+                                <Link2 className="w-3.5 h-3.5" />
+                                <span>Resmi Kaynak</span>
+                              </a>
+                            )}
+
                             {item.pdfUrl && (
                               <a
                                 href={item.pdfUrl}
@@ -5165,10 +5199,10 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* 6. MEVZUAT & SİRKÜLER EKLE / DÜZENLE MODALI */}
+      {/* 6. MEVZUAT & SİRKÜLER EKLE / DÜZENLE MODALI (Hızlı ve Sade Paylaşım) */}
       {sirkulerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 max-h-[92vh] overflow-y-auto">
             {/* Modal Başlığı */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
@@ -5177,10 +5211,10 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-lg">
-                    {editingSirkulerId ? "Mevzuat / Sirküleri Düzenle" : "Yeni Mevzuat / Sirküler Yayınla"}
+                    {editingSirkulerId ? "Mevzuat Paylaşımını Düzenle" : "Yeni Mevzuat / Haber Paylaş"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Resmi Gazete kararları, tebliğler ve tarife güncellemelerini yönetin.
+                    Başlık, resmi kaynak veya belge ve müşavir yorumunuzu ekleyip saniyeler içinde yayınlayın.
                   </p>
                 </div>
               </div>
@@ -5210,256 +5244,296 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Hızlı Şablon Butonları (Verimlilik & Hız Çubuğu) */}
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span className="flex items-center gap-1.5 text-[#1E2A3A]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
-                  <span>Hızlı Mevzuat Şablonları (Tek Tıkla Doldur):</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => applySirkulerTemplate("clear")}
-                  className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  Formu Temizle
-                </button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => applySirkulerTemplate("gozetim")}
-                  className="px-3 py-1.5 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-semibold transition-all shadow-2xs"
-                >
-                  📋 Gözetim &amp; Tolerans Tebliği Şablonu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applySirkulerTemplate("igv")}
-                  className="px-3 py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-800 rounded-xl text-xs font-semibold transition-all shadow-2xs"
-                >
-                  🏷️ İlave Gümrük Vergisi (İGV) Şablonu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applySirkulerTemplate("pdf_only")}
-                  className="px-3 py-1.5 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 rounded-xl text-xs font-semibold transition-all shadow-2xs"
-                >
-                  📄 Sade PDF / Genelge Duyurusu
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSirkulerPublish} className="space-y-4">
+            <form onSubmit={handleSirkulerPublish} className="space-y-5">
+              {/* 1. BAŞLIK ALANI */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Sirküler / Mevzuat Başlığı (Konu) *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Başlık (Konu) *
+                </label>
                 <input
                   type="text"
                   required
                   value={sirkulerForm.title}
                   onChange={(e) => setSirkulerForm({ ...sirkulerForm, title: e.target.value })}
-                  placeholder="Örn: İTHALATI KAYIT BELGESİNE TABİ TEKSTİL VE KONFEKSİYON ÜRÜNLERİNE İLİŞKİN 2020/9 SAYILI GÖZETİM TEBLİĞİNDE DEĞİŞİKLİK YAPILDI"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                  placeholder="Örn: Resmi Gazete'de Yayımlanan Yeni İthalat / Gümrük Düzenlemesi"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/25 focus:border-[#44B9CD]"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Kategori</label>
-                  <select
-                    value={sirkulerForm.category}
-                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  >
-                    <option value="İthalat & Vergi">İthalat & Vergi</option>
-                    <option value="İhracat Rejimi">İhracat Rejimi</option>
-                    <option value="Tarife & GTİP">Tarife & GTİP</option>
-                    <option value="Menşe & Dolaşım">Menşe & Dolaşım</option>
-                    <option value="Antrepo & Transit">Antrepo & Transit</option>
-                  </select>
+              {/* 2. RESMİ KAYNAK LİNKİ & MEVZUAT BELGESİ (PDF) */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200/90 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Link2 className="w-4 h-4 text-[#44B9CD]" />
+                    <span>Resmi Kaynak &amp; Mevzuat Belgesi (İsteğe Bağlı)</span>
+                  </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Mevzuat Türü</label>
-                  <input
-                    type="text"
-                    value={sirkulerForm.regulationType}
-                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, regulationType: e.target.value })}
-                    placeholder="Tebliğ / Cumhurbaşkanı Kararı / Genelge"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  />
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Resmi Gazete / Kaynak Linki */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-500 block">
+                      Resmi Gazete / Kaynak URL
+                    </label>
+                    <input
+                      type="url"
+                      value={sirkulerForm.sourceUrl}
+                      onChange={(e) => setSirkulerForm({ ...sirkulerForm, sourceUrl: e.target.value })}
+                      placeholder="https://www.resmigazete.gov.tr/eskiler/..."
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Resmi Gazete No</label>
-                  <input
-                    type="text"
-                    value={sirkulerForm.officialGazetteNumber}
-                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, officialGazetteNumber: e.target.value })}
-                    placeholder="Örn: 32700"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  />
+                  {/* PDF Belgesi Yükleme */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold text-slate-500 block">
+                        Mevzuat Belgesi (PDF)
+                      </label>
+                      {sirkulerForm.pdfUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSirkulerForm({ ...sirkulerForm, pdfUrl: "" })}
+                          className="text-[11px] text-red-600 hover:underline font-semibold"
+                        >
+                          Kaldır
+                        </button>
+                      )}
+                    </div>
+
+                    {sirkulerForm.pdfUrl ? (
+                      <div className="flex items-center justify-between px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                        <div className="flex items-center gap-2 text-emerald-800 truncate">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-semibold truncate">PDF Belgesi Eklendi</span>
+                        </div>
+                        <a
+                          href={sirkulerForm.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-700 hover:underline font-semibold text-[11px] shrink-0 ml-2"
+                        >
+                          Önizle ↗
+                        </a>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 w-full px-3.5 py-2.5 bg-white hover:bg-slate-100 border border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer transition-colors">
+                        <FileDown className="w-4 h-4 text-[#44B9CD]" />
+                        <span>{sirkulerPdfUploading ? "PDF Yükleniyor..." : "PDF Dosyası Seç"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleSirkulerPdfUpload}
+                          disabled={sirkulerPdfUploading}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">İlgili GTİP veya Fasıllar</label>
-                  <input
-                    type="text"
-                    value={sirkulerForm.relatedGtip}
-                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, relatedGtip: e.target.value })}
-                    placeholder="Örn: 50-63. Fasıllar veya 8471"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Resmi Kaynak / Gazete URL Bağlantısı</label>
-                  <input
-                    type="text"
-                    value={sirkulerForm.sourceUrl}
-                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, sourceUrl: e.target.value })}
-                    placeholder="https://www.resmigazete.gov.tr/..."
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                  />
-                </div>
-              </div>
-
-              {/* PDF DOSYASI YÜKLEME ALANI (SÜRÜKLE - BIRAK / SEÇ) */}
-              <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-2">
+              {/* 3. MÜŞAVİRİN YAZISI / YORUMU (ZENGİN METİN & BLOG EDİTÖRÜ) */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <FileDown className="w-4 h-4 text-[#44B9CD]" />
-                    <span>Resmi Tebliğ / Karar Metni PDF Dosyası Yükle</span>
+                    <Edit3 className="w-3.5 h-3.5 text-[#44B9CD]" />
+                    <span>Müşavirin Yazısı / Yorumu</span>
                   </label>
-                  {sirkulerForm.pdfUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setSirkulerForm({ ...sirkulerForm, pdfUrl: "" })}
-                      className="text-xs text-red-600 hover:underline font-semibold"
-                    >
-                      PDF&apos;i Kaldır
-                    </button>
-                  )}
+                  <span className="text-[11px] text-slate-400">
+                    Kalın, italik, liste, bağlantı ve fotoğraf ekleyebilirsiniz
+                  </span>
                 </div>
 
-                {sirkulerForm.pdfUrl ? (
-                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                    <div className="flex items-center gap-2 text-emerald-800">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="font-semibold">PDF Dosyası Yüklendi ve Bağlandı</span>
-                      <a
-                        href={sirkulerForm.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-700 hover:underline font-mono text-[11px]"
-                      >
-                        (Önizle)
-                      </a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleSirkulerPdfUpload}
-                      disabled={sirkulerPdfUploading}
-                      className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#1E2A3A] file:text-[#44B9CD] hover:file:bg-[#2A3B50] cursor-pointer"
-                    />
-                    {sirkulerPdfUploading && (
-                      <span className="text-[11px] text-blue-600 font-semibold block pt-1">
-                        PDF yükleniyor, lütfen bekleyin...
+                <RichTextEditor
+                  value={sirkulerForm.content}
+                  onChange={(html) => setSirkulerForm((prev) => ({ ...prev, content: html }))}
+                  onUploadImage={handleSirkulerImageUpload}
+                  placeholder="Mevzuat hakkındaki değerlendirmenizi yazın, önemli kelimeleri kalınlaştırın veya görsel ekleyin..."
+                />
+              </div>
+
+              {/* 4. İSTEĞE BAĞLI EK DETAYLAR (KATLANABİLİR ALAN) */}
+              <div className="border border-slate-200/90 rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSirkulerAdvancedOpen((prev) => !prev)}
+                  className="w-full px-4 py-3 bg-slate-50/70 hover:bg-slate-100/80 flex items-center justify-between text-xs font-bold text-slate-600 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Ek Detaylar, Kategori &amp; Şablonlar (İsteğe Bağlı)</span>
+                    {(sirkulerForm.officialGazetteNumber || sirkulerForm.relatedGtip || sirkulerForm.regulationType || sirkulerForm.summary) && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#44B9CD]/15 text-[#0e7490] text-[10px]">
+                        Dolu alan var
                       </span>
                     )}
-                    <p className="text-[11px] text-slate-400">
-                      Ziyaretçiler sayfada &quot;İlgili Tebliğ için lütfen tıklayınız&quot; butonuna bastığında bu PDF açılır.
-                    </p>
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                      sirkulerAdvancedOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {sirkulerAdvancedOpen && (
+                  <div className="p-4 space-y-4 bg-white border-t border-slate-100">
+                    {/* Hızlı Şablon Butonları */}
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
+                          <span>Hazır Şablonlar:</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => applySirkulerTemplate("clear")}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          Formu Temizle
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => applySirkulerTemplate("gozetim")}
+                          className="px-2.5 py-1 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-all"
+                        >
+                          📋 Gözetim Tebliği
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applySirkulerTemplate("igv")}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-all"
+                        >
+                          🏷️ İlave Gümrük Vergisi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applySirkulerTemplate("pdf_only")}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-all"
+                        >
+                          📄 Sade Genelge Duyurusu
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">Kategori</label>
+                        <select
+                          value={sirkulerForm.category}
+                          onChange={(e) => setSirkulerForm({ ...sirkulerForm, category: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                        >
+                          <option value="Genel Mevzuat">Genel Mevzuat</option>
+                          <option value="İthalat & Vergi">İthalat & Vergi</option>
+                          <option value="İhracat Rejimi">İhracat Rejimi</option>
+                          <option value="Tarife & GTİP">Tarife & GTİP</option>
+                          <option value="Menşe & Dolaşım">Menşe & Dolaşım</option>
+                          <option value="Antrepo & Transit">Antrepo & Transit</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">Mevzuat Türü</label>
+                        <input
+                          type="text"
+                          value={sirkulerForm.regulationType}
+                          onChange={(e) => setSirkulerForm({ ...sirkulerForm, regulationType: e.target.value })}
+                          placeholder="Tebliğ / Karar / Genelge"
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">Resmi Gazete No</label>
+                        <input
+                          type="text"
+                          value={sirkulerForm.officialGazetteNumber}
+                          onChange={(e) => setSirkulerForm({ ...sirkulerForm, officialGazetteNumber: e.target.value })}
+                          placeholder="Örn: 32700"
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600">İlgili GTİP veya Fasıllar</label>
+                      <input
+                        type="text"
+                        value={sirkulerForm.relatedGtip}
+                        onChange={(e) => setSirkulerForm({ ...sirkulerForm, relatedGtip: e.target.value })}
+                        placeholder="Örn: 50-63. Fasıllar veya 8471"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600">
+                        Liste Özeti (Boş bırakırsanız yazınızdan otomatik oluşturulur)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={sirkulerForm.summary}
+                        onChange={(e) => setSirkulerForm({ ...sirkulerForm, summary: e.target.value })}
+                        placeholder="İsteğe bağlı özel kısa özet..."
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-[#0e7490]">
+                        Ek Vurgu Kutusu / Uzman Notu (İsteğe Bağlı)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={sirkulerForm.expertNote}
+                        onChange={(e) => setSirkulerForm({ ...sirkulerForm, expertNote: e.target.value })}
+                        placeholder="Sayfa altında ayrı vurgu kutusunda gösterilecek ek uyarı varsa yazabilirsiniz..."
+                        className="w-full px-3 py-2 bg-cyan-50/40 border border-cyan-200 rounded-xl text-xs focus:outline-none focus:border-[#44B9CD]"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Haber Özeti *</label>
-                <textarea
-                  rows={2}
-                  required
-                  value={sirkulerForm.summary}
-                  onChange={(e) => setSirkulerForm({ ...sirkulerForm, summary: e.target.value })}
-                  placeholder="Mevzuatın getirdiği temel değişiklik ve firmaları ilgilendiren özet..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                />
-              </div>
+              <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+                <label htmlFor="sirkulerIsPublished" className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="sirkulerIsPublished"
+                    checked={sirkulerForm.isPublished}
+                    onChange={(e) => setSirkulerForm({ ...sirkulerForm, isPublished: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#1E2A3A] focus:ring-[#44B9CD] border-slate-300"
+                  />
+                  <span>Web sitesinde hemen yayına al</span>
+                </label>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Detaylı Mevzuat Metni &amp; Madde Değişiklikleri *</label>
-                  <span className="text-[11px] text-slate-400">Yeni hali / Değiştirilmeden önceki hali maddelerini yazabilirsiniz</span>
+                {/* MODAL AKSİYONLARI */}
+                <div className="flex items-center gap-3 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setSirkulerModalOpen(false)}
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sirkulerSubmitting}
+                    className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-slate-900/10 transition-colors"
+                  >
+                    <Save className="w-4 h-4 text-[#44B9CD]" />
+                    <span>
+                      {sirkulerSubmitting
+                        ? "Kaydediliyor..."
+                        : editingSirkulerId
+                        ? "Değişiklikleri Güncelle"
+                        : "Yayınla"}
+                    </span>
+                  </button>
                 </div>
-                <textarea
-                  rows={7}
-                  required
-                  value={sirkulerForm.content}
-                  onChange={(e) => setSirkulerForm({ ...sirkulerForm, content: e.target.value })}
-                  placeholder="İthalatta Gözetim Uygulanmasına İlişkin Tebliğ'in yeni hali;&#10;&#10;(3) Gümrük beyannamesinin tescili sırasında...&#10;&#10;Değiştirilmeden önceki hali;&#10;(3) Gümrük beyannamesinin..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-sans focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#0e7490] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#44B9CD]" />
-                  <span>Özel Müşavir Yorumu / Operasyonel Tavsiye (İsteğe Bağlı)</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={sirkulerForm.expertNote}
-                  onChange={(e) => setSirkulerForm({ ...sirkulerForm, expertNote: e.target.value })}
-                  placeholder="İthalatçılar veya ihracatçılar için bu mevzuata özel kritik bir tavsiyeniz varsa buraya yazabilirsiniz..."
-                  className="w-full px-3.5 py-2.5 bg-cyan-50/40 border border-cyan-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#44B9CD]/20 focus:border-[#44B9CD]"
-                />
-                <p className="text-[11px] text-slate-400">
-                  Genel mevzuat bilgilendirme ve danışmanlık uyarısı sitenin altında ve WhatsApp metninde otomatik olarak tek sefer yer alır.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <input
-                  type="checkbox"
-                  id="sirkulerIsPublished"
-                  checked={sirkulerForm.isPublished}
-                  onChange={(e) => setSirkulerForm({ ...sirkulerForm, isPublished: e.target.checked })}
-                  className="w-4 h-4 rounded text-[#1E2A3A] focus:ring-[#44B9CD] border-slate-300"
-                />
-                <label htmlFor="sirkulerIsPublished" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                  Bu sirküleri web sitesinde hemen yayına al (Aktif)
-                </label>
-              </div>
-
-              {/* MODAL AKSİYONLARI */}
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSirkulerModalOpen(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors"
-                >
-                  Vazgeç
-                </button>
-                <button
-                  type="submit"
-                  disabled={sirkulerSubmitting}
-                  className="px-6 py-2.5 bg-[#1E2A3A] hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-slate-900/10 transition-colors"
-                >
-                  <Save className="w-4 h-4 text-[#44B9CD]" />
-                  <span>
-                    {sirkulerSubmitting
-                      ? "Kaydediliyor..."
-                      : editingSirkulerId
-                      ? "Değişiklikleri Güncelle"
-                      : "Sirküleri Yayınla"}
-                  </span>
-                </button>
               </div>
             </form>
           </div>

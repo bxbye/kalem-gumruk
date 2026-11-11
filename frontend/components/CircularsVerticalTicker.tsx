@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SirkulerItem } from "@/lib/sirkuler";
+import { stripHtml } from "@/lib/htmlUtils";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   Calendar,
@@ -58,7 +59,7 @@ export default function CircularsVerticalTicker({ items }: CircularsVerticalTick
       </h3>
 
       <p className="mt-1.5 text-[11px] sm:text-xs text-slate-600 line-clamp-2 leading-relaxed">
-        {item.summary}
+        {stripHtml(item.summary || item.content)}
       </p>
 
       <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
