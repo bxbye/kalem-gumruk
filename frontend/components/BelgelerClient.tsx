@@ -12,45 +12,42 @@ import {
   ArrowUp,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import type { DocumentItem } from "@/lib/documents";
 
-interface DocumentItem {
-  id: string;
-  title: string;
-  description?: string | null;
-  category: string;
-  fileUrl: string;
-  fileSize: string;
-  fileType: string;
-  downloadCount: number;
-  createdAt?: string | null;
-}
-
-export default function BelgelerPage() {
+export default function BelgelerPage({
+  initialDocuments,
+}: {
+  initialDocuments?: DocumentItem[];
+}) {
   const { t, language, localePath } = useLanguage();
   const d = t.documentsPage;
 
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<DocumentItem[]>(initialDocuments || []);
+  const [loading, setLoading] = useState(!initialDocuments);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
 
   useEffect(() => {
+    let active = true;
     async function fetchDocs() {
       try {
-        setLoading(true);
-        const res = await fetch("/api/documents");
+        if (!initialDocuments) setLoading(true);
+        const res = await fetch("/api/documents", { cache: "no-store" });
         const data = await res.json();
-        if (data.success && Array.isArray(data.documents)) {
+        if (active && data.success && Array.isArray(data.documents)) {
           setDocuments(data.documents);
         }
       } catch (err) {
         console.error("Belgeler yüklenemedi:", err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     fetchDocs();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [initialDocuments]);
 
   const handleDownload = async (doc: DocumentItem) => {
     try {

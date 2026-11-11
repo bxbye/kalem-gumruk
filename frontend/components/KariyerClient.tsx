@@ -165,7 +165,7 @@ export default function KariyerClient({
   // İstemci tarafında veritabanından dinamik formu çekme / tazeleme
   useEffect(() => {
     if (!initialForm) {
-      fetch("/api/forms/kariyer-staj")
+      fetch("/api/forms/kariyer-staj", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.success && data?.form) {

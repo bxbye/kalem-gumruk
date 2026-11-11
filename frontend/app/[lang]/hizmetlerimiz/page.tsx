@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import HizmetlerClient from "@/components/HizmetlerClient";
 import { getAllServicesAsync } from "@/lib/services";
 import { availableLanguages } from "@/data/translations";
+import { fetchBackendNoStore } from "@/lib/api";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -54,13 +57,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
-
 async function getQuoteFormData() {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/forms/fiyat-teklifi`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore("/api/forms/fiyat-teklifi");
     if (!res.ok) return null;
     const data = await res.json();
     return data?.success && data.form ? data.form : null;

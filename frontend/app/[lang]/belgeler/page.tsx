@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import BelgelerClient from "@/components/BelgelerClient";
 import { translations, availableLanguages, Language } from "@/data/translations";
+import { getDocumentsAsync } from "@/lib/documents";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -37,6 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function BelgelerPage() {
-  return <BelgelerClient />;
+export default async function BelgelerPage() {
+  const initialDocuments = await getDocumentsAsync();
+  return <BelgelerClient initialDocuments={initialDocuments} />;
 }

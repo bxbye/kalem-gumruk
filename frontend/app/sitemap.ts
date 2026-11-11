@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next";
-import { getAllServices } from "@/lib/services";
+import { getAllServicesAsync } from "@/lib/services";
 import { getAllSirkulerAsync } from "@/lib/sirkuler";
 import { availableLanguages } from "@/data/translations";
 
@@ -36,7 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Hizmet Sayfaları (Tüm diller)
-  const services = getAllServices("tr");
+  const services = await getAllServicesAsync("tr");
   const servicePages: MetadataRoute.Sitemap = [];
   for (const lang of languages) {
     for (const service of services) {

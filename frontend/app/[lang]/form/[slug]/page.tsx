@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import DynamicFormClient from "@/components/DynamicFormClient";
+import { fetchBackendNoStore } from "@/lib/api";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ lang: string; slug: string }>;
 }
 
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
-
 async function getFormData(slug: string) {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/forms/${slug}`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore(`/api/forms/${encodeURIComponent(slug)}`);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.success || !data.form) return null;

@@ -1,4 +1,5 @@
 import { defaultSirkuler } from "@/data/sirkuler";
+import { fetchBackendNoStore } from "./api";
 
 export interface SirkulerItem {
   id: string;
@@ -50,11 +51,8 @@ function getFallbackSirkuler(lang: string = "tr"): SirkulerItem[] {
 }
 
 export async function getAllSirkulerAsync(lang: string = "tr"): Promise<SirkulerItem[]> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
   try {
-    const res = await fetch(`${backendUrl}/api/public/sirkuler?lang=${lang}`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore(`/api/public/sirkuler?lang=${encodeURIComponent(lang)}`);
     if (res.ok) {
       const data = await res.json();
       if (data && data.success && Array.isArray(data.sirkuler)) {
@@ -71,13 +69,9 @@ export async function getSirkulerBySlugAsync(
   slug: string,
   lang: string = "tr"
 ): Promise<SirkulerItem | undefined> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
   try {
-    const res = await fetch(
-      `${backendUrl}/api/public/sirkuler/${encodeURIComponent(slug)}?lang=${lang}`,
-      {
-        cache: "no-store",
-      }
+    const res = await fetchBackendNoStore(
+      `/api/public/sirkuler/${encodeURIComponent(slug)}?lang=${encodeURIComponent(lang)}`
     );
     if (res.ok) {
       const data = await res.json();

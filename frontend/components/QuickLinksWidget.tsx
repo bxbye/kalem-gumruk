@@ -28,7 +28,7 @@ export default function QuickLinksWidget({ initialLinks }: QuickLinksWidgetProps
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.baglantilar && Array.isArray(data.baglantilar) && data.baglantilar.length > 0) {
+          if (data.success && Array.isArray(data.baglantilar)) {
             if (isMounted) {
               setLinks(data.baglantilar);
             }

@@ -237,310 +237,321 @@ export async function ensureDatabaseInitialized() {
         created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-        // 2. Başlangıç Hizmet Verilerini Yükle
-        const [serviceRows] = await pool.query("SELECT count(*) as count FROM services");
-        if (serviceRows[0].count === 0) {
-            for (let idx = 0; idx < servicesData.length; idx++) {
-                const s = servicesData[idx];
-                await pool.query(`INSERT IGNORE INTO services (id, slug, title, short_desc, icon_name, category, features, detailed_content, order_index, is_active, translations)
+        // İlk kurulum seed kontrolü: Daha önce seed tamamlandıysa (veya sistemde zaten kullanıcı varsa),
+        // admin tarafından silinen içeriklerin sunucu yeniden başladığında geri gelmesini önler.
+        const [seedMarkerRows] = await pool.query("SELECT count(*) as count FROM site_settings WHERE `key` = 'initial_seed_v1'");
+        const [existingUsersCheck] = await pool.query("SELECT count(*) as count FROM users");
+        const shouldRunInitialContentSeed = seedMarkerRows[0].count === 0 && existingUsersCheck[0].count === 0;
+        if (shouldRunInitialContentSeed) {
+            // 2. Başlangıç Hizmet Verilerini Yükle
+            const [serviceRows] = await pool.query("SELECT count(*) as count FROM services");
+            if (serviceRows[0].count === 0) {
+                for (let idx = 0; idx < servicesData.length; idx++) {
+                    const s = servicesData[idx];
+                    await pool.query(`INSERT IGNORE INTO services (id, slug, title, short_desc, icon_name, category, features, detailed_content, order_index, is_active, translations)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-                    `service-${s.slug}`,
-                    s.slug,
-                    s.title,
-                    s.shortDesc,
-                    s.iconName,
-                    s.category,
-                    JSON.stringify(s.features),
-                    s.detailedContent,
-                    idx,
-                    1,
-                    JSON.stringify({}),
-                ]);
+                        `service-${s.slug}`,
+                        s.slug,
+                        s.title,
+                        s.shortDesc,
+                        s.iconName,
+                        s.category,
+                        JSON.stringify(s.features),
+                        s.detailedContent,
+                        idx,
+                        1,
+                        JSON.stringify({}),
+                    ]);
+                }
+                console.log(`[DB Seed] ${servicesData.length} hizmet eklendi.`);
             }
-            console.log(`[DB Seed] ${servicesData.length} hizmet eklendi.`);
-        }
-        // 3. Başlangıç Sirküler Verilerini Yükle
-        const [sirkulerRows] = await pool.query("SELECT count(*) as count FROM sirkuler");
-        if (sirkulerRows[0].count === 0) {
-            for (const s of defaultSirkuler) {
-                await pool.query(`INSERT IGNORE INTO sirkuler (id, slug, title, category, regulation_type, official_gazette_number, related_gtip, summary, content, expert_note, source_url, pdf_url, author, views_count, is_published, date, translations)
+            // 3. Başlangıç Sirküler Verilerini Yükle
+            const [sirkulerRows] = await pool.query("SELECT count(*) as count FROM sirkuler");
+            if (sirkulerRows[0].count === 0) {
+                for (const s of defaultSirkuler) {
+                    await pool.query(`INSERT IGNORE INTO sirkuler (id, slug, title, category, regulation_type, official_gazette_number, related_gtip, summary, content, expert_note, source_url, pdf_url, author, views_count, is_published, date, translations)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-                    s.id,
-                    s.slug,
-                    s.title,
-                    s.category,
-                    s.regulationType || null,
-                    s.officialGazetteNumber || null,
-                    s.relatedGtip || null,
-                    s.summary,
-                    s.content,
-                    s.expertNote || null,
-                    s.sourceUrl || null,
-                    s.pdfUrl || null,
-                    s.author || "Kalem Gümrük Mevzuat Kurulu",
-                    0,
-                    1,
-                    s.date,
-                    JSON.stringify({}),
-                ]);
+                        s.id,
+                        s.slug,
+                        s.title,
+                        s.category,
+                        s.regulationType || null,
+                        s.officialGazetteNumber || null,
+                        s.relatedGtip || null,
+                        s.summary,
+                        s.content,
+                        s.expertNote || null,
+                        s.sourceUrl || null,
+                        s.pdfUrl || null,
+                        s.author || "Kalem Gümrük Mevzuat Kurulu",
+                        0,
+                        1,
+                        s.date,
+                        JSON.stringify({}),
+                    ]);
+                }
+                console.log(`[DB Seed] ${defaultSirkuler.length} sirküler eklendi.`);
             }
-            console.log(`[DB Seed] ${defaultSirkuler.length} sirküler eklendi.`);
-        }
-        // 4. Başlangıç Gerekli Bağlantılar Verilerini Yükle
-        const [baglantiRows] = await pool.query("SELECT count(*) as count FROM gerekli_baglantilar");
-        if (baglantiRows[0].count === 0) {
-            for (let idx = 0; idx < gerekliBaglantilarData.length; idx++) {
-                const b = gerekliBaglantilarData[idx];
-                await pool.query(`INSERT IGNORE INTO gerekli_baglantilar (id, title, short_title, category, url, image, description, tag, order_index, is_active)
+            // 4. Başlangıç Gerekli Bağlantılar Verilerini Yükle
+            const [baglantiRows] = await pool.query("SELECT count(*) as count FROM gerekli_baglantilar");
+            if (baglantiRows[0].count === 0) {
+                for (let idx = 0; idx < gerekliBaglantilarData.length; idx++) {
+                    const b = gerekliBaglantilarData[idx];
+                    await pool.query(`INSERT IGNORE INTO gerekli_baglantilar (id, title, short_title, category, url, image, description, tag, order_index, is_active)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [b.id, b.title, b.shortTitle, b.category, b.url, b.image, b.description, b.tag, idx, 1]);
+                }
+                console.log(`[DB Seed] ${gerekliBaglantilarData.length} bağlantı eklendi.`);
             }
-            console.log(`[DB Seed] ${gerekliBaglantilarData.length} bağlantı eklendi.`);
-        }
-        // 5. Başlangıç Formlarını Tanımla
-        const [formRows] = await pool.query("SELECT count(*) as count FROM forms");
-        if (formRows[0].count === 0) {
-            await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
+            // 5. Başlangıç Formlarını Tanımla
+            const [formRows] = await pool.query("SELECT count(*) as count FROM forms");
+            if (formRows[0].count === 0) {
+                await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-                "form_fiyat_teklifi",
-                "fiyat-teklifi",
-                "Fiyat Teklifi İsteme Formu",
-                "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden özel fiyat teklifi talep edin.",
-                "quote",
-                JSON.stringify([
-                    { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Örn: Ahmet Yılmaz" },
-                    { name: "company", label: "Firma / Kurum Adı", type: "text", required: false, placeholder: "Örn: ABC Dış Ticaret Ltd." },
-                    { name: "phone", label: "Telefon Numaranız", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
-                    { name: "email", label: "E-Posta Adresiniz", type: "email", required: false, placeholder: "adiniz@sirketiniz.com" },
-                    {
-                        name: "operationType",
-                        label: "İşlem Türü / Gümrük Rejimi",
-                        type: "select",
-                        required: true,
-                        options: [
-                            "İthalat Gümrükleme",
-                            "İhracat Gümrükleme",
-                            "Antrepo & Depolama",
-                            "Transit Ticaret",
-                            "Dahilde İşleme (DİİB)",
-                            "Gümrük Danışmanlığı & Mevzuat",
-                        ],
-                    },
-                    {
-                        name: "volume",
-                        label: "Aylık Dosya Hacmi",
-                        type: "select",
-                        required: false,
-                        options: [
-                            "Tek Seferlik Dosya",
-                            "1 - 5 Dosya / Ay (Düzenli)",
-                            "5 - 20 Dosya / Ay (Yüksek)",
-                            "20+ Dosya / Ay (Kurumsal)",
-                        ],
-                    },
-                    {
-                        name: "customsOffice",
-                        label: "Hedef Gümrük / Liman",
-                        type: "select",
-                        required: false,
-                        options: [
-                            "İstanbul Limanları (Ambarlı / Kumport / Marport)",
-                            "İstanbul Karayolu (Erenköy / Muratbey)",
-                            "Havalimanı Kargo (İGA / SAW)",
-                            "Kocaeli / Dilovası / Evyapport / DP World",
-                            "İzmir / Mersin / Gemlik Limanları",
-                            "Diğer Tüm Gümrük İdareleri",
-                        ],
-                    },
-                    { name: "gtipOrProduct", label: "GTİP No veya Eşya Tanımı", type: "text", required: false, placeholder: "Örn: 8471.30 veya Endüstriyel Elektronik Kart" },
-                    { name: "message", label: "Sevkiyat ve Fiyat Teklifi Detayları", type: "textarea", required: true, placeholder: "Konteyner/koli adedi, çıkış ülkesi veya sormak istedikleriniz..." },
-                    { name: "files", label: "Fatura / Konşimento / Çeki Listesi (Opsiyonel)", type: "file", required: false, helpText: "PDF, JPG veya PNG formatında yükleyebilirsiniz." },
-                ]),
-                JSON.stringify({
-                    successMessage: "Fiyat teklif talebiniz başarıyla alındı! Gümrük müşavirimiz en kısa sürede analiz ederek tarafınıza dönecektir.",
-                    autoEmailSubject: "Fiyat Teklifi Talebiniz Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
-                    autoEmailBody: "Sayın {{fullName}},\n\nKalem Gümrük Müşavirliği'ne iletmiş olduğunuz fiyat teklif talebi operasyon ekibimize iletilmiştir. Gümrük müşavirimiz mevzuat ve tarife kontrollerini yaparak en kısa sürede dönüş sağlayacaktır.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
-                    notificationEmail: "kadir.kaya@kayapermit.com",
-                }),
-                1,
-            ]);
-            await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
+                    "form_fiyat_teklifi",
+                    "fiyat-teklifi",
+                    "Fiyat Teklifi İsteme Formu",
+                    "İthalat, ihracat ve antrepo operasyonlarınız için gümrük müşavirimizden özel fiyat teklifi talep edin.",
+                    "quote",
+                    JSON.stringify([
+                        { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Örn: Ahmet Yılmaz" },
+                        { name: "company", label: "Firma / Kurum Adı", type: "text", required: false, placeholder: "Örn: ABC Dış Ticaret Ltd." },
+                        { name: "phone", label: "Telefon Numaranız", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
+                        { name: "email", label: "E-Posta Adresiniz", type: "email", required: false, placeholder: "adiniz@sirketiniz.com" },
+                        {
+                            name: "operationType",
+                            label: "İşlem Türü / Gümrük Rejimi",
+                            type: "select",
+                            required: true,
+                            options: [
+                                "İthalat Gümrükleme",
+                                "İhracat Gümrükleme",
+                                "Antrepo & Depolama",
+                                "Transit Ticaret",
+                                "Dahilde İşleme (DİİB)",
+                                "Gümrük Danışmanlığı & Mevzuat",
+                            ],
+                        },
+                        {
+                            name: "volume",
+                            label: "Aylık Dosya Hacmi",
+                            type: "select",
+                            required: false,
+                            options: [
+                                "Tek Seferlik Dosya",
+                                "1 - 5 Dosya / Ay (Düzenli)",
+                                "5 - 20 Dosya / Ay (Yüksek)",
+                                "20+ Dosya / Ay (Kurumsal)",
+                            ],
+                        },
+                        {
+                            name: "customsOffice",
+                            label: "Hedef Gümrük / Liman",
+                            type: "select",
+                            required: false,
+                            options: [
+                                "İstanbul Limanları (Ambarlı / Kumport / Marport)",
+                                "İstanbul Karayolu (Erenköy / Muratbey)",
+                                "Havalimanı Kargo (İGA / SAW)",
+                                "Kocaeli / Dilovası / Evyapport / DP World",
+                                "İzmir / Mersin / Gemlik Limanları",
+                                "Diğer Tüm Gümrük İdareleri",
+                            ],
+                        },
+                        { name: "gtipOrProduct", label: "GTİP No veya Eşya Tanımı", type: "text", required: false, placeholder: "Örn: 8471.30 veya Endüstriyel Elektronik Kart" },
+                        { name: "message", label: "Sevkiyat ve Fiyat Teklifi Detayları", type: "textarea", required: true, placeholder: "Konteyner/koli adedi, çıkış ülkesi veya sormak istedikleriniz..." },
+                        { name: "files", label: "Fatura / Konşimento / Çeki Listesi (Opsiyonel)", type: "file", required: false, helpText: "PDF, JPG veya PNG formatında yükleyebilirsiniz." },
+                    ]),
+                    JSON.stringify({
+                        successMessage: "Fiyat teklif talebiniz başarıyla alındı! Gümrük müşavirimiz en kısa sürede analiz ederek tarafınıza dönecektir.",
+                        autoEmailSubject: "Fiyat Teklifi Talebiniz Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
+                        autoEmailBody: "Sayın {{fullName}},\n\nKalem Gümrük Müşavirliği'ne iletmiş olduğunuz fiyat teklif talebi operasyon ekibimize iletilmiştir. Gümrük müşavirimiz mevzuat ve tarife kontrollerini yaparak en kısa sürede dönüş sağlayacaktır.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
+                        notificationEmail: "kadir.kaya@kayapermit.com",
+                    }),
+                    1,
+                ]);
+                await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-                "form_iletisim",
-                "iletisim",
-                "Genel İletişim & Danışma Formu",
-                "Gümrük süreçleri, dış ticaret mevzuatı veya hizmetlerimiz hakkında doğrudan bize mesaj iletebilirsiniz.",
-                "general",
-                JSON.stringify([
-                    { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Adınız Soyadınız" },
-                    { name: "company", label: "Firma / Kurum", type: "text", required: false, placeholder: "Firma Adı (varsa)" },
-                    { name: "phone", label: "Telefon Numarası", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
-                    { name: "email", label: "E-Posta Adresi", type: "email", required: false, placeholder: "ornek@domain.com" },
-                    {
-                        name: "subject",
-                        label: "Konu / Hizmet Alanı",
-                        type: "select",
-                        required: true,
-                        options: [
-                            "Genel Bilgi & İletişim",
-                            "Mevzuat Danışmanlığı",
-                            "İthalat / İhracat Operasyonu",
-                            "Yetkilendirilmiş Yükümlü (YYS)",
-                            "Diğer",
-                        ],
-                    },
-                    { name: "message", label: "Mesajınız", type: "textarea", required: true, placeholder: "Lütfen mesajınızı detaylıca belirtiniz..." },
-                ]),
-                JSON.stringify({
-                    successMessage: "Mesajınız başarıyla iletildi. Müşteri temsilcimiz en kısa sürede sizinle iletişime geçecektir.",
-                    autoEmailSubject: "Mesajınız Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
-                    autoEmailBody: "Sayın {{fullName}},\n\nİletişim talebiniz merkezimize ulaşmıştır. Konuyla ilgili müşteri temsilcimiz sizinle irtibata geçecektir.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
-                    notificationEmail: "kadir.kaya@kayapermit.com",
-                }),
-                1,
-            ]);
-            await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
+                    "form_iletisim",
+                    "iletisim",
+                    "Genel İletişim & Danışma Formu",
+                    "Gümrük süreçleri, dış ticaret mevzuatı veya hizmetlerimiz hakkında doğrudan bize mesaj iletebilirsiniz.",
+                    "general",
+                    JSON.stringify([
+                        { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Adınız Soyadınız" },
+                        { name: "company", label: "Firma / Kurum", type: "text", required: false, placeholder: "Firma Adı (varsa)" },
+                        { name: "phone", label: "Telefon Numarası", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
+                        { name: "email", label: "E-Posta Adresi", type: "email", required: false, placeholder: "ornek@domain.com" },
+                        {
+                            name: "subject",
+                            label: "Konu / Hizmet Alanı",
+                            type: "select",
+                            required: true,
+                            options: [
+                                "Genel Bilgi & İletişim",
+                                "Mevzuat Danışmanlığı",
+                                "İthalat / İhracat Operasyonu",
+                                "Yetkilendirilmiş Yükümlü (YYS)",
+                                "Diğer",
+                            ],
+                        },
+                        { name: "message", label: "Mesajınız", type: "textarea", required: true, placeholder: "Lütfen mesajınızı detaylıca belirtiniz..." },
+                    ]),
+                    JSON.stringify({
+                        successMessage: "Mesajınız başarıyla iletildi. Müşteri temsilcimiz en kısa sürede sizinle iletişime geçecektir.",
+                        autoEmailSubject: "Mesajınız Alındı | Kalem Gümrük Müşavirliği (#{{refNo}})",
+                        autoEmailBody: "Sayın {{fullName}},\n\nİletişim talebiniz merkezimize ulaşmıştır. Konuyla ilgili müşteri temsilcimiz sizinle irtibata geçecektir.\n\nSaygılarımızla,\nKalem Gümrük Müşavirliği",
+                        notificationEmail: "kadir.kaya@kayapermit.com",
+                    }),
+                    1,
+                ]);
+                await pool.query(`INSERT IGNORE INTO forms (id, slug, title, description, category, fields, settings, is_active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-                "form_kariyer_staj",
-                "kariyer-staj",
-                "İş & Staj Başvuru Formu",
-                "Kalem Gümrük Müşavirliği bünyesinde kariyer fırsatları.",
-                "career",
-                JSON.stringify([
-                    { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Ad Soyad" },
-                    { name: "email", label: "E-Posta Adresi", type: "email", required: true, placeholder: "ad.soyad@email.com" },
-                    { name: "phone", label: "Telefon Numarası", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
+                    "form_kariyer_staj",
+                    "kariyer-staj",
+                    "İş & Staj Başvuru Formu",
+                    "Kalem Gümrük Müşavirliği bünyesinde kariyer fırsatları.",
+                    "career",
+                    JSON.stringify([
+                        { name: "fullName", label: "Adınız Soyadınız", type: "text", required: true, placeholder: "Ad Soyad" },
+                        { name: "email", label: "E-Posta Adresi", type: "email", required: true, placeholder: "ad.soyad@email.com" },
+                        { name: "phone", label: "Telefon Numarası", type: "tel", required: true, placeholder: "05XX XXX XX XX" },
+                        {
+                            name: "applicationType",
+                            label: "Başvuru Türü",
+                            type: "select",
+                            required: true,
+                            options: [
+                                "Gümrük Müşavir Yardımcısı (B Karne)",
+                                "Müşteri Temsilcisi & Operasyon",
+                                "Dış Ticaret / Gümrük Stajyeri",
+                                "Saha & Kurye Personeli",
+                                "Genel Başvuru",
+                            ],
+                        },
+                        { name: "experience", label: "Gümrük / Dış Ticaret Deneyiminiz", type: "text", required: false, placeholder: "Örn: 2 yıl ithalat operasyon deneyimi" },
+                        { name: "coverLetter", label: "Ön Yazı / Kendinizi Tanıtın", type: "textarea", required: false, placeholder: "Kariyer hedefleriniz, bildiğiniz programlar (Evrim vb.)..." },
+                        { name: "cvFile", label: "Özgeçmiş / CV Dosyası (PDF veya Word)", type: "file", required: true, helpText: "Maksimum 10MB boyutunda PDF veya Word dosyası yükleyiniz." },
+                    ]),
+                    JSON.stringify({
+                        successMessage: "Başvurunuz ve özgeçmişiniz İnsan Kaynakları havuzumuza başarıyla kaydedilmiştir. Teşekkür ederiz.",
+                        autoEmailSubject: "İş/Staj Başvurunuz Alındı | Kalem Gümrük İK (#{{refNo}})",
+                        autoEmailBody: "Sayın {{fullName}},\n\nKalem Gümrük Müşavirliği bünyesindeki açık pozisyonlara göstermiş olduğunuz ilgi için teşekkür ederiz. Başvurunuz ve özgeçmişiniz İnsan Kaynakları havuzumuza dahil edilmiştir.",
+                        notificationEmail: "ik@kalemgumruk.com",
+                    }),
+                    1,
+                ]);
+                console.log("[DB Seed] Standart fiyat teklifi, iletişim ve kariyer formları eklendi.");
+            }
+            // 6. Başlangıç Belgeleri Yükle
+            const [docRows] = await pool.query("SELECT count(*) as count FROM documents");
+            if (docRows[0].count === 0) {
+                const defaultDocs = [
                     {
-                        name: "applicationType",
-                        label: "Başvuru Türü",
-                        type: "select",
-                        required: true,
-                        options: [
-                            "Gümrük Müşavir Yardımcısı (B Karne)",
-                            "Müşteri Temsilcisi & Operasyon",
-                            "Dış Ticaret / Gümrük Stajyeri",
-                            "Saha & Kurye Personeli",
-                            "Genel Başvuru",
-                        ],
+                        id: "doc-1",
+                        title: "Gümrük Müşavirliği İzin Belgesi",
+                        description: "T.C. Ticaret Bakanlığı yetkili gümrük müşavirliği resmi izin belgemiz.",
+                        category: "legal",
+                        fileUrl: "/uploads/gumruk-musavirligi-izin-belgesi.pdf",
+                        fileKey: null,
+                        fileSize: "148 KB",
+                        fileType: "pdf",
+                        downloadCount: 245,
                     },
-                    { name: "experience", label: "Gümrük / Dış Ticaret Deneyiminiz", type: "text", required: false, placeholder: "Örn: 2 yıl ithalat operasyon deneyimi" },
-                    { name: "coverLetter", label: "Ön Yazı / Kendinizi Tanıtın", type: "textarea", required: false, placeholder: "Kariyer hedefleriniz, bildiğiniz programlar (Evrim vb.)..." },
-                    { name: "cvFile", label: "Özgeçmiş / CV Dosyası (PDF veya Word)", type: "file", required: true, helpText: "Maksimum 10MB boyutunda PDF veya Word dosyası yükleyiniz." },
-                ]),
-                JSON.stringify({
-                    successMessage: "Başvurunuz ve özgeçmişiniz İnsan Kaynakları havuzumuza başarıyla kaydedilmiştir. Teşekkür ederiz.",
-                    autoEmailSubject: "İş/Staj Başvurunuz Alındı | Kalem Gümrük İK (#{{refNo}})",
-                    autoEmailBody: "Sayın {{fullName}},\n\nKalem Gümrük Müşavirliği bünyesindeki açık pozisyonlara göstermiş olduğunuz ilgi için teşekkür ederiz. Başvurunuz ve özgeçmişiniz İnsan Kaynakları havuzumuza dahil edilmiştir.",
-                    notificationEmail: "ik@kalemgumruk.com",
-                }),
-                1,
-            ]);
-            console.log("[DB Seed] Standart fiyat teklifi, iletişim ve kariyer formları eklendi.");
-        }
-        // 6. Başlangıç Belgeleri Yükle
-        const [docRows] = await pool.query("SELECT count(*) as count FROM documents");
-        if (docRows[0].count === 0) {
-            const defaultDocs = [
-                {
-                    id: "doc-1",
-                    title: "Gümrük Müşavirliği İzin Belgesi",
-                    description: "T.C. Ticaret Bakanlığı yetkili gümrük müşavirliği resmi izin belgemiz.",
-                    category: "legal",
-                    fileUrl: "/uploads/gumruk-musavirligi-izin-belgesi.pdf",
-                    fileKey: null,
-                    fileSize: "148 KB",
-                    fileType: "pdf",
-                    downloadCount: 245,
-                },
-                {
-                    id: "doc-2",
-                    title: "ISO 9001:2015 Kalite Yönetim Sertifikası",
-                    description: "Tüm operasyonel gümrükleme ve danışmanlık hizmetlerimizin uluslararası kalite tescili.",
-                    category: "quality",
-                    fileUrl: "/uploads/kalem-iso-9001-belgesi.pdf",
-                    fileKey: null,
-                    fileSize: "148 KB",
-                    fileType: "pdf",
-                    downloadCount: 182,
-                },
-                {
-                    id: "doc-3",
-                    title: "Gümrük İş Talimat ve Başvuru Formu",
-                    description: "İthalat, ihracat ve antrepo işlemleri öncesinde doldurulması gereken resmi talimat formu.",
-                    category: "forms",
-                    fileUrl: "/uploads/gumruk-is-talimat-formu.pdf",
-                    fileKey: null,
-                    fileSize: "148 KB",
-                    fileType: "pdf",
-                    downloadCount: 310,
-                },
-                {
-                    id: "doc-4",
-                    title: "Gümrük Vekaletname Örneği",
-                    description: "Noter kanalıyla firmamız adına düzenlenecek gümrük müşavirliği vekaletname taslağı.",
-                    category: "legal",
-                    fileUrl: "/uploads/kalem-gumruk-vekaletname-ornegi.pdf",
-                    fileKey: null,
-                    fileSize: "148 KB",
-                    fileType: "pdf",
-                    downloadCount: 428,
-                },
-            ];
-            for (const d of defaultDocs) {
-                await pool.query(`INSERT IGNORE INTO documents (id, title, description, category, file_url, file_key, file_size, file_type, download_count, is_public)
+                    {
+                        id: "doc-2",
+                        title: "ISO 9001:2015 Kalite Yönetim Sertifikası",
+                        description: "Tüm operasyonel gümrükleme ve danışmanlık hizmetlerimizin uluslararası kalite tescili.",
+                        category: "quality",
+                        fileUrl: "/uploads/kalem-iso-9001-belgesi.pdf",
+                        fileKey: null,
+                        fileSize: "148 KB",
+                        fileType: "pdf",
+                        downloadCount: 182,
+                    },
+                    {
+                        id: "doc-3",
+                        title: "Gümrük İş Talimat ve Başvuru Formu",
+                        description: "İthalat, ihracat ve antrepo işlemleri öncesinde doldurulması gereken resmi talimat formu.",
+                        category: "forms",
+                        fileUrl: "/uploads/gumruk-is-talimat-formu.pdf",
+                        fileKey: null,
+                        fileSize: "148 KB",
+                        fileType: "pdf",
+                        downloadCount: 310,
+                    },
+                    {
+                        id: "doc-4",
+                        title: "Gümrük Vekaletname Örneği",
+                        description: "Noter kanalıyla firmamız adına düzenlenecek gümrük müşavirliği vekaletname taslağı.",
+                        category: "legal",
+                        fileUrl: "/uploads/kalem-gumruk-vekaletname-ornegi.pdf",
+                        fileKey: null,
+                        fileSize: "148 KB",
+                        fileType: "pdf",
+                        downloadCount: 428,
+                    },
+                ];
+                for (const d of defaultDocs) {
+                    await pool.query(`INSERT IGNORE INTO documents (id, title, description, category, file_url, file_key, file_size, file_type, download_count, is_public)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [d.id, d.title, d.description, d.category, d.fileUrl, d.fileKey, d.fileSize, d.fileType, d.downloadCount, 1]);
+                }
+                console.log(`[DB Seed] ${defaultDocs.length} varsayılan belge eklendi.`);
             }
-            console.log(`[DB Seed] ${defaultDocs.length} varsayılan belge eklendi.`);
-        }
-        // 7. Başlangıç Referanslarını Yükle
-        const [refRows] = await pool.query("SELECT count(*) as count FROM `references`");
-        if (refRows[0].count === 0) {
-            const defaultReferences = [
-                { id: "ref-1", name: "Atlas Dış Ticaret A.Ş.", sector: "Makine & Endüstri", description: "Avrupa ve Uzak Doğu ithalat operasyonları", orderIndex: 1 },
-                { id: "ref-2", name: "Global Logistics Group", sector: "Lojistik & Antrepo", description: "Transit ticaret ve antrepo gümrükleme süreçleri", orderIndex: 2 },
-                { id: "ref-3", name: "Demir Otomotiv Yan Sanayi", sector: "Otomotiv", description: "Dahilde İşleme İzin Belgesi yönetimi ve ihracat", orderIndex: 3 },
-                { id: "ref-4", name: "Mega Kimya Sanayi", sector: "Kimya & Hammadde", description: "Tareks, TSE ve ihtisas gümrükleme işlemleri", orderIndex: 4 },
-                { id: "ref-5", name: "TeknoMed Sağlık Ürünleri", sector: "Medikal & İlaç", description: "TİTCK izinleri ve soğuk zincir gümrükleme", orderIndex: 5 },
-            ];
-            for (const r of defaultReferences) {
-                await pool.query(`INSERT IGNORE INTO \`references\` (id, name, sector, description, logo_url, order_index, is_active)
+            // 7. Başlangıç Referanslarını Yükle
+            const [refRows] = await pool.query("SELECT count(*) as count FROM `references`");
+            if (refRows[0].count === 0) {
+                const defaultReferences = [
+                    { id: "ref-1", name: "Atlas Dış Ticaret A.Ş.", sector: "Makine & Endüstri", description: "Avrupa ve Uzak Doğu ithalat operasyonları", orderIndex: 1 },
+                    { id: "ref-2", name: "Global Logistics Group", sector: "Lojistik & Antrepo", description: "Transit ticaret ve antrepo gümrükleme süreçleri", orderIndex: 2 },
+                    { id: "ref-3", name: "Demir Otomotiv Yan Sanayi", sector: "Otomotiv", description: "Dahilde İşleme İzin Belgesi yönetimi ve ihracat", orderIndex: 3 },
+                    { id: "ref-4", name: "Mega Kimya Sanayi", sector: "Kimya & Hammadde", description: "Tareks, TSE ve ihtisas gümrükleme işlemleri", orderIndex: 4 },
+                    { id: "ref-5", name: "TeknoMed Sağlık Ürünleri", sector: "Medikal & İlaç", description: "TİTCK izinleri ve soğuk zincir gümrükleme", orderIndex: 5 },
+                ];
+                for (const r of defaultReferences) {
+                    await pool.query(`INSERT IGNORE INTO \`references\` (id, name, sector, description, logo_url, order_index, is_active)
            VALUES (?, ?, ?, ?, ?, ?, ?)`, [r.id, r.name, r.sector, r.description, null, r.orderIndex, 1]);
+                }
+                console.log(`[DB Seed] ${defaultReferences.length} referans firma eklendi.`);
             }
-            console.log(`[DB Seed] ${defaultReferences.length} referans firma eklendi.`);
-        }
-        // 8. Başlangıç Müşteri Değerlendirmeleri Yükle
-        const [fbRows] = await pool.query("SELECT count(*) as count FROM customer_feedbacks");
-        if (fbRows[0].count === 0) {
-            const defaultFeedbacks = [
-                {
-                    id: "fb-1",
-                    fullName: "Mehmet Yılmaz",
-                    company: "Atlas Dış Ticaret A.Ş.",
-                    rating: 5,
-                    serviceType: "İthalat Gümrükleme",
-                    comment: "Uzun yıllardır birlikte çalıştığımız yetkili gümrük müşavirliği. Dijital arşivleme ve Evrim sistemi takipleri hızımıza hız katıyor.",
-                },
-                {
-                    id: "fb-2",
-                    fullName: "Elena Petrova",
-                    company: "Global Logistics Group",
-                    rating: 5,
-                    serviceType: "Transit ve Antrepo",
-                    comment: "Ambarlı ve Erenköy operasyonlarımızda gümrük süreçlerimiz sıfır gecikmeyle sonuçlanıyor. Profesyonel kadroya teşekkürler.",
-                },
-                {
-                    id: "fb-3",
-                    fullName: "Ahmet Demir",
-                    company: "Demir Otomotiv Yan Sanayi",
-                    rating: 5,
-                    serviceType: "Dahilde İşleme Rejimi",
-                    comment: "DİR izin süre uzatımları ve mevzuat tebliğlerindeki hızlı bilgilendirmeleri sayesinde maliyet avantajı sağladık.",
-                },
-            ];
-            for (const fb of defaultFeedbacks) {
-                await pool.query(`INSERT IGNORE INTO customer_feedbacks (id, full_name, company, rating, service_type, comment, is_approved)
+            // 8. Başlangıç Müşteri Değerlendirmeleri Yükle
+            const [fbRows] = await pool.query("SELECT count(*) as count FROM customer_feedbacks");
+            if (fbRows[0].count === 0) {
+                const defaultFeedbacks = [
+                    {
+                        id: "fb-1",
+                        fullName: "Mehmet Yılmaz",
+                        company: "Atlas Dış Ticaret A.Ş.",
+                        rating: 5,
+                        serviceType: "İthalat Gümrükleme",
+                        comment: "Uzun yıllardır birlikte çalıştığımız yetkili gümrük müşavirliği. Dijital arşivleme ve Evrim sistemi takipleri hızımıza hız katıyor.",
+                    },
+                    {
+                        id: "fb-2",
+                        fullName: "Elena Petrova",
+                        company: "Global Logistics Group",
+                        rating: 5,
+                        serviceType: "Transit ve Antrepo",
+                        comment: "Ambarlı ve Erenköy operasyonlarımızda gümrük süreçlerimiz sıfır gecikmeyle sonuçlanıyor. Profesyonel kadroya teşekkürler.",
+                    },
+                    {
+                        id: "fb-3",
+                        fullName: "Ahmet Demir",
+                        company: "Demir Otomotiv Yan Sanayi",
+                        rating: 5,
+                        serviceType: "Dahilde İşleme Rejimi",
+                        comment: "DİR izin süre uzatımları ve mevzuat tebliğlerindeki hızlı bilgilendirmeleri sayesinde maliyet avantajı sağladık.",
+                    },
+                ];
+                for (const fb of defaultFeedbacks) {
+                    await pool.query(`INSERT IGNORE INTO customer_feedbacks (id, full_name, company, rating, service_type, comment, is_approved)
            VALUES (?, ?, ?, ?, ?, ?, ?)`, [fb.id, fb.fullName, fb.company, fb.rating, fb.serviceType, fb.comment, 1]);
+                }
+                console.log(`[DB Seed] ${defaultFeedbacks.length} onaylı müşteri değerlendirmesi eklendi.`);
             }
-            console.log(`[DB Seed] ${defaultFeedbacks.length} onaylı müşteri değerlendirmesi eklendi.`);
+        } // shouldRunInitialContentSeed sonu
+        // Seed işaretini kaydet (ilk kurulum veya mevcut veritabanı yükseltmesi)
+        if (seedMarkerRows[0].count === 0) {
+            await pool.query(`INSERT IGNORE INTO site_settings (\`key\`, value) VALUES (?, ?)`, ["initial_seed_v1", JSON.stringify({ completedAt: new Date().toISOString() })]);
         }
         // 9. Başlangıç Kullanıcılarını Oluştur (Admin & Editör)
         const [userRows] = await pool.query("SELECT count(*) as count FROM users");

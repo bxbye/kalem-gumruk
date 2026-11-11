@@ -1,5 +1,6 @@
 import { servicesData } from "@/data/services";
 import { translations, Language } from "@/data/translations";
+import { fetchBackendNoStore } from "./api";
 
 export interface ServiceItem {
   id: string;
@@ -201,19 +202,16 @@ function getFallbackServices(lang: string = "tr"): ServiceItem[] {
 }
 
 export async function getAllServicesAsync(lang: string = "tr"): Promise<ServiceItem[]> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
-    const res = await fetch(`${backendUrl}/api/public/services?lang=${lang}`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore(`/api/public/services?lang=${encodeURIComponent(lang)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.services && data.services.length > 0) {
+      if (data && data.success && Array.isArray(data.services)) {
         return data.services;
       }
     }
-  } catch {
-    // Fallback
+  } catch (error) {
+    console.error("[getAllServicesAsync] Backend fetch failed, using fallback:", error);
   }
   return getFallbackServices(lang);
 }
@@ -222,19 +220,18 @@ export async function getServiceBySlugAsync(
   slug: string,
   lang: string = "tr"
 ): Promise<ServiceItem | undefined> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
-    const res = await fetch(
-      `${backendUrl}/api/public/services/${encodeURIComponent(slug)}?lang=${lang}`,
-      {
-        cache: "no-store",
-      }
+    const res = await fetchBackendNoStore(
+      `/api/public/services/${encodeURIComponent(slug)}?lang=${encodeURIComponent(lang)}`
     );
     if (res.ok) {
       const data = await res.json();
       if (data && data.success && data.service) {
         return data.service;
       }
+    }
+    if (res.status === 404) {
+      return undefined;
     }
   } catch (error) {
     console.error("[getServiceBySlugAsync] Backend fetch failed, checking fallback:", error);

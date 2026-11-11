@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { companyInfo } from "@/data/company";
 import ContactForm from "@/components/ContactForm";
 import { MapPin, Phone, Mail, ExternalLink, Navigation } from "lucide-react";
 import { translations, availableLanguages, Language } from "@/data/translations";
 import { getWhatsAppUrl } from "@/lib/whatsappMessages";
+import { fetchBackendNoStore } from "@/lib/api";
+import { getSiteSettingsAsync } from "@/lib/settings";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -40,13 +43,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5001";
-
 async function getContactFormData() {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/forms/iletisim`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetchBackendNoStore("/api/forms/iletisim");
     if (!res.ok) return null;
     const data = await res.json();
     return data?.success && data.form ? data.form : null;
@@ -61,7 +60,10 @@ export default async function IletisimPage({ params }: Props) {
   const currentLang: Language =
     availableLanguages.find((l) => l.code === lang)?.code || "tr";
   const t = translations[currentLang]?.contactPage || translations.tr.contactPage;
-  const contactForm = await getContactFormData();
+  const [contactForm, siteSettings] = await Promise.all([
+    getContactFormData(),
+    getSiteSettingsAsync(),
+  ]);
 
   const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     "Atatürk Mahallesi Gaffar Efendi Sokak No:5 Ümraniye İstanbul"
@@ -94,7 +96,7 @@ export default async function IletisimPage({ params }: Props) {
               <MapPin className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-900">{t.addressTitle}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">{companyInfo.address}</p>
+            <p className="text-xs text-slate-600 leading-relaxed">{siteSettings.address}</p>
           </div>
 
           <div className="bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs space-y-3 text-center sm:text-left">
@@ -104,8 +106,8 @@ export default async function IletisimPage({ params }: Props) {
             <h3 className="text-sm font-bold text-slate-900">{t.phoneTitle}</h3>
             <div className="text-xs space-y-1.5">
               <div>
-                <a href={`tel:${companyInfo.phoneRaw}`} className="text-slate-900 font-bold hover:text-[#44B9CD]">
-                  Tel: {companyInfo.phone}
+                <a href={`tel:${siteSettings.phoneRaw}`} className="text-slate-900 font-bold hover:text-[#44B9CD]">
+                  Tel: {siteSettings.phone}
                 </a>
               </div>
               <div>
@@ -115,7 +117,7 @@ export default async function IletisimPage({ params }: Props) {
                   rel="noopener noreferrer"
                   className="text-emerald-600 font-bold hover:text-emerald-500 inline-flex items-center gap-1"
                 >
-                  <span>WhatsApp: {companyInfo.phone}</span>
+                  <span>WhatsApp: {siteSettings.phone}</span>
                 </a>
               </div>
             </div>
@@ -128,11 +130,11 @@ export default async function IletisimPage({ params }: Props) {
             <h3 className="text-sm font-bold text-slate-900">{t.emailTitle}</h3>
             <div className="text-xs space-y-1 text-slate-600">
               <div>
-                <a href={`mailto:${companyInfo.email}`} className="text-[#44B9CD] font-bold hover:underline">
-                  {companyInfo.email}
+                <a href={`mailto:${siteSettings.email}`} className="text-[#44B9CD] font-bold hover:underline">
+                  {siteSettings.email}
                 </a>
               </div>
-              <div>{companyInfo.workingHours}</div>
+              <div>{siteSettings.workingHours}</div>
             </div>
           </div>
         </div>

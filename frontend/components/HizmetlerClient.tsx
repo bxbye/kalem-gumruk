@@ -268,7 +268,7 @@ export default function ServicesPage({
   // İstemci tarafında veritabanından form tanımını tazeleme
   useEffect(() => {
     if (!initialQuoteForm) {
-      fetch("/api/forms/fiyat-teklifi")
+      fetch("/api/forms/fiyat-teklifi", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.success && data?.form) {

@@ -258,6 +258,15 @@ export async function ensureDatabaseInitialized() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // İlk kurulum seed kontrolü: Daha önce seed tamamlandıysa (veya sistemde zaten kullanıcı varsa),
+    // admin tarafından silinen içeriklerin sunucu yeniden başladığında geri gelmesini önler.
+    const [seedMarkerRows]: any = await pool.query(
+      "SELECT count(*) as count FROM site_settings WHERE `key` = 'initial_seed_v1'"
+    );
+    const [existingUsersCheck]: any = await pool.query("SELECT count(*) as count FROM users");
+    const shouldRunInitialContentSeed = seedMarkerRows[0].count === 0 && existingUsersCheck[0].count === 0;
+
+    if (shouldRunInitialContentSeed) {
     // 2. Başlangıç Hizmet Verilerini Yükle
     const [serviceRows]: any = await pool.query("SELECT count(*) as count FROM services");
     if (serviceRows[0].count === 0) {
@@ -600,6 +609,15 @@ export async function ensureDatabaseInitialized() {
         );
       }
       console.log(`[DB Seed] ${defaultFeedbacks.length} onaylı müşteri değerlendirmesi eklendi.`);
+    }
+    } // shouldRunInitialContentSeed sonu
+
+    // Seed işaretini kaydet (ilk kurulum veya mevcut veritabanı yükseltmesi)
+    if (seedMarkerRows[0].count === 0) {
+      await pool.query(
+        `INSERT IGNORE INTO site_settings (\`key\`, value) VALUES (?, ?)`,
+        ["initial_seed_v1", JSON.stringify({ completedAt: new Date().toISOString() })]
+      );
     }
 
     // 9. Başlangıç Kullanıcılarını Oluştur (Admin & Editör)

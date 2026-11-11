@@ -150,7 +150,7 @@ export default function ContactForm({
   // İstemci tarafında veritabanından dinamik formu çekme / tazeleme
   useEffect(() => {
     if (!initialForm) {
-      fetch("/api/forms/iletisim")
+      fetch("/api/forms/iletisim", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.success && data?.form) {

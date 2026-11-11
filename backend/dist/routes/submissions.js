@@ -3,10 +3,16 @@ import { db } from "../db/index.js";
 import { formSubmissions } from "../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
 import { authenticateRequest } from "../services/auth.js";
+import { setNoStoreHeaders, safeJsonParse } from "../utils/http.js";
 export const submissionsRouter = Router();
 // Form Yanıtlarını Listele
 submissionsRouter.get("/", async (req, res) => {
+    setNoStoreHeaders(res);
     try {
+        const user = await authenticateRequest(req);
+        if (!user) {
+            return res.status(401).json({ error: "Yetkisiz işlem: Başvuruları görüntülemek için giriş yapınız." });
+        }
         const { formSlug, status } = req.query;
         let query = db.select().from(formSubmissions);
         if (formSlug && status && status !== "ALL") {
@@ -24,8 +30,8 @@ submissionsRouter.get("/", async (req, res) => {
         const submissions = await query.orderBy(desc(formSubmissions.createdAt));
         const formatted = submissions.map((sub) => ({
             ...sub,
-            data: JSON.parse(sub.data || "{}"),
-            files: JSON.parse(sub.files || "[]"),
+            data: safeJsonParse(sub.data, {}),
+            files: safeJsonParse(sub.files, []),
         }));
         return res.json({ success: true, submissions: formatted });
     }

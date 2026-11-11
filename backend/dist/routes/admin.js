@@ -7,7 +7,12 @@ import { eq, desc, asc } from "drizzle-orm";
 import { verifySmtp, sendTestEmail } from "../services/mailer.js";
 import { authenticateRequest, generateToken, hashPassword, verifyPassword, } from "../services/auth.js";
 import { listDatabaseBackups, createDatabaseBackup, restoreDatabaseBackup, backupsDir, } from "../services/backup.js";
+import { setNoStoreHeaders, safeJsonParse } from "../utils/http.js";
 export const adminRouter = Router();
+adminRouter.use((_req, res, next) => {
+    setNoStoreHeaders(res);
+    next();
+});
 function slugify(text) {
     const trMap = {
         ç: "c", Ç: "c",
@@ -184,12 +189,14 @@ adminRouter.get("/me", async (req, res) => {
     return res.json({ success: true, user });
 });
 // ==================== 1. SIRKÜLER & MEVZUAT ====================
-adminRouter.get("/sirkuler", async (_req, res) => {
+adminRouter.get("/sirkuler", async (req, res) => {
+    if (!(await authorize(req, res)))
+        return;
     try {
         const list = await db.select().from(sirkuler).orderBy(desc(sirkuler.date));
         const formatted = list.map((item) => ({
             ...item,
-            translations: JSON.parse(item.translations || "{}"),
+            translations: safeJsonParse(item.translations, {}),
         }));
         return res.json({ success: true, sirkuler: formatted });
     }
@@ -294,13 +301,15 @@ adminRouter.patch("/sirkuler/status", async (req, res) => {
     }
 });
 // ==================== 2. HİZMETLER ====================
-adminRouter.get("/services", async (_req, res) => {
+adminRouter.get("/services", async (req, res) => {
+    if (!(await authorize(req, res)))
+        return;
     try {
         const list = await db.select().from(services).orderBy(asc(services.orderIndex));
         const formatted = list.map((item) => ({
             ...item,
-            features: JSON.parse(item.features || "[]"),
-            translations: JSON.parse(item.translations || "{}"),
+            features: safeJsonParse(item.features, []),
+            translations: safeJsonParse(item.translations, {}),
         }));
         return res.json({ success: true, services: formatted, items: formatted });
     }
@@ -382,7 +391,9 @@ adminRouter.delete("/services", async (req, res) => {
     }
 });
 // ==================== 3. GEREKLİ BAĞLANTILAR ====================
-adminRouter.get("/baglantilar", async (_req, res) => {
+adminRouter.get("/baglantilar", async (req, res) => {
+    if (!(await authorize(req, res)))
+        return;
     try {
         const list = await db.select().from(gerekliBaglantilar).orderBy(asc(gerekliBaglantilar.orderIndex));
         return res.json({ success: true, baglantilar: list, items: list });
@@ -458,7 +469,9 @@ adminRouter.delete("/baglantilar", async (req, res) => {
     }
 });
 // ==================== 4. REFERANSLAR ====================
-adminRouter.get("/references", async (_req, res) => {
+adminRouter.get("/references", async (req, res) => {
+    if (!(await authorize(req, res)))
+        return;
     try {
         const list = await db.select().from(references).orderBy(asc(references.orderIndex));
         return res.json({ success: true, references: list, items: list });
@@ -528,18 +541,12 @@ adminRouter.delete("/references", async (req, res) => {
     }
 });
 // ==================== 5. SİTE AYARLARI ====================
-adminRouter.get("/settings", async (_req, res) => {
+adminRouter.get("/settings", async (req, res) => {
+    if (!(await authorize(req, res)))
+        return;
     try {
         const [record] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
-        let settingsData = {};
-        if (record && record.value) {
-            try {
-                settingsData = JSON.parse(record.value);
-            }
-            catch {
-                settingsData = {};
-            }
-        }
+        const settingsData = safeJsonParse(record?.value, {});
         return res.json({ success: true, settings: settingsData });
     }
     catch (error) {

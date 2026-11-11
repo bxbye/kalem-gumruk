@@ -48,10 +48,12 @@ export default function ServicesCarousel({ initialServices }: { initialServices?
 
   // Veritabanından canlı hizmetleri getir
   useEffect(() => {
-    fetch(`/api/public/services?lang=${language}`)
+    fetch(`/api/public/services?lang=${encodeURIComponent(language)}`, {
+      cache: "no-store",
+    })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.services) && data.services.length > 0) {
+        if (data.success && Array.isArray(data.services)) {
           setServicesList(data.services);
         }
       })
@@ -73,13 +75,11 @@ export default function ServicesCarousel({ initialServices }: { initialServices?
   };
 
   // Sonsuz kesintisiz yatay akış için 4 set kullanıyoruz (her ekran boyutunda ve dilde boşluksuz kesintisiz döngü)
-  const activeServices = servicesList.length > 0 ? servicesList : servicesData;
-  const marqueeServices = [
-    ...activeServices,
-    ...activeServices,
-    ...activeServices,
-    ...activeServices,
-  ];
+  const activeServices = servicesList;
+  const marqueeServices =
+    activeServices.length > 0
+      ? [...activeServices, ...activeServices, ...activeServices, ...activeServices]
+      : [];
 
   const handlePrev = () => {
     if (!containerRef.current) return;
@@ -180,7 +180,7 @@ export default function ServicesCarousel({ initialServices }: { initialServices?
           }}
         >
           {marqueeServices.map((service, index) => {
-            const originalIndex = (index % servicesData.length) + 1;
+            const originalIndex = (index % activeServices.length) + 1;
             const formattedNum = originalIndex < 10 ? `0${originalIndex}` : `${originalIndex}`;
             const transKey = serviceKeyMap[service.slug];
             const trans = transKey ? t.services[transKey] : null;

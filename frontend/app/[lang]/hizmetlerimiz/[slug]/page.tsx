@@ -7,6 +7,9 @@ import { CheckCircle2, Phone, MessageSquare, ShieldCheck, FileText } from "lucid
 import { availableLanguages } from "@/data/translations";
 import { getWhatsAppUrl } from "@/lib/whatsappMessages";
 
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+
 interface Props {
   params: Promise<{ slug: string; lang: string }>;
 }

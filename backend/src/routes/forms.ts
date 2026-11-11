@@ -9,6 +9,8 @@ import { uploadsDir, fixUtf8Mojibake } from "../services/storage.js";
 import { authenticateRequest } from "../services/auth.js";
 import { validateFormSpamGuard } from "../services/security.js";
 import { defaultForms } from "../data/defaults.js";
+import { formRateLimiter } from "../middleware/rateLimiter.js";
+import { setNoStoreHeaders, safeJsonParse } from "../utils/http.js";
 import {
   renderFormSubmissionAdminEmail,
   renderCustomerConfirmationEmail,
@@ -18,24 +20,22 @@ export const formsRouter = Router();
 
 // Tüm Formları Listele
 formsRouter.get("/", async (_req, res) => {
+  setNoStoreHeaders(res);
   if (!isDbConnected) {
     return res.json({ success: true, forms: defaultForms });
   }
 
   try {
     const records: any[] = await db.select().from(forms).orderBy(desc(forms.createdAt));
-    if (!records || records.length === 0) {
-      return res.json({ success: true, forms: defaultForms });
-    }
     const formatted = records.map((f) => ({
       ...f,
-      fields: JSON.parse(f.fields || "[]"),
-      settings: JSON.parse(f.settings || "{}"),
+      fields: safeJsonParse<any[]>(f.fields, []),
+      settings: safeJsonParse<Record<string, any>>(f.settings, {}),
     }));
     return res.json({ success: true, forms: formatted });
   } catch (error) {
-    console.warn("[Forms List] DB sorgu hatası, statik formlar kullanılıyor:", error instanceof Error ? error.message : error);
-    return res.json({ success: true, forms: defaultForms });
+    console.error("[Forms List] DB sorgu hatası:", error instanceof Error ? error.message : error);
+    return res.status(500).json({ error: "Formlar listelenemedi." });
   }
 });
 
@@ -112,7 +112,7 @@ formsRouter.delete("/:id", async (req, res) => {
       });
     }
 
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     await db.delete(forms).where(eq(forms.id, id));
     return res.json({ success: true, message: "Form başarıyla silindi." });
@@ -124,14 +124,19 @@ formsRouter.delete("/:id", async (req, res) => {
 
 // Form Aktif/Pasif Durumunu Güncelle (PATCH)
 formsRouter.patch("/:id/status", async (req, res) => {
+  setNoStoreHeaders(res);
   try {
-    const { id } = req.params;
-    const { password, isActive } = req.body || {};
-    const validPassword = process.env.ADMIN_PASSWORD || "kalem1997";
-
-    if (password !== validPassword) {
-      return res.status(401).json({ error: "Yetkisiz işlem: Geçersiz şifre." });
+    const user = await authenticateRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: "Yetkisiz işlem: Lütfen giriş yapınız." });
     }
+
+    if (user.role !== "ADMIN" && user.permissions?.canEditForms === false) {
+      return res.status(403).json({ error: "Yetkisiz işlem: Form durumunu güncelleme yetkiniz yok." });
+    }
+
+    const id = String(req.params.id);
+    const { isActive } = req.body || {};
 
     await db
       .update(forms)
@@ -153,6 +158,7 @@ formsRouter.patch("/:id/status", async (req, res) => {
 
 // Slug ile Form Tanımı Getir
 formsRouter.get("/:slug", async (req, res) => {
+  setNoStoreHeaders(res);
   const { slug } = req.params;
   const staticFallback = defaultForms.find((f) => f.slug === slug);
 
@@ -167,9 +173,6 @@ formsRouter.get("/:slug", async (req, res) => {
     const [formRecord] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
 
     if (!formRecord || !formRecord.isActive) {
-      if (staticFallback) {
-        return res.json({ success: true, form: staticFallback });
-      }
       return res.status(404).json({ error: "Form bulunamadı veya pasif durumda." });
     }
 
@@ -181,23 +184,20 @@ formsRouter.get("/:slug", async (req, res) => {
         title: formRecord.title,
         description: formRecord.description,
         category: formRecord.category,
-        fields: JSON.parse(formRecord.fields || "[]"),
-        settings: JSON.parse(formRecord.settings || "{}"),
+        fields: safeJsonParse<any[]>(formRecord.fields, []),
+        settings: safeJsonParse<Record<string, any>>(formRecord.settings, {}),
       },
     });
   } catch (error) {
-    console.warn("[Form Get] DB hatası, statik fallback kullanılıyor:", error instanceof Error ? error.message : error);
-    if (staticFallback) {
-      return res.json({ success: true, form: staticFallback });
-    }
+    console.error("[Form Get] DB hatası:", error instanceof Error ? error.message : error);
     return res.status(500).json({ error: "Form yüklenemedi." });
   }
 });
 
 // Forma Yanıt Gönder (Submission)
-formsRouter.post("/:slug", async (req, res) => {
+formsRouter.post("/:slug", formRateLimiter, async (req, res) => {
   try {
-    const { slug } = req.params;
+    const slug = String(req.params.slug);
     const {
       formData,
       files,
@@ -237,19 +237,13 @@ formsRouter.post("/:slug", async (req, res) => {
     const staticFallback = defaultForms.find((f) => f.slug === slug);
 
     if (isDbConnected) {
-      try {
-        const [record] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
-        if (record && record.isActive) {
-          formRecord = record;
-          fields = JSON.parse(record.fields || "[]");
-          settings = JSON.parse(record.settings || "{}");
-        }
-      } catch (e) {
-        console.warn("[Form Submit] DB'den form okunamadı, fallback'e geçiliyor:", e instanceof Error ? e.message : e);
+      const [record] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
+      if (record && record.isActive) {
+        formRecord = record;
+        fields = safeJsonParse<any[]>(record.fields, []);
+        settings = safeJsonParse<Record<string, any>>(record.settings, {});
       }
-    }
-
-    if (!formRecord && staticFallback) {
+    } else if (staticFallback) {
       formRecord = staticFallback;
       fields = staticFallback.fields;
       settings = staticFallback.settings;

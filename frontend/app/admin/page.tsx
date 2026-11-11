@@ -293,17 +293,30 @@ export default function AdminPage() {
     ],
   });
 
-  const getAuthHeaders = (overrideToken?: string) => {
+  const getAuthHeaders = (overrideToken?: string, isFormData = false) => {
     const token =
       overrideToken ||
       authToken ||
       (typeof window !== "undefined" ? localStorage.getItem("kalem_admin_token") || "" : "");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const headers: Record<string, string> = {};
+    if (!isFormData) {
+      headers["Content-Type"] = "application/json";
+    }
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (password) headers["x-admin-password"] = password;
     return headers;
+  };
+
+  const adminFetch = (url: string, options: RequestInit = {}, overrideToken?: string) => {
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+    return fetch(url, {
+      ...options,
+      cache: "no-store",
+      headers: {
+        ...getAuthHeaders(overrideToken, isFormData),
+        ...((options.headers as Record<string, string>) || {}),
+      },
+    });
   };
 
   useEffect(() => {
@@ -378,39 +391,39 @@ export default function AdminPage() {
 
     try {
       // 1. Form Yanıtlarını Çek
-      const subRes = await fetch("/api/submissions", { headers });
+      const subRes = await adminFetch("/api/submissions", { headers });
       const subData = await subRes.json();
       if (subData.success) setSubmissions(Array.isArray(subData.submissions) ? subData.submissions : []);
 
       // 2. Form Tanımlarını Çek
-      const formRes = await fetch("/api/forms", { headers });
+      const formRes = await adminFetch("/api/forms", { headers });
       const formData = await formRes.json();
       if (formData.success) setFormsList(Array.isArray(formData.forms) ? formData.forms : []);
 
       // 3. Belgeleri Çek
-      const docRes = await fetch("/api/documents", { headers });
+      const docRes = await adminFetch("/api/documents", { headers });
       const docData = await docRes.json();
       if (docData.success) setDocumentsList(Array.isArray(docData.documents) ? docData.documents : []);
 
       // 4. Sirkülerleri Çek
-      const sirkulerRes = await fetch("/api/admin/sirkuler", { headers });
+      const sirkulerRes = await adminFetch("/api/admin/sirkuler", { headers });
       const sirkulerData = await sirkulerRes.json();
       if (sirkulerData.success) setSirkulerList(Array.isArray(sirkulerData.sirkuler) ? sirkulerData.sirkuler : []);
 
       // 5. Müşteri Yorumlarını Çek
-      const fbRes = await fetch("/api/feedbacks", { headers });
+      const fbRes = await adminFetch("/api/feedbacks", { headers });
       const fbData = await fbRes.json();
       if (fbData.success) setFeedbacksList(Array.isArray(fbData.feedbacks) ? fbData.feedbacks : []);
 
       // 6. Site ve Firma Ayarlarını Çek
-      const settingsRes = await fetch("/api/admin/settings", { headers });
+      const settingsRes = await adminFetch("/api/admin/settings", { headers });
       const settingsData = await settingsRes.json();
       if (settingsData.success && settingsData.settings) {
         setSiteSettings((prev) => ({ ...prev, ...settingsData.settings }));
       }
 
       // 7. Gerekli Bağlantıları Çek
-      const baglantilarRes = await fetch("/api/admin/baglantilar", { headers });
+      const baglantilarRes = await adminFetch("/api/admin/baglantilar", { headers });
       const baglantilarData = await baglantilarRes.json();
       if (baglantilarData.success) {
         const list = baglantilarData.items || baglantilarData.baglantilar || [];
@@ -418,7 +431,7 @@ export default function AdminPage() {
       }
 
       // 8. Hizmetleri Çek
-      const servicesRes = await fetch("/api/admin/services", { headers });
+      const servicesRes = await adminFetch("/api/admin/services", { headers });
       const servicesData = await servicesRes.json();
       if (servicesData.success) {
         const list = servicesData.items || servicesData.services || [];
@@ -426,7 +439,7 @@ export default function AdminPage() {
       }
 
       // 9. Referansları Çek
-      const refsRes = await fetch("/api/admin/references", { headers });
+      const refsRes = await adminFetch("/api/admin/references", { headers });
       const refsData = await refsRes.json();
       if (refsData.success) {
         const list = refsData.items || refsData.references || [];
@@ -582,13 +595,12 @@ export default function AdminPage() {
     setSettingsSaving(true);
     setSettingsResult(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await adminFetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, settings: siteSettings }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setSettingsResult({
           success: true,
           message: "Site ve firma bilgileri başarıyla güncellendi ve tüm siteye uygulandı!",
@@ -611,9 +623,8 @@ export default function AdminPage() {
     setTestingSmtp(true);
     setSmtpTestResult(null);
     try {
-      const res = await fetch("/api/admin/test-email", {
+      const res = await adminFetch("/api/admin/test-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
       const data = await res.json();
@@ -663,15 +674,14 @@ export default function AdminPage() {
   const handleSaveBaglanti = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/admin/baglantilar", {
+      const res = await adminFetch("/api/admin/baglantilar", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, ...baglantiForm }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setBaglantiModalOpen(false);
-        const bRes = await fetch("/api/admin/baglantilar");
+        const bRes = await adminFetch("/api/admin/baglantilar");
         const bData = await bRes.json();
         if (bData.success) {
           const list = bData.items || bData.baglantilar || [];
@@ -682,22 +692,26 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error(err);
+      alert("Bağlantı kaydedilirken hata oluştu.");
     }
   };
 
   const handleDeleteBaglanti = async (id: string) => {
     if (!confirm("Bu bağlantıyı silmek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(
-        `/api/admin/baglantilar?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+      const res = await adminFetch(
+        `/api/admin/baglantilar?id=${encodeURIComponent(id)}`,
         { method: "DELETE" }
       );
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setBaglantilarList((prev) => prev.filter((b) => b.id !== id));
+      } else {
+        alert(data.error || "Bağlantı silinemedi.");
       }
     } catch (err) {
       console.error(err);
+      alert("Silme işlemi sırasında bağlantı hatası oluştu.");
     }
   };
 
@@ -749,9 +763,8 @@ export default function AdminPage() {
       const featuresArray = serviceForm.featuresText
         ? serviceForm.featuresText.split("\n").map((f) => f.trim()).filter(Boolean)
         : [];
-      const res = await fetch("/api/admin/services", {
+      const res = await adminFetch("/api/admin/services", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           password,
           ...serviceForm,
@@ -759,9 +772,9 @@ export default function AdminPage() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setServiceModalOpen(false);
-        const sRes = await fetch("/api/admin/services");
+        const sRes = await adminFetch("/api/admin/services");
         const sData = await sRes.json();
         if (sData.success) {
           const list = sData.items || sData.services || [];
@@ -772,22 +785,26 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error(err);
+      alert("Hizmet kaydedilirken hata oluştu.");
     }
   };
 
   const handleDeleteService = async (id: string) => {
     if (!confirm("Bu hizmeti silmek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(
-        `/api/admin/services?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+      const res = await adminFetch(
+        `/api/admin/services?id=${encodeURIComponent(id)}`,
         { method: "DELETE" }
       );
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setServicesList((prev) => prev.filter((s) => s.id !== id));
+      } else {
+        alert(data.error || "Hizmet silinemedi.");
       }
     } catch (err) {
       console.error(err);
+      alert("Silme işlemi sırasında bağlantı hatası oluştu.");
     }
   };
 
@@ -833,7 +850,7 @@ export default function AdminPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/upload/logo", {
+      const res = await adminFetch("/api/upload/logo", {
         method: "POST",
         body: formData,
       });
@@ -855,15 +872,14 @@ export default function AdminPage() {
   const handleSaveReference = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/admin/references", {
+      const res = await adminFetch("/api/admin/references", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, ...refForm }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setRefModalOpen(false);
-        const rRes = await fetch("/api/admin/references");
+        const rRes = await adminFetch("/api/admin/references");
         const rData = await rRes.json();
         if (rData.success) {
           const list = rData.items || rData.references || [];
@@ -874,44 +890,47 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error(err);
+      alert("Referans kaydedilirken hata oluştu.");
     }
   };
 
   const handleDeleteReference = async (id: string) => {
     if (!confirm("Bu referansı silmek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(
-        `/api/admin/references?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`,
+      const res = await adminFetch(
+        `/api/admin/references?id=${encodeURIComponent(id)}`,
         { method: "DELETE" }
       );
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setReferencesList((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        alert(data.error || "Referans silinemedi.");
       }
     } catch (err) {
       console.error(err);
+      alert("Silme işlemi sırasında bağlantı hatası oluştu.");
     }
   };
 
   // Başvuru Durumunu Güncelle
   const updateSubmissionStatus = async (id: string, status: string, notes?: string) => {
     try {
-      // Optimistic update
-      setSubmissions((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status, adminNotes: notes !== undefined ? notes : s.adminNotes } : s))
-      );
-      if (selectedSubmission && selectedSubmission.id === id) {
-        setSelectedSubmission((prev: any) => ({ ...prev, status, adminNotes: notes !== undefined ? notes : prev.adminNotes }));
-      }
-
-      await fetch("/api/submissions", {
+      const res = await adminFetch("/api/submissions", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
         body: JSON.stringify({ password, id, status, adminNotes: notes }),
       });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmissions((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, status, adminNotes: notes !== undefined ? notes : s.adminNotes } : s))
+        );
+        if (selectedSubmission && selectedSubmission.id === id) {
+          setSelectedSubmission((prev: any) => ({ ...prev, status, adminNotes: notes !== undefined ? notes : prev.adminNotes }));
+        }
+      } else {
+        alert(data.error || "Başvuru durumu güncellenemedi.");
+      }
     } catch (err) {
       console.error(err);
     }
@@ -937,22 +956,22 @@ export default function AdminPage() {
       return;
     }
 
-    setSubmissions((prev) =>
-      prev.map((s) => (s.status === "NEW" ? { ...s, status: "REVIEWED" } : s))
-    );
-    if (selectedSubmission && selectedSubmission.status === "NEW") {
-      setSelectedSubmission((prev: any) => ({ ...prev, status: "REVIEWED" }));
-    }
-
     try {
-      await fetch("/api/submissions", {
+      const res = await adminFetch("/api/submissions", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
         body: JSON.stringify({ password, markAllAsReviewed: true }),
       });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmissions((prev) =>
+          prev.map((s) => (s.status === "NEW" ? { ...s, status: "REVIEWED" } : s))
+        );
+        if (selectedSubmission && selectedSubmission.status === "NEW") {
+          setSelectedSubmission((prev: any) => ({ ...prev, status: "REVIEWED" }));
+        }
+      } else {
+        alert(data.error || "İşlem başarısız oldu.");
+      }
     } catch (err) {
       console.error(err);
     }
@@ -962,15 +981,19 @@ export default function AdminPage() {
   const deleteSubmission = async (id: string) => {
     if (!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(`/api/submissions?id=${id}&password=${encodeURIComponent(password)}`, {
+      const res = await adminFetch(`/api/submissions?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         setSubmissions((prev) => prev.filter((s) => s.id !== id));
         setSelectedSubmission(null);
+      } else {
+        alert(data.error || "Başvuru kaydı silinemedi.");
       }
     } catch (err) {
       console.error(err);
+      alert("Silme işlemi sırasında bağlantı hatası oluştu.");
     }
   };
 
@@ -1004,7 +1027,7 @@ export default function AdminPage() {
       const fd = new FormData();
       fd.append("file", file);
 
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await adminFetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (data.success && data.file) {
         setSirkulerForm((prev) => ({
@@ -1116,9 +1139,8 @@ export default function AdminPage() {
   const handleDeleteSirkuler = async (item: any) => {
     if (!window.confirm(`"${item.title}" başlıklı sirküleri kalıcı olarak silmek istediğinize emin misiniz?`)) return;
     try {
-      const res = await fetch(`/api/admin/sirkuler?id=${encodeURIComponent(item.id)}`, {
+      const res = await adminFetch(`/api/admin/sirkuler?id=${encodeURIComponent(item.id)}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, id: item.id }),
       });
       const data = await res.json();
@@ -1135,9 +1157,8 @@ export default function AdminPage() {
   const handleToggleSirkulerStatus = async (item: any) => {
     const newStatus = !item.isPublished;
     try {
-      const res = await fetch("/api/admin/sirkuler/status", {
+      const res = await adminFetch("/api/admin/sirkuler/status", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, id: item.id, isPublished: newStatus }),
       });
       const data = await res.json();
@@ -1160,9 +1181,8 @@ export default function AdminPage() {
     setSirkulerResult(null);
 
     try {
-      const res = await fetch("/api/admin/sirkuler", {
+      const res = await adminFetch("/api/admin/sirkuler", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           password,
           ...sirkulerForm,
@@ -1197,9 +1217,9 @@ export default function AdminPage() {
       const fd = new FormData();
       fd.append("file", file);
 
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await adminFetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.success && data.file) {
+      if (res.ok && data.success && data.file) {
         setDocForm((prev) => ({
           ...prev,
           fileUrl: data.file.url,
@@ -1207,6 +1227,8 @@ export default function AdminPage() {
           fileType: data.file.type,
           title: prev.title || data.file.name.replace(/\.[^/.]+$/, ""),
         }));
+      } else {
+        alert(data.error || "Dosya yüklenemedi.");
       }
     } catch (err) {
       alert("Dosya yüklenemedi.");
@@ -1218,10 +1240,10 @@ export default function AdminPage() {
   // Belge Kaydet
   const handleSaveDoc = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDocResult(null);
     try {
-      const res = await fetch("/api/documents", {
+      const res = await adminFetch("/api/documents", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, ...docForm }),
       });
       const data = await res.json();
@@ -1235,12 +1257,12 @@ export default function AdminPage() {
           fileSize: "1.2 MB",
           fileType: "pdf",
         });
-        loadAllAdminData();
+        await loadAllAdminData();
       } else {
         setDocResult({ success: false, message: data.error || "Eklenemedi." });
       }
     } catch (err) {
-      setDocResult({ success: false, message: "Hata." });
+      setDocResult({ success: false, message: "Bağlantı hatası." });
     }
   };
 
@@ -1248,28 +1270,58 @@ export default function AdminPage() {
   const handleDeleteDoc = async (id: string) => {
     if (!confirm("Bu belgeyi silmek istediğinize emin misiniz?")) return;
     try {
-      await fetch(`/api/documents?id=${id}&password=${encodeURIComponent(password)}`, {
+      const res = await adminFetch(`/api/documents?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
-      setDocumentsList((prev) => prev.filter((d) => d.id !== id));
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDocumentsList((prev) => prev.filter((d) => d.id !== id));
+      } else {
+        alert(data.error || "Belge silinemedi. Yetkinizi ve oturumunuzu kontrol ediniz.");
+      }
     } catch (err) {
       console.error(err);
+      alert("Belge silinirken sunucu bağlantı hatası oluştu.");
     }
   };
 
   // Yorum Onayla / Gizle
   const handleToggleFeedback = async (id: string, currentApproved: boolean) => {
     try {
-      await fetch("/api/feedbacks", {
+      const res = await adminFetch("/api/feedbacks", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, id, isApproved: !currentApproved }),
       });
-      setFeedbacksList((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, isApproved: !currentApproved } : f))
-      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFeedbacksList((prev) =>
+          prev.map((f) => (f.id === id ? { ...f, isApproved: !currentApproved } : f))
+        );
+      } else {
+        alert(data.error || "Yorum durumu güncellenemedi. Yetkinizi ve oturumunuzu kontrol ediniz.");
+      }
     } catch (err) {
       console.error(err);
+      alert("Yorum durumu güncellenirken sunucu bağlantı hatası oluştu.");
+    }
+  };
+
+  // Yorum Sil
+  const handleDeleteFeedback = async (id: string) => {
+    if (!confirm("Bu müşteri yorumunu kalıcı olarak silmek istediğinize emin misiniz?")) return;
+    try {
+      const res = await adminFetch(`/api/feedbacks?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFeedbacksList((prev) => prev.filter((f) => f.id !== id));
+      } else {
+        alert(data.error || "Yorum silinemedi.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Yorum silinirken sunucu bağlantı hatası oluştu.");
     }
   };
 
@@ -1392,9 +1444,8 @@ export default function AdminPage() {
     }
 
     try {
-      const res = await fetch("/api/forms", {
+      const res = await adminFetch("/api/forms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           password,
           id: editingFormId || undefined,
@@ -1437,12 +1488,8 @@ export default function AdminPage() {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/forms/${form.id}`, {
+      const res = await adminFetch(`/api/forms/${form.id}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
         body: JSON.stringify({ password }),
       });
 
@@ -1461,9 +1508,8 @@ export default function AdminPage() {
   const handleToggleFormStatus = async (form: any) => {
     const newStatus = !form.isActive;
     try {
-      const res = await fetch(`/api/forms/${form.id}/status`, {
+      const res = await adminFetch(`/api/forms/${form.id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, isActive: newStatus }),
       });
       const data = await res.json();
@@ -3248,16 +3294,27 @@ export default function AdminPage() {
                       <span className="text-slate-400 ml-1">({fb.company || "Bireysel"})</span>
                     </div>
 
-                    <button
-                      onClick={() => handleToggleFeedback(fb.id, fb.isApproved)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                        fb.isApproved
-                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700"
-                      }`}
-                    >
-                      {fb.isApproved ? "Yayından Kaldır" : "Onayla & Yayınla"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggleFeedback(fb.id, fb.isApproved)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                          fb.isApproved
+                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            : "bg-emerald-600 text-white hover:bg-emerald-700"
+                        }`}
+                      >
+                        {fb.isApproved ? "Yayından Kaldır" : "Onayla & Yayınla"}
+                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDeleteFeedback(fb.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 transition"
+                          title="Yorumu Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

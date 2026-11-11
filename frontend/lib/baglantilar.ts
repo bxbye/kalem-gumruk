@@ -1,4 +1,5 @@
 import { gerekliBaglantilarData } from "@/data/gerekliBaglantilar";
+import { fetchBackendNoStore } from "./api";
 
 export interface GerekliBaglanti {
   id: string;
@@ -29,14 +30,11 @@ function getFallbackBaglantilar(): GerekliBaglanti[] {
 }
 
 export async function getAllGerekliBaglantilarAsync(): Promise<GerekliBaglanti[]> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
-    const res = await fetch(`${backendUrl}/api/public/baglantilar`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore("/api/public/baglantilar");
     if (res.ok) {
       const data = await res.json();
-      if (data.baglantilar && data.baglantilar.length > 0) {
+      if (data && data.success && Array.isArray(data.baglantilar)) {
         return data.baglantilar;
       }
     }

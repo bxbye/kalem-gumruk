@@ -1,4 +1,5 @@
 import { companyInfo } from "@/data/company";
+import { fetchBackendNoStore } from "./api";
 
 export interface SiteSettings {
   name: string;
@@ -22,11 +23,8 @@ export interface SiteSettings {
 }
 
 export async function getSiteSettingsAsync(): Promise<SiteSettings> {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:5001";
   try {
-    const res = await fetch(`${backendUrl}/api/public/settings`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackendNoStore("/api/public/settings");
     if (res.ok) {
       const data = await res.json();
       if (data && data.success && data.settings) {
@@ -36,7 +34,7 @@ export async function getSiteSettingsAsync(): Promise<SiteSettings> {
         };
       }
     }
-  } catch (error) {
+  } catch {
     // Fallback
   }
   return companyInfo;

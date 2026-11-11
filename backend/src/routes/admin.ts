@@ -25,8 +25,14 @@ import {
   restoreDatabaseBackup,
   backupsDir,
 } from "../services/backup.js";
+import { setNoStoreHeaders, safeJsonParse } from "../utils/http.js";
 
 export const adminRouter = Router();
+
+adminRouter.use((_req, res, next) => {
+  setNoStoreHeaders(res);
+  next();
+});
 
 function slugify(text: string): string {
   const trMap: Record<string, string> = {
@@ -223,12 +229,13 @@ adminRouter.get("/me", async (req: AuthenticatedRequest, res) => {
 });
 
 // ==================== 1. SIRKÜLER & MEVZUAT ====================
-adminRouter.get("/sirkuler", async (_req, res) => {
+adminRouter.get("/sirkuler", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   try {
     const list: any[] = await db.select().from(sirkuler).orderBy(desc(sirkuler.date));
     const formatted = list.map((item) => ({
       ...item,
-      translations: JSON.parse(item.translations || "{}"),
+      translations: safeJsonParse<Record<string, any>>(item.translations, {}),
     }));
     return res.json({ success: true, sirkuler: formatted });
   } catch (error) {
@@ -350,13 +357,14 @@ adminRouter.patch("/sirkuler/status", async (req: AuthenticatedRequest, res) => 
 });
 
 // ==================== 2. HİZMETLER ====================
-adminRouter.get("/services", async (_req, res) => {
+adminRouter.get("/services", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   try {
     const list: any[] = await db.select().from(services).orderBy(asc(services.orderIndex));
     const formatted = list.map((item) => ({
       ...item,
-      features: JSON.parse(item.features || "[]"),
-      translations: JSON.parse(item.translations || "{}"),
+      features: safeJsonParse<string[]>(item.features, []),
+      translations: safeJsonParse<Record<string, any>>(item.translations, {}),
     }));
     return res.json({ success: true, services: formatted, items: formatted });
   } catch (error) {
@@ -452,7 +460,8 @@ adminRouter.delete("/services", async (req: AuthenticatedRequest, res) => {
 });
 
 // ==================== 3. GEREKLİ BAĞLANTILAR ====================
-adminRouter.get("/baglantilar", async (_req, res) => {
+adminRouter.get("/baglantilar", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   try {
     const list: any[] = await db.select().from(gerekliBaglantilar).orderBy(asc(gerekliBaglantilar.orderIndex));
     return res.json({ success: true, baglantilar: list, items: list });
@@ -528,7 +537,8 @@ adminRouter.delete("/baglantilar", async (req: AuthenticatedRequest, res) => {
 });
 
 // ==================== 4. REFERANSLAR ====================
-adminRouter.get("/references", async (_req, res) => {
+adminRouter.get("/references", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   try {
     const list: any[] = await db.select().from(references).orderBy(asc(references.orderIndex));
     return res.json({ success: true, references: list, items: list });
@@ -598,17 +608,11 @@ adminRouter.delete("/references", async (req: AuthenticatedRequest, res) => {
 });
 
 // ==================== 5. SİTE AYARLARI ====================
-adminRouter.get("/settings", async (_req, res) => {
+adminRouter.get("/settings", async (req: AuthenticatedRequest, res) => {
+  if (!(await authorize(req, res))) return;
   try {
     const [record] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
-    let settingsData = {};
-    if (record && record.value) {
-      try {
-        settingsData = JSON.parse(record.value);
-      } catch {
-        settingsData = {};
-      }
-    }
+    const settingsData = safeJsonParse<Record<string, any>>(record?.value, {});
     return res.json({ success: true, settings: settingsData });
   } catch (error) {
     console.error("[Admin Settings Get Error]:", error);

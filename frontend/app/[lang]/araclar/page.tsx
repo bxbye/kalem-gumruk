@@ -3,6 +3,8 @@ import GerekliBaglantilarSection from "@/components/GerekliBaglantilarSection";
 import { translations, availableLanguages, Language } from "@/data/translations";
 import { getAllGerekliBaglantilarAsync } from "@/lib/baglantilar";
 
+export const dynamic = "force-dynamic";
+
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
 }

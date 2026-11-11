@@ -4,23 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { Star, Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import HumanVerification from "./HumanVerification";
 import { useLanguage } from "@/context/LanguageContext";
+import type { FeedbackItem } from "@/lib/feedbacks";
 
-interface FeedbackItem {
-  id: string;
-  fullName: string;
-  company?: string;
-  rating: number;
-  serviceType?: string;
-  comment: string;
-  createdAt: string;
-}
-
-export default function DegerlendirmePage() {
+export default function DegerlendirmePage({
+  initialFeedbacks,
+}: {
+  initialFeedbacks?: FeedbackItem[];
+}) {
   const { t, isRTL } = useLanguage();
   const f = t.feedbackPage;
 
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
-  const [loadingList, setLoadingList] = useState(true);
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>(initialFeedbacks || []);
+  const [loadingList, setLoadingList] = useState(!initialFeedbacks);
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -32,27 +27,34 @@ export default function DegerlendirmePage() {
   const [kvkkConsent, setKvkkConsent] = useState(false);
   const [challengeToken, setChallengeToken] = useState("");
   const [challengeAnswer, setChallengeAnswer] = useState("");
+  const [challengeRefreshKey, setChallengeRefreshKey] = useState(0);
   const formLoadedAtRef = useRef<number>(Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
+    let active = true;
     async function loadFeedbacks() {
       try {
-        setLoadingList(true);
-        const res = await fetch("/api/feedbacks?approvedOnly=true");
+        if (!initialFeedbacks) setLoadingList(true);
+        const res = await fetch("/api/feedbacks?approvedOnly=true", {
+          cache: "no-store",
+        });
         const data = await res.json();
-        if (data.success) {
+        if (active && data.success && Array.isArray(data.feedbacks)) {
           setFeedbacks(data.feedbacks);
         }
       } catch (err) {
         console.error(err);
       } finally {
-        setLoadingList(false);
+        if (active) setLoadingList(false);
       }
     }
     loadFeedbacks();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [initialFeedbacks]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +98,8 @@ export default function DegerlendirmePage() {
         setComment("");
         setRating(5);
         setKvkkConsent(false);
+        setChallengeAnswer("");
+        setChallengeRefreshKey((k) => k + 1);
       } else {
         setResult({ success: false, message: data.error || f.errorMsg });
       }
@@ -256,6 +260,7 @@ export default function DegerlendirmePage() {
                   placeholder="Sonuç"
                   refreshText="Yenile"
                   value={challengeAnswer}
+                  refreshKey={challengeRefreshKey}
                   onChange={(tok, ans) => {
                     setChallengeToken(tok);
                     setChallengeAnswer(ans);
@@ -348,7 +353,7 @@ export default function DegerlendirmePage() {
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                       <span className="font-bold text-slate-900">{fb.fullName}</span>
-                      <span>{f.defaultCompany}</span>
+                      <span>{fb.company || f.defaultCompany}</span>
                     </div>
                   </div>
                 ))}

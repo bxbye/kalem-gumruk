@@ -10,6 +10,7 @@ interface HumanVerificationProps {
   value: string;
   onChange: (token: string, answer: string) => void;
   isRTL?: boolean;
+  refreshKey?: number;
 }
 
 export default function HumanVerification({
@@ -19,6 +20,7 @@ export default function HumanVerification({
   value,
   onChange,
   isRTL = false,
+  refreshKey,
 }: HumanVerificationProps) {
   const [token, setToken] = useState("");
   const [question, setQuestion] = useState("");
@@ -27,7 +29,7 @@ export default function HumanVerification({
   const fetchChallenge = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/public/challenge");
+      const res = await fetch("/api/public/challenge", { cache: "no-store" });
       const data = await res.json();
       if (data.success && data.challenge) {
         setToken(data.challenge.token);
@@ -43,7 +45,7 @@ export default function HumanVerification({
 
   useEffect(() => {
     fetchChallenge();
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="space-y-1.5 p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl">

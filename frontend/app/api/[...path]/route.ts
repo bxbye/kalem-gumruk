@@ -1,12 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { getBackendBaseUrl } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-const BACKEND_URL = (
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://test-api.kalemgumruk.com"
-).replace(/\/$/, "");
+function shouldRevalidateAppCache(method: string, targetPath: string): boolean {
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return false;
+
+  // Belgeler ekleme/silme
+  if (targetPath === "documents" && (method === "POST" || method === "DELETE")) return true;
+  // Müşteri yorumu onaylama/gizleme/silme
+  if (targetPath === "feedbacks" && (method === "PATCH" || method === "PUT" || method === "DELETE")) return true;
+  // Form şablonu kaydetme/silme/durum değiştirme
+  if (targetPath === "forms" && method === "POST") return true;
+  if (targetPath.startsWith("forms/") && (method === "DELETE" || method === "PATCH")) return true;
+  // Admin CMS mutasyonları (sirküler, hizmetler, bağlantılar, referanslar, ayarlar, yedek geri yükleme)
+  if (
+    targetPath.startsWith("admin/") &&
+    targetPath !== "admin/login" &&
+    targetPath !== "admin/test-email" &&
+    targetPath !== "admin/backups/create"
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 async function proxyRequest(
   req: NextRequest,
@@ -15,7 +34,8 @@ async function proxyRequest(
   const { path } = await context.params;
   const targetPath = (path || []).join("/");
   const url = new URL(req.url);
-  const targetUrl = `${BACKEND_URL}/api/${targetPath}${url.search}`;
+  const backendUrl = getBackendBaseUrl();
+  const targetUrl = `${backendUrl}/api/${targetPath}${url.search}`;
 
   try {
     const headers = new Headers();
@@ -46,6 +66,22 @@ async function proxyRequest(
         resHeaders.set(key, value);
       }
     });
+
+    // Açıkça public cache belirtilmeyen tüm API yanıtlarında proxy/tarayıcı cache'ini devre dışı bırak
+    const cacheControl = resHeaders.get("cache-control") || "";
+    if (!cacheControl.includes("public")) {
+      resHeaders.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      resHeaders.set("Pragma", "no-cache");
+      resHeaders.set("Expires", "0");
+    }
+
+    if (backendRes.ok && shouldRevalidateAppCache(req.method, targetPath)) {
+      try {
+        revalidatePath("/", "layout");
+      } catch (revalErr) {
+        console.warn("[API Proxy Revalidate Warning]:", revalErr);
+      }
+    }
 
     return new NextResponse(responseBody, {
       status: backendRes.status,

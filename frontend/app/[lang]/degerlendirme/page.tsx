@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import DegerlendirmeClient from "@/components/DegerlendirmeClient";
 import { translations, availableLanguages, Language } from "@/data/translations";
+import { getApprovedFeedbacksAsync } from "@/lib/feedbacks";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -37,6 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function DegerlendirmePage() {
-  return <DegerlendirmeClient />;
+export default async function DegerlendirmePage() {
+  const initialFeedbacks = await getApprovedFeedbacksAsync();
+  return <DegerlendirmeClient initialFeedbacks={initialFeedbacks} />;
 }
