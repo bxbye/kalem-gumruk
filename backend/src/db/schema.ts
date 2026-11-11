@@ -1,164 +1,172 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  mysqlTable,
+  varchar,
+  text,
+  int,
+  boolean,
+  timestamp,
+  bigint,
+} from "drizzle-orm/mysql-core";
 
 // 1. Dinamik Form Tanımları (Form Builder)
-export const forms = sqliteTable("forms", {
-  id: text("id").primaryKey(), // Örn: 'form_fiyat_teklifi'
-  slug: text("slug").unique().notNull(), // 'fiyat-teklifi', 'iletisim', 'kariyer-staj'
-  title: text("title").notNull(),
+export const forms = mysqlTable("forms", {
+  id: varchar("id", { length: 191 }).primaryKey(), // Örn: 'form_fiyat_teklifi'
+  slug: varchar("slug", { length: 191 }).unique().notNull(), // 'fiyat-teklifi', 'iletisim', 'kariyer-staj'
+  title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  category: text("category").notNull().default("general"),
+  category: varchar("category", { length: 100 }).notNull().default("general"),
   fields: text("fields").notNull(),
   settings: text("settings").notNull(),
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
 });
 
 // 2. Gelen Form Yanıtları (Submissions & Leadler)
-export const formSubmissions = sqliteTable("form_submissions", {
-  id: text("id").primaryKey(),
-  formSlug: text("form_slug").notNull(),
+export const formSubmissions = mysqlTable("form_submissions", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  formSlug: varchar("form_slug", { length: 191 }).notNull(),
   data: text("data").notNull(),
   files: text("files").default("[]"),
-  status: text("status").notNull().default("NEW"), // NEW, IN_REVIEW, CONTACTED, RESOLVED, ARCHIVED
+  status: varchar("status", { length: 50 }).notNull().default("NEW"), // NEW, IN_REVIEW, CONTACTED, RESOLVED, ARCHIVED
   adminNotes: text("admin_notes"),
-  ipAddress: text("ip_address"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  ipAddress: varchar("ip_address", { length: 100 }),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
 });
 
 // 3. Belgeler, Sertifikalar ve İndirilebilir Evraklar
-export const documents = sqliteTable("documents", {
-  id: text("id").primaryKey(),
-  title: text("title").notNull(),
+export const documents = mysqlTable("documents", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  category: text("category").notNull(),
-  fileUrl: text("file_url").notNull(),
-  fileKey: text("file_key"),
-  fileSize: text("file_size").notNull(),
-  fileType: text("file_type").notNull().default("pdf"),
-  downloadCount: integer("download_count").notNull().default(0),
-  isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  category: varchar("category", { length: 100 }).notNull(),
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileKey: varchar("file_key", { length: 255 }),
+  fileSize: varchar("file_size", { length: 50 }).notNull(),
+  fileType: varchar("file_type", { length: 50 }).notNull().default("pdf"),
+  downloadCount: int("download_count").notNull().default(0),
+  isPublic: boolean("is_public").notNull().default(true),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 4. Mevzuat & Sirküler Haberleri CMS
-export const sirkuler = sqliteTable("sirkuler", {
-  id: text("id").primaryKey(),
-  slug: text("slug").unique().notNull(),
-  title: text("title").notNull(),
-  category: text("category").notNull(),
-  regulationType: text("regulation_type"),
-  officialGazetteNumber: text("official_gazette_number"),
-  relatedGtip: text("related_gtip"),
+export const sirkuler = mysqlTable("sirkuler", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  slug: varchar("slug", { length: 191 }).unique().notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  regulationType: varchar("regulation_type", { length: 100 }),
+  officialGazetteNumber: varchar("official_gazette_number", { length: 100 }),
+  relatedGtip: varchar("related_gtip", { length: 255 }),
   summary: text("summary").notNull(),
   content: text("content").notNull(),
   expertNote: text("expert_note"),
-  sourceUrl: text("source_url"),
-  pdfUrl: text("pdf_url"),
-  author: text("author").notNull().default("Kalem Gümrük Mevzuat Kurulu"),
-  viewsCount: integer("views_count").notNull().default(0),
-  isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
-  date: text("date").notNull(),
+  sourceUrl: varchar("source_url", { length: 500 }),
+  pdfUrl: varchar("pdf_url", { length: 500 }),
+  author: varchar("author", { length: 255 }).notNull().default("Kalem Gümrük Mevzuat Kurulu"),
+  viewsCount: int("views_count").notNull().default(0),
+  isPublished: boolean("is_published").notNull().default(true),
+  date: varchar("date", { length: 50 }).notNull(),
   translations: text("translations").default("{}"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 5. Müşteri Memnuniyeti & Hizmet Değerlendirmeleri
-export const customerFeedbacks = sqliteTable("customer_feedbacks", {
-  id: text("id").primaryKey(),
-  fullName: text("full_name").notNull(),
-  company: text("company"),
-  rating: integer("rating").notNull(),
-  serviceType: text("service_type"),
+export const customerFeedbacks = mysqlTable("customer_feedbacks", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  company: varchar("company", { length: 255 }),
+  rating: int("rating").notNull(),
+  serviceType: varchar("service_type", { length: 100 }),
   comment: text("comment").notNull(),
-  isApproved: integer("is_approved", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  isApproved: boolean("is_approved").notNull().default(false),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 6. Chatbot Konuşmaları ve Müşteri Talepleri
-export const chatConversations = sqliteTable("chat_conversations", {
-  id: text("id").primaryKey(),
-  sessionId: text("session_id").unique().notNull(),
+export const chatConversations = mysqlTable("chat_conversations", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  sessionId: varchar("session_id", { length: 191 }).unique().notNull(),
   contactInfo: text("contact_info"),
   question: text("question"),
   messages: text("messages").notNull(),
-  status: text("status").notNull().default("NEW"),
-  isLeadCaptured: integer("is_lead_captured", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  status: varchar("status", { length: 50 }).notNull().default("NEW"),
+  isLeadCaptured: boolean("is_lead_captured").notNull().default(false),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
 });
 
 // 7. Site & Firma Genel Ayarları
-export const siteSettings = sqliteTable("site_settings", {
-  key: text("key").primaryKey(),
+export const siteSettings = mysqlTable("site_settings", {
+  key: varchar("key", { length: 191 }).primaryKey(),
   value: text("value").notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
 });
 
 // 8. Müşavir Masası & Gerekli Bağlantılar Portalı
-export const gerekliBaglantilar = sqliteTable("gerekli_baglantilar", {
-  id: text("id").primaryKey(),
-  title: text("title").notNull(),
-  shortTitle: text("short_title").notNull(),
-  category: text("category").notNull(),
-  url: text("url").notNull(),
-  image: text("image").notNull(),
+export const gerekliBaglantilar = mysqlTable("gerekli_baglantilar", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  shortTitle: varchar("short_title", { length: 100 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  url: varchar("url", { length: 500 }).notNull(),
+  image: varchar("image", { length: 500 }).notNull(),
   description: text("description").notNull(),
-  tag: text("tag").notNull(),
-  orderIndex: integer("order_index").notNull().default(0),
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  tag: varchar("tag", { length: 100 }).notNull(),
+  orderIndex: int("order_index").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 9. Hizmetlerimiz CMS
-export const services = sqliteTable("services", {
-  id: text("id").primaryKey(),
-  slug: text("slug").unique().notNull(),
-  title: text("title").notNull(),
+export const services = mysqlTable("services", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  slug: varchar("slug", { length: 191 }).unique().notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
   shortDesc: text("short_desc").notNull(),
-  iconName: text("icon_name").notNull().default("ArrowDownToLine"),
-  category: text("category").notNull().default("gumruk"),
+  iconName: varchar("icon_name", { length: 100 }).notNull().default("ArrowDownToLine"),
+  category: varchar("category", { length: 100 }).notNull().default("gumruk"),
   features: text("features").notNull().default("[]"),
   detailedContent: text("detailed_content").notNull(),
-  orderIndex: integer("order_index").notNull().default(0),
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  orderIndex: int("order_index").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
   translations: text("translations").default("{}"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 10. Müşteri Referansları & İş Ortakları
-export const references = sqliteTable("references", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  sector: text("sector").notNull(),
+export const references = mysqlTable("references", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  sector: varchar("sector", { length: 100 }).notNull(),
   description: text("description"),
-  logoUrl: text("logo_url"),
-  orderIndex: integer("order_index").notNull().default(0),
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  orderIndex: int("order_index").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
 
 // 11. Kullanıcılar ve Rol Bazlı Yetkilendirme (Admin & Editör)
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey(),
-  username: text("username").unique().notNull(),
-  passwordHash: text("password_hash").notNull(),
-  name: text("name").notNull(),
-  role: text("role").notNull().default("EDITOR"), // 'ADMIN' | 'EDITOR'
+export const users = mysqlTable("users", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  username: varchar("username", { length: 191 }).unique().notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().default("EDITOR"), // 'ADMIN' | 'EDITOR'
   permissions: text("permissions").notNull().default("{}"), // JSON string
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
 });
 
 // 12. Veritabanı Yedekleri Kataloğu
-export const databaseBackups = sqliteTable("database_backups", {
-  id: text("id").primaryKey(),
-  filename: text("filename").unique().notNull(),
-  filepath: text("filepath").notNull(),
-  sizeBytes: integer("size_bytes").notNull(),
-  backupType: text("backup_type").notNull().default("AUTOMATIC"), // AUTOMATIC, MANUAL, PRE_RESTORE
+export const databaseBackups = mysqlTable("database_backups", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  filename: varchar("filename", { length: 255 }).unique().notNull(),
+  filepath: varchar("filepath", { length: 500 }).notNull(),
+  sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+  backupType: varchar("backup_type", { length: 50 }).notNull().default("AUTOMATIC"), // AUTOMATIC, MANUAL, PRE_RESTORE
   note: text("note"),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });

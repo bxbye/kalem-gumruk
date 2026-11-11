@@ -24,7 +24,7 @@ submissionsRouter.get("/", async (req, res) => {
       query = query.where(eq(formSubmissions.status, status));
     }
 
-    const submissions = await query.orderBy(desc(formSubmissions.createdAt)).all();
+    const submissions: any[] = await query.orderBy(desc(formSubmissions.createdAt));
 
     const formatted = submissions.map((sub) => ({
       ...sub,

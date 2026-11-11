@@ -40,7 +40,7 @@ chatLeadRouter.post("/message", async (req, res) => {
     }
 
     const now = new Date();
-    const existing = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessionId)).get();
+    const [existing] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessionId)).limit(1);
 
     let currentMessages: Array<{ id: string; sender: string; text: string; time: string }> = [];
     const detected = extractContactFromText(trimmedMessage);
@@ -91,7 +91,7 @@ chatLeadRouter.post("/message", async (req, res) => {
 
       // 2. CRM (form_submissions) tablosunu da güncelle
       const subId = `SUB-CHAT-${sessionId}`;
-      const existingSub = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).get();
+      const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
 
       const userQuestions = currentMessages.filter((m) => m.sender === "user").map((m) => m.text);
       const firstQuestion = userQuestions[0] || trimmedMessage;
@@ -258,7 +258,7 @@ chatLeadRouter.post("/", async (req, res) => {
     const refCode = clientRefCode || `TK-CHAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date();
 
-    const existing = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessId)).get();
+    const [existing] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessId)).limit(1);
 
     let allMessages = messages || [];
     if (typeof allMessages === "string") {
@@ -310,7 +310,7 @@ chatLeadRouter.post("/", async (req, res) => {
 
     // CRM (form_submissions) Tablosuna Kaydet / Güncelle
     const subId = `SUB-CHAT-${sessId}`;
-    const existingSub = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).get();
+    const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
 
     const crmPayload = {
       fullName: contactName || finalContactInfo,

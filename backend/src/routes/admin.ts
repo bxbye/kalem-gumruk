@@ -115,7 +115,7 @@ adminRouter.post("/login", async (req, res) => {
 
     // 1. Veritabanındaki kullanıcıları kontrol et
     let matchedUser: any = null;
-    const dbUsers = await db.select().from(users).where(eq(users.isActive, true)).all();
+    const dbUsers: any[] = await db.select().from(users).where(eq(users.isActive, true));
 
     if (cleanUser) {
       const userRecord = dbUsers.find((u) => u.username.toLowerCase() === cleanUser.toLowerCase());
@@ -220,7 +220,7 @@ adminRouter.get("/me", async (req: AuthenticatedRequest, res) => {
 // ==================== 1. SIRKÜLER & MEVZUAT ====================
 adminRouter.get("/sirkuler", async (_req, res) => {
   try {
-    const list = await db.select().from(sirkuler).orderBy(desc(sirkuler.date)).all();
+    const list: any[] = await db.select().from(sirkuler).orderBy(desc(sirkuler.date));
     const formatted = list.map((item) => ({
       ...item,
       translations: JSON.parse(item.translations || "{}"),
@@ -262,7 +262,7 @@ adminRouter.post("/sirkuler", async (req: AuthenticatedRequest, res) => {
     const sirkulerId = id || `sirkuler-${Date.now()}`;
     const now = new Date();
 
-    const existing = await db.select().from(sirkuler).where(eq(sirkuler.id, sirkulerId)).get();
+    const [existing] = await db.select().from(sirkuler).where(eq(sirkuler.id, sirkulerId)).limit(1);
 
     if (existing) {
       await db
@@ -347,7 +347,7 @@ adminRouter.patch("/sirkuler/status", async (req: AuthenticatedRequest, res) => 
 // ==================== 2. HİZMETLER ====================
 adminRouter.get("/services", async (_req, res) => {
   try {
-    const list = await db.select().from(services).orderBy(asc(services.orderIndex)).all();
+    const list: any[] = await db.select().from(services).orderBy(asc(services.orderIndex));
     const formatted = list.map((item) => ({
       ...item,
       features: JSON.parse(item.features || "[]"),
@@ -389,7 +389,7 @@ adminRouter.post("/services", async (req: AuthenticatedRequest, res) => {
         .replace(/-+/g, "-");
 
     const serviceId = id || `service-${serviceSlug}`;
-    const existing = await db.select().from(services).where(eq(services.id, serviceId)).get();
+    const [existing] = await db.select().from(services).where(eq(services.id, serviceId)).limit(1);
 
     if (existing) {
       await db
@@ -449,7 +449,7 @@ adminRouter.delete("/services", async (req: AuthenticatedRequest, res) => {
 // ==================== 3. GEREKLİ BAĞLANTILAR ====================
 adminRouter.get("/baglantilar", async (_req, res) => {
   try {
-    const list = await db.select().from(gerekliBaglantilar).orderBy(asc(gerekliBaglantilar.orderIndex)).all();
+    const list: any[] = await db.select().from(gerekliBaglantilar).orderBy(asc(gerekliBaglantilar.orderIndex));
     return res.json({ success: true, baglantilar: list, items: list });
   } catch (error) {
     console.error("[Admin Baglantilar List Error]:", error);
@@ -467,7 +467,7 @@ adminRouter.post("/baglantilar", async (req: AuthenticatedRequest, res) => {
     }
 
     const baglantiId = id || `link-${Date.now()}`;
-    const existing = await db.select().from(gerekliBaglantilar).where(eq(gerekliBaglantilar.id, baglantiId)).get();
+    const [existing] = await db.select().from(gerekliBaglantilar).where(eq(gerekliBaglantilar.id, baglantiId)).limit(1);
 
     if (existing) {
       await db
@@ -525,7 +525,7 @@ adminRouter.delete("/baglantilar", async (req: AuthenticatedRequest, res) => {
 // ==================== 4. REFERANSLAR ====================
 adminRouter.get("/references", async (_req, res) => {
   try {
-    const list = await db.select().from(references).orderBy(asc(references.orderIndex)).all();
+    const list: any[] = await db.select().from(references).orderBy(asc(references.orderIndex));
     return res.json({ success: true, references: list, items: list });
   } catch (error) {
     console.error("[Admin References List Error]:", error);
@@ -543,7 +543,7 @@ adminRouter.post("/references", async (req: AuthenticatedRequest, res) => {
     }
 
     const refId = id || `ref-${Date.now()}`;
-    const existing = await db.select().from(references).where(eq(references.id, refId)).get();
+    const [existing] = await db.select().from(references).where(eq(references.id, refId)).limit(1);
 
     if (existing) {
       await db
@@ -595,7 +595,7 @@ adminRouter.delete("/references", async (req: AuthenticatedRequest, res) => {
 // ==================== 5. SİTE AYARLARI ====================
 adminRouter.get("/settings", async (_req, res) => {
   try {
-    const record = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).get();
+    const [record] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
     let settingsData = {};
     if (record && record.value) {
       try {
@@ -619,7 +619,7 @@ adminRouter.post("/settings", async (req: AuthenticatedRequest, res) => {
     if (!settings) return res.status(400).json({ error: "Ayarlar verisi eksik." });
 
     const jsonVal = typeof settings === "string" ? settings : JSON.stringify(settings);
-    const existing = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).get();
+    const [existing] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
 
     if (existing) {
       await db
@@ -645,7 +645,7 @@ adminRouter.post("/settings", async (req: AuthenticatedRequest, res) => {
 adminRouter.get("/users", async (req: AuthenticatedRequest, res) => {
   if (!(await authorize(req, res, { requireAdmin: true }))) return;
   try {
-    const userList = await db.select().from(users).orderBy(asc(users.createdAt)).all();
+    const userList: any[] = await db.select().from(users).orderBy(asc(users.createdAt));
     const safeUsers = userList.map((u) => {
       let perms = {};
       try {
@@ -690,7 +690,7 @@ adminRouter.post("/users", async (req: AuthenticatedRequest, res) => {
       parsedPerms.canDelete = false; // Güvenlik garantisi
     }
 
-    const existing = await db.select().from(users).where(eq(users.id, userId)).get();
+    const [existing] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (existing) {
       const updateData: any = {
@@ -713,7 +713,7 @@ adminRouter.post("/users", async (req: AuthenticatedRequest, res) => {
       }
 
       // Kullanıcı adı benzersizlik kontrolü
-      const duplicate = await db.select().from(users).where(eq(users.username, cleanUser)).get();
+      const [duplicate] = await db.select().from(users).where(eq(users.username, cleanUser)).limit(1);
       if (duplicate) {
         return res.status(400).json({ error: "Bu kullanıcı adı zaten kullanımda." });
       }

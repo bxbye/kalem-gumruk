@@ -18,7 +18,7 @@ export const formsRouter = Router();
 // Tüm Formları Listele
 formsRouter.get("/", async (_req, res) => {
   try {
-    const records = await db.select().from(forms).orderBy(desc(forms.createdAt)).all();
+    const records: any[] = await db.select().from(forms).orderBy(desc(forms.createdAt));
     const formatted = records.map((f) => ({
       ...f,
       fields: JSON.parse(f.fields || "[]"),
@@ -52,7 +52,7 @@ formsRouter.post("/", async (req, res) => {
     const formId = id || `form_${slug.replace(/[^a-z0-9_-]/g, "_")}`;
     const now = new Date();
 
-    const existing = await db.select().from(forms).where(eq(forms.id, formId)).get();
+    const [existing] = await db.select().from(forms).where(eq(forms.id, formId)).limit(1);
 
     if (existing) {
       await db
@@ -147,7 +147,7 @@ formsRouter.patch("/:id/status", async (req, res) => {
 formsRouter.get("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const formRecord = await db.select().from(forms).where(eq(forms.slug, slug)).get();
+    const [formRecord] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
 
     if (!formRecord || !formRecord.isActive) {
       return res.status(404).json({ error: "Form bulunamadı veya pasif durumda." });
@@ -208,7 +208,7 @@ formsRouter.post("/:slug", async (req, res) => {
       return res.status(400).json({ error: "Forma en fazla 2 adet dosya ekleyebilirsiniz." });
     }
 
-    const formRecord = await db.select().from(forms).where(eq(forms.slug, slug)).get();
+    const [formRecord] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
     if (!formRecord || !formRecord.isActive) {
       return res.status(404).json({ error: "Geçersiz veya yayından kaldırılmış form." });
     }

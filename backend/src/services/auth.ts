@@ -129,7 +129,7 @@ export async function authenticateRequest(req: Request): Promise<UserSession | n
 
     // Veritabanındaki kullanıcıları da kontrol et
     try {
-      const dbUsers = await db.select().from(users).where(eq(users.isActive, true)).all();
+      const dbUsers = await db.select().from(users).where(eq(users.isActive, true));
       for (const u of dbUsers) {
         if (verifyPassword(cleanPass, u.passwordHash)) {
           let parsedPerms = {};

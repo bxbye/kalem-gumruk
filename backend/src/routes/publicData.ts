@@ -27,8 +27,7 @@ publicDataRouter.get("/services", async (req, res) => {
       .select()
       .from(services)
       .where(eq(services.isActive, true))
-      .orderBy(asc(services.orderIndex))
-      .all();
+      .orderBy(asc(services.orderIndex));
 
     const formatted = list.map((r: any) => {
       let parsedFeatures: string[] = [];
@@ -70,11 +69,11 @@ publicDataRouter.get("/services/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
     const lang = (req.query.lang as string) || "tr";
-    const record = await db
+    const [record] = await db
       .select()
       .from(services)
       .where(and(eq(services.slug, slug), eq(services.isActive, true)))
-      .get();
+      .limit(1);
 
     if (!record) {
       return res.status(404).json({ error: "Hizmet bulunamadı." });
@@ -118,8 +117,7 @@ publicDataRouter.get("/sirkuler", async (req, res) => {
       .select()
       .from(sirkuler)
       .where(eq(sirkuler.isPublished, true))
-      .orderBy(desc(sirkuler.date))
-      .all();
+      .orderBy(desc(sirkuler.date));
 
     const formatted = list.map((r: any) => {
       let parsedTranslations: Record<string, any> = {};
@@ -161,7 +159,7 @@ publicDataRouter.get("/sirkuler/:slug", async (req, res) => {
     const rawSlug = req.params.slug;
     const decodedSlug = decodeURIComponent(rawSlug);
     const lang = (req.query.lang as string) || "tr";
-    const record = await db
+    const [record] = await db
       .select()
       .from(sirkuler)
       .where(
@@ -170,7 +168,7 @@ publicDataRouter.get("/sirkuler/:slug", async (req, res) => {
           eq(sirkuler.isPublished, true)
         )
       )
-      .get();
+      .limit(1);
 
     if (!record) {
       return res.status(404).json({ error: "Sirküler bulunamadı." });
@@ -217,8 +215,7 @@ publicDataRouter.get("/baglantilar", async (_req, res) => {
       .select()
       .from(gerekliBaglantilar)
       .where(eq(gerekliBaglantilar.isActive, true))
-      .orderBy(asc(gerekliBaglantilar.orderIndex))
-      .all();
+      .orderBy(asc(gerekliBaglantilar.orderIndex));
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, baglantilar: list });
   } catch (error) {
@@ -234,8 +231,7 @@ publicDataRouter.get("/references", async (_req, res) => {
       .select()
       .from(references)
       .where(eq(references.isActive, true))
-      .orderBy(asc(references.orderIndex))
-      .all();
+      .orderBy(asc(references.orderIndex));
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     return res.json({ success: true, references: list });
   } catch (error) {
@@ -247,7 +243,7 @@ publicDataRouter.get("/references", async (_req, res) => {
 // ==================== SİTE VE FİRMA AYARLARI (PUBLIC) ====================
 publicDataRouter.get("/settings", async (_req, res) => {
   try {
-    const record = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).get();
+    const [record] = await db.select().from(siteSettings).where(eq(siteSettings.key, "general_settings")).limit(1);
     let dbSettings: Record<string, any> = {};
     if (record && record.value) {
       try {

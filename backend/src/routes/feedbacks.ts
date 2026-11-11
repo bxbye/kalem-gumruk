@@ -18,7 +18,7 @@ feedbacksRouter.get("/", async (req, res) => {
       query = query.where(eq(customerFeedbacks.isApproved, true));
     }
 
-    const feedbacks = await query.orderBy(desc(customerFeedbacks.createdAt)).all();
+    const feedbacks = await query.orderBy(desc(customerFeedbacks.createdAt));
     return res.json({ success: true, feedbacks });
   } catch (error) {
     console.error("[Feedbacks List Error]:", error);

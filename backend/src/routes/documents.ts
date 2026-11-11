@@ -9,7 +9,7 @@ export const documentsRouter = Router();
 // Belgeleri Listele
 documentsRouter.get("/", async (_req, res) => {
   try {
-    const docs = await db.select().from(documents).orderBy(desc(documents.createdAt)).all();
+    const docs = await db.select().from(documents).orderBy(desc(documents.createdAt));
     return res.json({ success: true, documents: docs });
   } catch (error) {
     console.error("[Documents List Error]:", error);

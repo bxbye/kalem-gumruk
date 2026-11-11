@@ -27,7 +27,7 @@ const PORT = process.env.PORT || process.env.BACKEND_PORT || 5001;
 app.set("trust proxy", 1);
 
 // 1. Veritabanını başlat ve tabloları/seed verilerini kontrol et
-ensureDatabaseInitialized();
+await ensureDatabaseInitialized();
 
 // 2. Güvenlik ve CORS Yapılandırması
 function parseOrigins(raw?: string): string[] {

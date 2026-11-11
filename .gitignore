@@ -6,7 +6,7 @@ node_modules
 # Production & Build outputs
 frontend/.next
 frontend/out
-backend/dist
+# backend/dist (Plesk deployment kolaylığı için dist dahil edildi)
 
 # Env & Secrets
 .env
