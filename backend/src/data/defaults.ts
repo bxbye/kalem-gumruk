@@ -182,6 +182,18 @@ export const defaultDocuments = [
     downloadCount: 428,
     isPublic: true,
   },
+  {
+    id: "doc-5",
+    title: "KVKK Kişisel Verilerin Korunması Aydınlatma Metni",
+    description: "6698 sayılı KVKK m.10 uyarınca müşteri, iş ortağı ve aday kişisel verilerinin işlenmesine ilişkin kurumsal aydınlatma metni.",
+    category: "SOZLESME",
+    fileUrl: "/uploads/kalem-kvkk-aydinlatma-metni.pdf",
+    fileKey: null,
+    fileSize: "39 KB",
+    fileType: "pdf",
+    downloadCount: 0,
+    isPublic: true,
+  },
 ];
 
 export const defaultReferences = [

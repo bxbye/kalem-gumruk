@@ -386,6 +386,8 @@ chatLeadRouter.post("/", async (req, res) => {
           message: formatMessagesText(allMessages),
           refCode,
           chatHistory: allMessages,
+          kvkkConsent: Boolean(kvkkConsent),
+          kvkkApprovedAt: kvkkConsent ? now.toISOString() : null,
           _lang: visitorLang,
         };
 

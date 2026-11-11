@@ -538,6 +538,17 @@ export async function ensureDatabaseInitialized() {
           fileType: "pdf",
           downloadCount: 428,
         },
+        {
+          id: "doc-5",
+          title: "KVKK Kişisel Verilerin Korunması Aydınlatma Metni",
+          description: "6698 sayılı KVKK m.10 uyarınca müşteri, iş ortağı ve aday kişisel verilerinin işlenmesine ilişkin kurumsal aydınlatma metni.",
+          category: "SOZLESME",
+          fileUrl: "/uploads/kalem-kvkk-aydinlatma-metni.pdf",
+          fileKey: null,
+          fileSize: "39 KB",
+          fileType: "pdf",
+          downloadCount: 0,
+        },
       ];
 
       for (const d of defaultDocs) {
@@ -617,6 +628,33 @@ export async function ensureDatabaseInitialized() {
       await pool.query(
         `INSERT IGNORE INTO site_settings (\`key\`, value) VALUES (?, ?)`,
         ["initial_seed_v1", JSON.stringify({ completedAt: new Date().toISOString() })]
+      );
+    }
+
+    // Mevcut veritabanları için tek seferlik KVKK Aydınlatma Metni belgesi eklemesi
+    const [kvkkSeedRows]: any = await pool.query(
+      "SELECT count(*) as count FROM site_settings WHERE `key` = 'kvkk_doc_seed_v1'"
+    );
+    if (kvkkSeedRows[0].count === 0) {
+      await pool.query(
+        `INSERT IGNORE INTO documents (id, title, description, category, file_url, file_key, file_size, file_type, download_count, is_public)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          "doc-5",
+          "KVKK Kişisel Verilerin Korunması Aydınlatma Metni",
+          "6698 sayılı KVKK m.10 uyarınca müşteri, iş ortağı ve aday kişisel verilerinin işlenmesine ilişkin kurumsal aydınlatma metni.",
+          "SOZLESME",
+          "/uploads/kalem-kvkk-aydinlatma-metni.pdf",
+          null,
+          "39 KB",
+          "pdf",
+          0,
+          1,
+        ]
+      );
+      await pool.query(
+        `INSERT IGNORE INTO site_settings (\`key\`, value) VALUES (?, ?)`,
+        ["kvkk_doc_seed_v1", JSON.stringify({ completedAt: new Date().toISOString() })]
       );
     }
 

@@ -732,19 +732,36 @@ export default function KariyerClient({
                   />
                 </div>
 
-                {/* KVKK Onay Kutusu */}
+                {/* KVKK Onay Kutusu (Zorunlu) */}
                 <div className="pt-1">
-                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                  <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none bg-white p-3 rounded-xl border border-slate-200">
                     <input
                       type="checkbox"
+                      required
                       checked={formData.kvkkConsent || false}
                       onChange={(e) =>
                         handleInputChange("kvkkConsent", e.target.checked)
                       }
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#44B9CD] focus:ring-[#44B9CD]"
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#44B9CD] focus:ring-[#44B9CD] accent-[#1E2A3A]"
                     />
-                    <span className="text-xs text-slate-600 leading-relaxed">
-                      {c.form.kvkkConsent}
+                    <span className="leading-relaxed">
+                      <Link
+                        href={localePath("/kurumsal#kvkk")}
+                        target="_blank"
+                        className="text-[#0e7490] hover:underline font-bold"
+                      >
+                        {language === "en"
+                          ? "Personal Data Protection Policy (KVKK)"
+                          : language === "ar"
+                          ? "سياسة حماية البيانات الشخصية (KVKK)"
+                          : language === "es"
+                          ? "Política de Protección de Datos (KVKK)"
+                          : "6698 sayılı KVKK Aydınlatma Metni"}
+                      </Link>{" "}
+                      {language === "tr"
+                        ? "kapsamında özgeçmiş ve iletişim bilgilerimin İK havuzunda değerlendirilmesine ve tarafımla iletişime geçilmesine açık rıza veriyorum."
+                        : c.form.kvkkConsent}{" "}
+                      <span className="text-red-500">*</span>
                     </span>
                   </label>
                 </div>

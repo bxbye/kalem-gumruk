@@ -230,6 +230,8 @@ formsRouter.post("/:slug", formRateLimiter, async (req, res) => {
         const now = new Date();
         const submissionData = {
             ...(formData || {}),
+            kvkkConsent: true,
+            kvkkApprovedAt: now.toISOString(),
             _lang: visitorLang,
         };
         if (isDbConnected) {

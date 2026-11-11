@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Star, Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import HumanVerification from "./HumanVerification";
 import { useLanguage } from "@/context/LanguageContext";
@@ -11,7 +12,7 @@ export default function DegerlendirmePage({
 }: {
   initialFeedbacks?: FeedbackItem[];
 }) {
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, localePath, language } = useLanguage();
   const f = t.feedbackPage;
 
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>(initialFeedbacks || []);
@@ -280,7 +281,27 @@ export default function DegerlendirmePage({
                     className="mt-0.5 w-4 h-4 text-[#44B9CD] border-slate-300 rounded focus:ring-[#44B9CD] accent-[#1E2A3A]"
                   />
                   <span className="leading-relaxed">
-                    6698 sayılı KVKK kapsamında değerlendirmemin ve iletişim bilgilerimin işlenmesini onaylıyorum. <span className="text-red-500">*</span>
+                    <Link
+                      href={localePath("/kurumsal#kvkk")}
+                      target="_blank"
+                      className="text-[#0e7490] hover:underline font-bold"
+                    >
+                      {language === "en"
+                        ? "Personal Data Protection Policy (KVKK)"
+                        : language === "ar"
+                        ? "سياسة حماية البيانات الشخصية (KVKK)"
+                        : language === "es"
+                        ? "Política de Protección de Datos (KVKK)"
+                        : "6698 sayılı KVKK Aydınlatma Metni"}
+                    </Link>{" "}
+                    {language === "en"
+                      ? "— I consent to the processing and publication of my review and contact details."
+                      : language === "ar"
+                      ? "— أوافق على معالجة ونشر تقييمي وبيانات التواصل الخاصة بي."
+                      : language === "es"
+                      ? "— Consiento el tratamiento y publicación de mi valoración y datos de contacto."
+                      : "kapsamında değerlendirmemin ve iletişim bilgilerimin işlenmesini onaylıyorum."}{" "}
+                    <span className="text-red-500">*</span>
                   </span>
                 </label>
               </div>

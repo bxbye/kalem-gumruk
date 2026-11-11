@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Award, ShieldCheck, Clock, Users } from "lucide-react";
+import Link from "next/link";
+import { Award, ShieldCheck, Clock, Users, FileDown, FileText } from "lucide-react";
 import { translations, availableLanguages, Language } from "@/data/translations";
+import { companyInfo } from "@/data/company";
 
 export function generateStaticParams() {
   return availableLanguages.map((l) => ({ lang: l.code }));
@@ -123,15 +125,114 @@ export default async function KurumsalPage({ params }: Props) {
           </div>
         </div>
 
-        {/* KVKK / Veri Koruma Bildirimi */}
-        <div id="kvkk" className="bg-white rounded-2xl p-8 border border-slate-200/80 space-y-3">
-          <h2 className="text-base font-bold text-slate-900">
-            {t.kvkkTitle}
-          </h2>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            {t.kvkkDesc}
-          </p>
-        </div>
+        {/* KVKK / Veri Koruma Aydınlatma Metni */}
+        <section
+          id="kvkk"
+          className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs space-y-6 scroll-mt-24"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0e7490] uppercase tracking-wider bg-[#44B9CD]/15 px-2.5 py-0.5 rounded-full">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>6698 Sayılı KVKK</span>
+              </span>
+              <h2 className="text-lg sm:text-xl font-extrabold text-[#1E2A3A]">
+                {t.kvkkTitle}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {t.kvkkDesc}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a
+                href="/uploads/kalem-kvkk-aydinlatma-metni.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                download="Kalem-Gumruk-KVKK-Aydinlatma-Metni.pdf"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1E2A3A] hover:bg-slate-800 text-[#44B9CD] hover:text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+              >
+                <FileDown className="w-4 h-4" />
+                <span>
+                  {currentLang === "en"
+                    ? "Download KVKK PDF"
+                    : currentLang === "ar"
+                    ? "تحميل وثيقة KVKK (PDF)"
+                    : currentLang === "es"
+                    ? "Descargar PDF KVKK"
+                    : "KVKK Metni (PDF İndir)"}
+                </span>
+              </a>
+              <Link
+                href={`/${currentLang}/belgeler`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                <FileText className="w-4 h-4 text-[#44B9CD]" />
+                <span>
+                  {currentLang === "en"
+                    ? "All Documents"
+                    : currentLang === "ar"
+                    ? "جميع الوثائق"
+                    : currentLang === "es"
+                    ? "Documentos"
+                    : "Belgeler Sayfası"}
+                </span>
+              </Link>
+            </div>
+          </div>
+
+          <div className="p-4 bg-slate-50 border border-slate-200/80 border-l-4 border-l-[#44B9CD] rounded-r-xl text-xs text-slate-700 space-y-1">
+            <div>
+              <strong>Veri Sorumlusu:</strong> {companyInfo.name}
+            </div>
+            <div>
+              <strong>Adres:</strong> {companyInfo.address}
+            </div>
+            <div>
+              <strong>Telefon:</strong>{" "}
+              <span dir="ltr">{companyInfo.phone}</span> &nbsp;|&nbsp;{" "}
+              <strong>E-Posta:</strong>{" "}
+              <a href={`mailto:${companyInfo.email}`} className="text-[#0e7490] hover:underline">
+                {companyInfo.email}
+              </a>
+            </div>
+          </div>
+
+          <div className="space-y-5 text-xs sm:text-[13px] text-slate-600 leading-relaxed">
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-bold text-[#1E2A3A]">1. İşlenen Kişisel Veriler ve Toplama Yöntemi</h3>
+              <p>
+                Web sitemizde yer alan iletişim, fiyat teklifi, kariyer/staj, değerlendirme ve dinamik formlar ile dijital asistan (chatbot), e-posta, telefon ve WhatsApp kanalları üzerinden elektronik ortamda; ad-soyad, telefon numarası, e-posta adresi, firma/kurum unvanı, sevkiyat ve GTİP bilgileri, yüklenen ticari belgeler (fatura, konşimento vb.) veya özgeçmiş (CV) dosyaları ile işlem güvenliği kayıtları (IP adresi, referans kodu ve onay zamanı) toplanmaktadır.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-bold text-[#1E2A3A]">2. Kişisel Verilerin İşlenme Amaçları ve Hukuki Sebepler</h3>
+              <p>
+                Kişisel verileriniz; gümrükleme, dış ticaret ve mevzuat danışmanlığı hizmetlerinin yürütülmesi, fiyat teklifi ve bilgi taleplerinin yanıtlanması, insan kaynakları başvurularının değerlendirilmesi, 4458 sayılı Gümrük Kanunu ile ilgili mevzuattan doğan yükümlülüklerin yerine getirilmesi ve bilgi güvenliğinin sağlanması amaçlarıyla; KVKK m. 5/2’de yer alan kanunlarda öngörülme, sözleşmenin kurulması/ifası, hukuki yükümlülük ve meşru menfaat sebeplerine dayanılarak; ayrıca müşteri değerlendirmesi yayını, İK havuzunda değerlendirme ve iletişime geçilmesi hallerinde <strong>açık rızanız</strong> kapsamında işlenmektedir.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-bold text-[#1E2A3A]">3. Kişisel Verilerin Aktarılması ve Güvenliği</h3>
+              <p>
+                Ticari sırlarınız ve kişisel verileriniz hiçbir koşulda üçüncü kişilere pazarlama amacıyla satılmaz veya devredilmez. Verileriniz yalnızca hizmetin ifası ve yasal zorunluluklar çerçevesinde T.C. Ticaret Bakanlığı, Gümrük Müdürlükleri, yetkili kamu kurumları, lojistik/antrepo iş ortakları ve hukuken yetkili mercilerle mevzuata uygun biçimde paylaşılabilir; 256-bit SSL şifreleme ve erişim kontrolü tedbirleriyle korunur.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-bold text-[#1E2A3A]">4. KVKK Madde 11 Kapsamındaki Haklarınız ve Başvuru</h3>
+              <p>
+                KVKK m. 11 uyarınca kişisel verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini/yok edilmesini isteme, aktarılan üçüncü kişileri bilme ve kanuna aykırı işleme nedeniyle zararın giderilmesini talep etme haklarına sahipsiniz. Taleplerinizi ıslak imzalı dilekçe ile{" "}
+                <strong>{companyInfo.address}</strong> adresimize veya sistemimizde kayıtlı e-posta adresiniz üzerinden{" "}
+                <a href={`mailto:${companyInfo.email}`} className="text-[#0e7490] font-semibold hover:underline">
+                  {companyInfo.email}
+                </a>{" "}
+                adresine iletebilirsiniz; başvurularınız en geç 30 gün içinde ücretsiz sonuçlandırılır.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

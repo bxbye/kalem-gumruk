@@ -44,6 +44,8 @@ contactRouter.post("/", async (req, res) => {
                         email: email ? String(email).trim() : "",
                         serviceType: serviceType || "Genel Bilgi",
                         message: String(message).trim(),
+                        kvkkConsent: true,
+                        kvkkApprovedAt: now.toISOString(),
                         _lang: visitorLang,
                     }),
                     files: "[]",

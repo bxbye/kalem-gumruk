@@ -887,8 +887,28 @@ export default function ChatBot() {
                       onChange={(e) => setKvkkConsent(e.target.checked)}
                       className="mt-0.5 w-3.5 h-3.5 text-[#44B9CD] border-slate-300 rounded focus:ring-[#44B9CD] accent-[#1E2A3A]"
                     />
-                    <span>
-                      6698 sayılı KVKK kapsamında iletişim bilgilerimin işlenmesini onaylıyorum. <span className="text-red-500">*</span>
+                    <span className="leading-relaxed">
+                      <Link
+                        href={`/${language}/kurumsal#kvkk`}
+                        target="_blank"
+                        className="text-[#0e7490] hover:underline font-bold"
+                      >
+                        {language === "en"
+                          ? "KVKK Privacy Notice"
+                          : language === "ar"
+                          ? "سياسة الخصوصية (KVKK)"
+                          : language === "es"
+                          ? "Aviso de Privacidad (KVKK)"
+                          : "6698 sayılı KVKK Aydınlatma Metni"}
+                      </Link>{" "}
+                      {language === "en"
+                        ? "— I consent to the processing of my contact details."
+                        : language === "ar"
+                        ? "— أوافق على معالجة بيانات التواصل الخاصة بي."
+                        : language === "es"
+                        ? "— Consiento el tratamiento de mis datos de contacto."
+                        : "kapsamında iletişim bilgilerimin işlenmesini onaylıyorum."}{" "}
+                      <span className="text-red-500">*</span>
                     </span>
                   </label>
 
