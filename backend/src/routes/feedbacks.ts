@@ -1,17 +1,23 @@
 import { Router } from "express";
-import { db } from "../db/index.js";
+import { db, isDbConnected } from "../db/index.js";
 import { customerFeedbacks } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import { authenticateRequest } from "../services/auth.js";
 import { validateFormSpamGuard } from "../services/security.js";
+import { defaultFeedbacks } from "../data/defaults.js";
 
 export const feedbacksRouter = Router();
 
 // Yorumları Listele
 feedbacksRouter.get("/", async (req, res) => {
-  try {
-    const approvedOnly = req.query.approvedOnly === "true";
+  const approvedOnly = req.query.approvedOnly === "true";
+  const staticFallback = approvedOnly ? defaultFeedbacks.filter((f) => f.isApproved) : defaultFeedbacks;
 
+  if (!isDbConnected) {
+    return res.json({ success: true, feedbacks: staticFallback });
+  }
+
+  try {
     let query = db.select().from(customerFeedbacks);
     if (approvedOnly) {
       // @ts-ignore
@@ -19,10 +25,10 @@ feedbacksRouter.get("/", async (req, res) => {
     }
 
     const feedbacks = await query.orderBy(desc(customerFeedbacks.createdAt));
-    return res.json({ success: true, feedbacks });
+    return res.json({ success: true, feedbacks: feedbacks.length > 0 ? feedbacks : staticFallback });
   } catch (error) {
-    console.error("[Feedbacks List Error]:", error);
-    return res.status(500).json({ error: "Değerlendirmeler listelenemedi." });
+    console.warn("[Feedbacks List] DB hatası, statik yorumlar kullanılıyor:", error instanceof Error ? error.message : error);
+    return res.json({ success: true, feedbacks: staticFallback });
   }
 });
 

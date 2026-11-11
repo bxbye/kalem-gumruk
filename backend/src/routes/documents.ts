@@ -1,19 +1,24 @@
 import { Router } from "express";
-import { db } from "../db/index.js";
+import { db, isDbConnected } from "../db/index.js";
 import { documents } from "../db/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
 import { authenticateRequest } from "../services/auth.js";
+import { defaultDocuments } from "../data/defaults.js";
 
 export const documentsRouter = Router();
 
 // Belgeleri Listele
 documentsRouter.get("/", async (_req, res) => {
+  if (!isDbConnected) {
+    return res.json({ success: true, documents: defaultDocuments });
+  }
+
   try {
     const docs = await db.select().from(documents).orderBy(desc(documents.createdAt));
-    return res.json({ success: true, documents: docs });
+    return res.json({ success: true, documents: docs.length > 0 ? docs : defaultDocuments });
   } catch (error) {
-    console.error("[Documents List Error]:", error);
-    return res.status(500).json({ error: "Belgeler listelenemedi." });
+    console.warn("[Documents List] DB hatası, statik belgeler kullanılıyor:", error instanceof Error ? error.message : error);
+    return res.json({ success: true, documents: defaultDocuments });
   }
 });
 

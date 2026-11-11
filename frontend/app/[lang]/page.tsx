@@ -3,7 +3,6 @@ import Hero from "@/components/Hero";
 import StatsBar from "@/components/StatsBar";
 import ServicesCarousel from "@/components/ServicesCarousel";
 import CircularsCarousel from "@/components/CircularsCarousel";
-import ReferencesSection from "@/components/ReferencesSection";
 import { getAllSirkulerAsync } from "@/lib/sirkuler";
 import { getAllServicesAsync } from "@/lib/services";
 import { getAllGerekliBaglantilarAsync } from "@/lib/baglantilar";
@@ -75,7 +74,6 @@ export default async function HomePage({ params }: Props) {
       <StatsBar />
       <ServicesCarousel initialServices={allServices} />
       <CircularsCarousel items={allSirkuler} initialLinks={allBaglantilar} />
-      <ReferencesSection />
     </>
   );
 }

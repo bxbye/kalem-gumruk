@@ -1,13 +1,14 @@
 import { Router } from "express";
 import path from "path";
 import fs from "fs";
-import { db } from "../db/index.js";
+import { db, isDbConnected } from "../db/index.js";
 import { forms, formSubmissions } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import { getMailer, sendEmailUnified } from "../services/mailer.js";
 import { uploadsDir, fixUtf8Mojibake } from "../services/storage.js";
 import { authenticateRequest } from "../services/auth.js";
 import { validateFormSpamGuard } from "../services/security.js";
+import { defaultForms } from "../data/defaults.js";
 import {
   renderFormSubmissionAdminEmail,
   renderCustomerConfirmationEmail,
@@ -17,8 +18,15 @@ export const formsRouter = Router();
 
 // Tüm Formları Listele
 formsRouter.get("/", async (_req, res) => {
+  if (!isDbConnected) {
+    return res.json({ success: true, forms: defaultForms });
+  }
+
   try {
     const records: any[] = await db.select().from(forms).orderBy(desc(forms.createdAt));
+    if (!records || records.length === 0) {
+      return res.json({ success: true, forms: defaultForms });
+    }
     const formatted = records.map((f) => ({
       ...f,
       fields: JSON.parse(f.fields || "[]"),
@@ -26,8 +34,8 @@ formsRouter.get("/", async (_req, res) => {
     }));
     return res.json({ success: true, forms: formatted });
   } catch (error) {
-    console.error("[Forms List Error]:", error);
-    return res.status(500).json({ error: "Formlar yüklenemedi." });
+    console.warn("[Forms List] DB sorgu hatası, statik formlar kullanılıyor:", error instanceof Error ? error.message : error);
+    return res.json({ success: true, forms: defaultForms });
   }
 });
 
@@ -145,11 +153,23 @@ formsRouter.patch("/:id/status", async (req, res) => {
 
 // Slug ile Form Tanımı Getir
 formsRouter.get("/:slug", async (req, res) => {
+  const { slug } = req.params;
+  const staticFallback = defaultForms.find((f) => f.slug === slug);
+
+  if (!isDbConnected) {
+    if (staticFallback) {
+      return res.json({ success: true, form: staticFallback });
+    }
+    return res.status(404).json({ error: "Form bulunamadı veya pasif durumda." });
+  }
+
   try {
-    const { slug } = req.params;
     const [formRecord] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
 
     if (!formRecord || !formRecord.isActive) {
+      if (staticFallback) {
+        return res.json({ success: true, form: staticFallback });
+      }
       return res.status(404).json({ error: "Form bulunamadı veya pasif durumda." });
     }
 
@@ -166,7 +186,10 @@ formsRouter.get("/:slug", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[Form Get Error]:", error);
+    console.warn("[Form Get] DB hatası, statik fallback kullanılıyor:", error instanceof Error ? error.message : error);
+    if (staticFallback) {
+      return res.json({ success: true, form: staticFallback });
+    }
     return res.status(500).json({ error: "Form yüklenemedi." });
   }
 });
@@ -208,13 +231,33 @@ formsRouter.post("/:slug", async (req, res) => {
       return res.status(400).json({ error: "Forma en fazla 2 adet dosya ekleyebilirsiniz." });
     }
 
-    const [formRecord] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
-    if (!formRecord || !formRecord.isActive) {
-      return res.status(404).json({ error: "Geçersiz veya yayından kaldırılmış form." });
+    let formRecord: any = null;
+    let fields: any[] = [];
+    let settings: any = {};
+    const staticFallback = defaultForms.find((f) => f.slug === slug);
+
+    if (isDbConnected) {
+      try {
+        const [record] = await db.select().from(forms).where(eq(forms.slug, slug)).limit(1);
+        if (record && record.isActive) {
+          formRecord = record;
+          fields = JSON.parse(record.fields || "[]");
+          settings = JSON.parse(record.settings || "{}");
+        }
+      } catch (e) {
+        console.warn("[Form Submit] DB'den form okunamadı, fallback'e geçiliyor:", e instanceof Error ? e.message : e);
+      }
     }
 
-    const fields = JSON.parse(formRecord.fields || "[]");
-    const settings = JSON.parse(formRecord.settings || "{}");
+    if (!formRecord && staticFallback) {
+      formRecord = staticFallback;
+      fields = staticFallback.fields;
+      settings = staticFallback.settings;
+    }
+
+    if (!formRecord) {
+      return res.status(404).json({ error: "Geçersiz veya yayından kaldırılmış form." });
+    }
 
     // Zorunlu alan kontrolü
     for (const field of fields) {
@@ -235,15 +278,21 @@ formsRouter.post("/:slug", async (req, res) => {
       _lang: visitorLang,
     };
 
-    await db.insert(formSubmissions).values({
-      id: submissionId,
-      formSlug: slug,
-      data: JSON.stringify(submissionData),
-      files: JSON.stringify(files || []),
-      status: "NEW",
-      createdAt: now,
-      updatedAt: now,
-    });
+    if (isDbConnected) {
+      try {
+        await db.insert(formSubmissions).values({
+          id: submissionId,
+          formSlug: slug,
+          data: JSON.stringify(submissionData),
+          files: JSON.stringify(files || []),
+          status: "NEW",
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (dbErr: any) {
+        console.warn("[Forms Submit] DB kaydı atlandı:", dbErr?.message || dbErr);
+      }
+    }
 
     // Otomatik E-Posta Bildirimi (Ziyaretçinin Seçtiği Dilde ve Form Alan Tanımlarıyla)
     handleFormSubmissionEmail(

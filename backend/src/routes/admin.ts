@@ -115,7 +115,12 @@ adminRouter.post("/login", async (req, res) => {
 
     // 1. Veritabanındaki kullanıcıları kontrol et
     let matchedUser: any = null;
-    const dbUsers: any[] = await db.select().from(users).where(eq(users.isActive, true));
+    let dbUsers: any[] = [];
+    try {
+      dbUsers = await db.select().from(users).where(eq(users.isActive, true));
+    } catch {
+      dbUsers = [];
+    }
 
     if (cleanUser) {
       const userRecord = dbUsers.find((u) => u.username.toLowerCase() === cleanUser.toLowerCase());

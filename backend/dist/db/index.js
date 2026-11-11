@@ -25,9 +25,53 @@ export const pool = mysql.createPool({
 });
 export const db = drizzle(pool, { schema, mode: "default" });
 let isInitialized = false;
+export let isDbConnected = false;
 export async function ensureDatabaseInitialized() {
     if (isInitialized)
         return;
+    // 0. Veritabanı bağlantısını test et
+    try {
+        const conn = await pool.getConnection();
+        conn.release();
+        isDbConnected = true;
+    }
+    catch (connErr) {
+        isDbConnected = false;
+        const isConnRefused = connErr?.code === "ECONNREFUSED" ||
+            (connErr?.errors && Array.isArray(connErr.errors) && connErr.errors.some((e) => e.code === "ECONNREFUSED")) ||
+            (typeof connErr?.message === "string" && connErr.message.includes("ECONNREFUSED"));
+        // Eğer veritabanı bulunamadıysa (ER_BAD_DB_ERROR) otomatik oluşturmayı dene
+        if (connErr?.code === "ER_BAD_DB_ERROR") {
+            try {
+                console.log(`[DB] '${DB_NAME}' veritabanı bulunamadı, otomatik oluşturuluyor...`);
+                const rootConn = await mysql.createConnection({
+                    host: DB_HOST,
+                    port: DB_PORT,
+                    user: DB_USER,
+                    password: DB_PASSWORD,
+                });
+                await rootConn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+                await rootConn.end();
+                const testConn = await pool.getConnection();
+                testConn.release();
+                isDbConnected = true;
+            }
+            catch (createErr) {
+                console.warn(`[DB] Veritabanı otomatik oluşturulamadı: ${createErr.message}`);
+            }
+        }
+        if (!isDbConnected) {
+            if (process.env.NODE_ENV === "development" && isConnRefused) {
+                console.warn(`[DB] ℹ️ Yerel MySQL servisi (${DB_HOST}:${DB_PORT}) aktif değil.`);
+                console.warn(`[DB] 🚀 Dev modu: Statik veriler ve güvenli bellek içi mod devrede.`);
+                console.warn(`[DB] 💡 (İsteğe bağlı: Yerel MySQL başlatmak için: brew install mysql && brew services start mysql)`);
+            }
+            else {
+                console.error(`[DB Init Hatası]: MySQL bağlantısı kurulamadı (${connErr?.code || connErr?.message})`);
+            }
+            return;
+        }
+    }
     try {
         // 1. Tabloları oluştur
         await pool.query(`

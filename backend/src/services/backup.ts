@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { pool, db } from "../db/index.js";
+import { pool, db, isDbConnected } from "../db/index.js";
 import { databaseBackups } from "../db/schema.js";
 import { desc, eq } from "drizzle-orm";
 import { fileURLToPath } from "url";
@@ -261,6 +261,9 @@ let dailyBackupTimer: NodeJS.Timeout | null = null;
 
 export function startDailyBackupScheduler() {
   if (dailyBackupTimer) return;
+  if (!isDbConnected) {
+    return;
+  }
 
   console.log("[Backup Scheduler] 🕒 Günlük otomatik veritabanı yedekleme servisi aktif edildi.");
 

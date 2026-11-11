@@ -81,7 +81,13 @@ adminRouter.post("/login", async (req, res) => {
         const editorEnvPass = (process.env.EDITOR_PASSWORD || "editor1997").trim();
         // 1. Veritabanındaki kullanıcıları kontrol et
         let matchedUser = null;
-        const dbUsers = await db.select().from(users).where(eq(users.isActive, true));
+        let dbUsers = [];
+        try {
+            dbUsers = await db.select().from(users).where(eq(users.isActive, true));
+        }
+        catch {
+            dbUsers = [];
+        }
         if (cleanUser) {
             const userRecord = dbUsers.find((u) => u.username.toLowerCase() === cleanUser.toLowerCase());
             if (userRecord && verifyPassword(cleanPass, userRecord.passwordHash)) {

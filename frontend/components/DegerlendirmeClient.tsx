@@ -348,7 +348,7 @@ export default function DegerlendirmePage() {
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                       <span className="font-bold text-slate-900">{fb.fullName}</span>
-                      <span>{fb.company || f.defaultCompany}</span>
+                      <span>{f.defaultCompany}</span>
                     </div>
                   </div>
                 ))}

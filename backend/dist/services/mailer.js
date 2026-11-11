@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { fixUtf8Mojibake } from "./storage.js";
 import { renderFormSubmissionAdminEmail, renderCustomerConfirmationEmail, } from "./emailTemplates.js";
+import { getLogoWhiteBuffer } from "../assets/logoWhiteBase64.js";
 let cachedTransporter = null;
 let lastSmtpConfigHash = "";
 /**
@@ -75,17 +76,32 @@ export async function sendEmailUnified(options) {
         throw new Error("E-posta yapılandırması eksik (SMTP_USER veya SMTP_PASS .env dosyasında tanımlı değil).");
     }
     const from = formatSender(options.from);
+    // E-posta eklerini kopyala
+    const attachments = options.attachments ? [...options.attachments] : [];
+    // HTML içinde cid:kalem-logo kullanılmışsa ve henüz eklenmemişse otomatik göm
+    if (options.html.includes("cid:kalem-logo")) {
+        const hasLogoCid = attachments.some((a) => a.cid === "kalem-logo");
+        if (!hasLogoCid) {
+            attachments.push({
+                filename: "logo-white.png",
+                content: getLogoWhiteBuffer(),
+                contentType: "image/png",
+                cid: "kalem-logo",
+            });
+        }
+    }
     const info = await transporter.sendMail({
         from,
         to: options.to,
         replyTo: options.replyTo,
         subject: options.subject,
         html: options.html,
-        attachments: options.attachments?.map((a) => ({
+        attachments: attachments.map((a) => ({
             filename: fixUtf8Mojibake(a.filename),
             path: a.path,
             content: a.content,
             contentType: a.contentType,
+            cid: a.cid,
         })),
     });
     return { success: true, messageId: info.messageId };
@@ -251,7 +267,7 @@ export async function sendChatLeadEmail({ refCode, contactInfo, contactName, que
           <tr>
             <td style="vertical-align: middle;">
               <a href="${siteBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                <img src="${siteBaseUrl}/logo-white.png" alt="Kalem Gümrük Müşavirliği" width="140" height="40" style="display: block; border: 0; max-width: 140px; height: auto;" />
+                <img src="cid:kalem-logo" alt="Kalem Gümrük Müşavirliği" width="140" height="40" style="display: block; border: 0; max-width: 140px; height: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 700; color: #ffffff;" />
               </a>
             </td>
             <td align="right" style="vertical-align: middle;">
@@ -332,7 +348,7 @@ export async function sendTestEmail(targetEmail) {
               <tr>
                 <td style="vertical-align: middle;">
                   <a href="${siteBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                    <img src="${siteBaseUrl}/logo-white.png" alt="Kalem Gümrük Müşavirliği" width="140" height="40" style="display: block; border: 0; max-width: 140px; height: auto;" />
+                    <img src="cid:kalem-logo" alt="Kalem Gümrük Müşavirliği" width="140" height="40" style="display: block; border: 0; max-width: 140px; height: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 700; color: #ffffff;" />
                   </a>
                 </td>
                 <td align="right" style="vertical-align: middle;">

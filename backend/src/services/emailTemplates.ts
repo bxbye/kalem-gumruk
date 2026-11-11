@@ -346,7 +346,7 @@ export function renderFormSubmissionAdminEmail({
                 <tr>
                   <td style="vertical-align: middle;">
                     <a href="${siteBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${siteBaseUrl}/logo-white.png" alt="Kalem Gümrük Müşavirliği" width="145" height="42" style="display: block; border: 0; max-width: 145px; height: auto;" />
+                      <img src="cid:kalem-logo" alt="Kalem Gümrük Müşavirliği" width="145" height="42" style="display: block; border: 0; max-width: 145px; height: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF;" />
                     </a>
                   </td>
                   <td align="right" style="vertical-align: middle;">
@@ -622,7 +622,7 @@ function buildCustomerEmailHtml({
                 <tr>
                   <td style="vertical-align: middle;">
                     <a href="${siteBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${siteBaseUrl}/logo-white.png" alt="Kalem Gümrük Müşavirliği" width="145" height="42" style="display: block; border: 0; max-width: 145px; height: auto;" />
+                      <img src="cid:kalem-logo" alt="Kalem Gümrük Müşavirliği" width="145" height="42" style="display: block; border: 0; max-width: 145px; height: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF;" />
                     </a>
                   </td>
                   <td align="${dir === "rtl" ? "left" : "right"}" style="vertical-align: middle;">

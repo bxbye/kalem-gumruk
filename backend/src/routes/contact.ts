@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../db/index.js";
+import { db, isDbConnected } from "../db/index.js";
 import { formSubmissions } from "../db/schema.js";
 import { sendContactEmail } from "../services/mailer.js";
 import { validateFormSpamGuard } from "../services/security.js";
@@ -52,25 +52,31 @@ contactRouter.post("/", async (req, res) => {
     const submissionId = `SUB-${refCode}`;
     const now = new Date();
 
-    // 5. Veritabanına kaydet
-    await db.insert(formSubmissions).values({
-      id: submissionId,
-      formSlug: serviceType ? "fiyat-teklifi" : "iletisim",
-      data: JSON.stringify({
-        fullName: String(fullName).trim(),
-        company: company ? String(company).trim() : "",
-        phone: String(phone).trim(),
-        email: email ? String(email).trim() : "",
-        serviceType: serviceType || "Genel Bilgi",
-        message: String(message).trim(),
-        _lang: visitorLang,
-      }),
-      files: "[]",
-      status: "NEW",
-      ipAddress: req.ip || "unknown",
-      createdAt: now,
-      updatedAt: now,
-    });
+    // 5. Veritabanına kaydet (DB bağlıysa)
+    if (isDbConnected) {
+      try {
+        await db.insert(formSubmissions).values({
+          id: submissionId,
+          formSlug: serviceType ? "fiyat-teklifi" : "iletisim",
+          data: JSON.stringify({
+            fullName: String(fullName).trim(),
+            company: company ? String(company).trim() : "",
+            phone: String(phone).trim(),
+            email: email ? String(email).trim() : "",
+            serviceType: serviceType || "Genel Bilgi",
+            message: String(message).trim(),
+            _lang: visitorLang,
+          }),
+          files: "[]",
+          status: "NEW",
+          ipAddress: req.ip || "unknown",
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (dbErr: any) {
+        console.warn("[Contact Submit] DB kaydı atlandı:", dbErr?.message || dbErr);
+      }
+    }
 
     // 6. E-posta bildirimlerini arka planda gönder (kadir.kaya@kayapermit.com)
     sendContactEmail({

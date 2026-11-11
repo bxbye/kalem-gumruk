@@ -1,10 +1,13 @@
 import { Router } from "express";
-import { db } from "../db/index.js";
+import { db, isDbConnected } from "../db/index.js";
 import { chatConversations, formSubmissions } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { sendChatLeadEmail } from "../services/mailer.js";
 
 export const chatLeadRouter = Router();
+
+// Bellek içi sohbet geçmişi önbelleği (DB kapalı veya dev modunda kesintisiz çalışması için)
+const memoryChats = new Map<string, any>();
 
 // Yardımcı: Mesaj listesini okunabilir metin haline getir
 function formatMessagesText(messages: Array<{ sender: string; text: string; time?: string }>) {
@@ -40,7 +43,17 @@ chatLeadRouter.post("/message", async (req, res) => {
     }
 
     const now = new Date();
-    const [existing] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessionId)).limit(1);
+    let existing: any = null;
+    if (isDbConnected) {
+      try {
+        const [row] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessionId)).limit(1);
+        existing = row;
+      } catch {
+        existing = memoryChats.get(sessionId);
+      }
+    } else {
+      existing = memoryChats.get(sessionId);
+    }
 
     let currentMessages: Array<{ id: string; sender: string; text: string; time: string }> = [];
     const detected = extractContactFromText(trimmedMessage);
@@ -78,20 +91,13 @@ chatLeadRouter.post("/message", async (req, res) => {
         shouldSendNotification = true;
       }
 
-      // 1. chat_conversations tablosunu güncelle
-      await db
-        .update(chatConversations)
-        .set({
-          contactInfo: updatedContact,
-          messages: JSON.stringify(currentMessages),
-          isLeadCaptured: existing.isLeadCaptured || Boolean(detected.phone || detected.email),
-          updatedAt: now,
-        })
-        .where(eq(chatConversations.sessionId, sessionId));
-
-      // 2. CRM (form_submissions) tablosunu da güncelle
-      const subId = `SUB-CHAT-${sessionId}`;
-      const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
+      // 1. chat_conversations tablosunu güncelle (DB veya bellek)
+      memoryChats.set(sessionId, {
+        contactInfo: updatedContact,
+        messages: JSON.stringify(currentMessages),
+        isLeadCaptured: existing.isLeadCaptured || Boolean(detected.phone || detected.email),
+        updatedAt: now,
+      });
 
       const userQuestions = currentMessages.filter((m) => m.sender === "user").map((m) => m.text);
       const firstQuestion = userQuestions[0] || trimmedMessage;
@@ -108,25 +114,44 @@ chatLeadRouter.post("/message", async (req, res) => {
         _lang: visitorLang,
       };
 
-      if (existingSub) {
-        await db
-          .update(formSubmissions)
-          .set({
-            data: JSON.stringify(crmData),
-            updatedAt: now,
-          })
-          .where(eq(formSubmissions.id, subId));
-      } else {
-        await db.insert(formSubmissions).values({
-          id: subId,
-          formSlug: "chatbot",
-          data: JSON.stringify(crmData),
-          files: "[]",
-          status: "NEW",
-          ipAddress: req.ip || "unknown",
-          createdAt: now,
-          updatedAt: now,
-        });
+      if (isDbConnected) {
+        try {
+          await db
+            .update(chatConversations)
+            .set({
+              contactInfo: updatedContact,
+              messages: JSON.stringify(currentMessages),
+              isLeadCaptured: existing.isLeadCaptured || Boolean(detected.phone || detected.email),
+              updatedAt: now,
+            })
+            .where(eq(chatConversations.sessionId, sessionId));
+
+          const subId = `SUB-CHAT-${sessionId}`;
+          const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
+
+          if (existingSub) {
+            await db
+              .update(formSubmissions)
+              .set({
+                data: JSON.stringify(crmData),
+                updatedAt: now,
+              })
+              .where(eq(formSubmissions.id, subId));
+          } else {
+            await db.insert(formSubmissions).values({
+              id: subId,
+              formSlug: "chatbot",
+              data: JSON.stringify(crmData),
+              files: "[]",
+              status: "NEW",
+              ipAddress: req.ip || "unknown",
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        } catch (dbErr: any) {
+          console.warn("[Chat Message] DB güncellemesi atlandı:", dbErr?.message || dbErr);
+        }
       }
 
       // Mesaj içinde telefon/email yakalandıysa derhal bildirim gönder
@@ -159,8 +184,8 @@ chatLeadRouter.post("/message", async (req, res) => {
       const convId = `chat-${Date.now()}`;
       const contactInfo = [detected.phone, detected.email].filter(Boolean).join(" | ") || null;
 
-      // 1. chat_conversations'a ekle
-      await db.insert(chatConversations).values({
+      // Belleğe kaydet
+      memoryChats.set(sessionId, {
         id: convId,
         sessionId,
         contactInfo,
@@ -172,30 +197,49 @@ chatLeadRouter.post("/message", async (req, res) => {
         updatedAt: now,
       });
 
-      // 2. CRM (form_submissions) tablosuna da kaydet
-      const subId = `SUB-CHAT-${sessionId}`;
-      const crmData = {
-        fullName: contactInfo || "Web Chatbot Ziyaretçisi",
-        phone: detected.phone || "-",
-        company: "-",
-        serviceType: "Chatbot Danışma",
-        question: trimmedMessage,
-        message: formatMessagesText(currentMessages),
-        chatHistory: currentMessages,
-        refCode,
-        _lang: visitorLang,
-      };
+      if (isDbConnected) {
+        try {
+          // 1. chat_conversations'a ekle
+          await db.insert(chatConversations).values({
+            id: convId,
+            sessionId,
+            contactInfo,
+            question: trimmedMessage,
+            messages: JSON.stringify(currentMessages),
+            status: "NEW",
+            isLeadCaptured: Boolean(contactInfo),
+            createdAt: now,
+            updatedAt: now,
+          });
 
-      await db.insert(formSubmissions).values({
-        id: subId,
-        formSlug: "chatbot",
-        data: JSON.stringify(crmData),
-        files: "[]",
-        status: "NEW",
-        ipAddress: req.ip || "unknown",
-        createdAt: now,
-        updatedAt: now,
-      });
+          // 2. CRM (form_submissions) tablosuna da kaydet
+          const subId = `SUB-CHAT-${sessionId}`;
+          const crmData = {
+            fullName: contactInfo || "Web Chatbot Ziyaretçisi",
+            phone: detected.phone || "-",
+            company: "-",
+            serviceType: "Chatbot Danışma",
+            question: trimmedMessage,
+            message: formatMessagesText(currentMessages),
+            chatHistory: currentMessages,
+            refCode,
+            _lang: visitorLang,
+          };
+
+          await db.insert(formSubmissions).values({
+            id: subId,
+            formSlug: "chatbot",
+            data: JSON.stringify(crmData),
+            files: "[]",
+            status: "NEW",
+            ipAddress: req.ip || "unknown",
+            createdAt: now,
+            updatedAt: now,
+          });
+        } catch (dbErr: any) {
+          console.warn("[Chat New Session] DB kaydı atlandı:", dbErr?.message || dbErr);
+        }
+      }
 
       if (contactInfo) {
         sendChatLeadEmail({
@@ -258,7 +302,17 @@ chatLeadRouter.post("/", async (req, res) => {
     const refCode = clientRefCode || `TK-CHAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date();
 
-    const [existing] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessId)).limit(1);
+    let existing: any = null;
+    if (isDbConnected) {
+      try {
+        const [row] = await db.select().from(chatConversations).where(eq(chatConversations.sessionId, sessId)).limit(1);
+        existing = row;
+      } catch {
+        existing = memoryChats.get(sessId);
+      }
+    } else {
+      existing = memoryChats.get(sessId);
+    }
 
     let allMessages = messages || [];
     if (typeof allMessages === "string") {
@@ -273,77 +327,92 @@ chatLeadRouter.post("/", async (req, res) => {
       contactInfo ||
       (contactName ? `${contactName} (${contactCompany || "Bireysel"}) - Tel: ${contactPhone}` : "Bilinmiyor");
 
-    if (existing) {
-      if (!allMessages.length) {
-        try {
-          allMessages = JSON.parse(existing.messages || "[]");
-        } catch {
-          allMessages = [];
+    memoryChats.set(sessId, {
+      contactInfo: finalContactInfo,
+      question: question || existing?.question || "Web Chatbot Danışma Talebi",
+      messages: JSON.stringify(allMessages),
+      status: "CONTACTED",
+      isLeadCaptured: true,
+      updatedAt: now,
+    });
+
+    if (isDbConnected) {
+      try {
+        if (existing) {
+          if (!allMessages.length) {
+            try {
+              allMessages = JSON.parse(existing.messages || "[]");
+            } catch {
+              allMessages = [];
+            }
+          }
+
+          await db
+            .update(chatConversations)
+            .set({
+              contactInfo: finalContactInfo,
+              question: question || existing.question,
+              messages: JSON.stringify(allMessages),
+              status: "CONTACTED",
+              isLeadCaptured: true,
+              updatedAt: now,
+            })
+            .where(eq(chatConversations.sessionId, sessId));
+        } else {
+          const convId = `chat-${Date.now()}`;
+          await db.insert(chatConversations).values({
+            id: convId,
+            sessionId: sessId,
+            contactInfo: finalContactInfo,
+            question: question || "Web Chatbot Danışma Talebi",
+            messages: JSON.stringify(allMessages),
+            status: "NEW",
+            isLeadCaptured: true,
+            createdAt: now,
+            updatedAt: now,
+          });
         }
+
+        // CRM (form_submissions) Tablosuna Kaydet / Güncelle
+        const subId = `SUB-CHAT-${sessId}`;
+        const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
+
+        const crmPayload = {
+          fullName: contactName || finalContactInfo,
+          phone: contactPhone || "-",
+          company: contactCompany || "-",
+          serviceType: "Chatbot Danışma",
+          question: question || (allMessages.find((m: any) => m.sender === "user")?.text ?? "Gümrük Danışma"),
+          message: formatMessagesText(allMessages),
+          refCode,
+          chatHistory: allMessages,
+          _lang: visitorLang,
+        };
+
+        if (existingSub) {
+          await db
+            .update(formSubmissions)
+            .set({
+              data: JSON.stringify(crmPayload),
+              status: "CONTACTED",
+              updatedAt: now,
+            })
+            .where(eq(formSubmissions.id, subId));
+        } else {
+          await db.insert(formSubmissions).values({
+            id: subId,
+            formSlug: "chatbot",
+            data: JSON.stringify(crmPayload),
+            files: "[]",
+            status: "NEW",
+            ipAddress: req.ip || "unknown",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      } catch (dbErr: any) {
+        console.warn("[Chat Submit] DB kaydı atlandı:", dbErr?.message || dbErr);
       }
-
-      await db
-        .update(chatConversations)
-        .set({
-          contactInfo: finalContactInfo,
-          question: question || existing.question,
-          messages: JSON.stringify(allMessages),
-          status: "CONTACTED",
-          isLeadCaptured: true,
-          updatedAt: now,
-        })
-        .where(eq(chatConversations.sessionId, sessId));
-    } else {
-      const convId = `chat-${Date.now()}`;
-      await db.insert(chatConversations).values({
-        id: convId,
-        sessionId: sessId,
-        contactInfo: finalContactInfo,
-        question: question || "Web Chatbot Danışma Talebi",
-        messages: JSON.stringify(allMessages),
-        status: "NEW",
-        isLeadCaptured: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    // CRM (form_submissions) Tablosuna Kaydet / Güncelle
-    const subId = `SUB-CHAT-${sessId}`;
-    const [existingSub] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, subId)).limit(1);
-
-    const crmPayload = {
-      fullName: contactName || finalContactInfo,
-      phone: contactPhone || "-",
-      company: contactCompany || "-",
-      serviceType: "Chatbot Danışma",
-      question: question || (allMessages.find((m: any) => m.sender === "user")?.text ?? "Gümrük Danışma"),
-      message: formatMessagesText(allMessages),
-      refCode,
-      chatHistory: allMessages,
-      _lang: visitorLang,
-    };
-
-    if (existingSub) {
-      await db
-        .update(formSubmissions)
-        .set({
-          data: JSON.stringify(crmPayload),
-          status: "CONTACTED",
-          updatedAt: now,
-        })
-        .where(eq(formSubmissions.id, subId));
-    } else {
-      await db.insert(formSubmissions).values({
-        id: subId,
-        formSlug: "chatbot",
-        data: JSON.stringify(crmPayload),
-        files: "[]",
-        status: "NEW",
-        ipAddress: req.ip || "unknown",
-        createdAt: now,
-        updatedAt: now,
-      });
     }
 
     // Kadir Bey'in email adresine anlık HTML bildirim gönder
