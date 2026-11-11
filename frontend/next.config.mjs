@@ -78,10 +78,6 @@ const nextConfig = {
         : "http://localhost:5001");
     return [
       {
-        source: "/api/:path*",
-        destination: `${targetUrl}/api/:path*`,
-      },
-      {
         source: "/uploads/:path*",
         destination: `${targetUrl}/uploads/:path*`,
       },
