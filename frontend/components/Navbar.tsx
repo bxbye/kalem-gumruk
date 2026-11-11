@@ -64,13 +64,14 @@ export default function Navbar() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         {/* Logo */}
         <Link href={localePath("/")} className="flex items-center gap-2">
-          <div className="relative h-11 w-48 sm:w-52">
+          <div className="relative h-11 w-48 sm:w-52" style={{ position: "relative" }}>
             <Image
               src="/logo.svg"
               alt="Kalem Gümrük Müşavirliği"
-              fill
-              className="object-contain object-left"
+              width={208}
+              height={44}
               priority
+              className="h-11 w-auto max-w-full object-contain object-left"
             />
           </div>
         </Link>

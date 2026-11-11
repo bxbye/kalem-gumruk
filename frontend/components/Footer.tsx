@@ -29,12 +29,13 @@ export default function Footer() {
           <div className="lg:col-span-3 space-y-4">
             <Link href={localePath("/")} className="inline-block">
               <div className="inline-flex items-center bg-white px-4 py-2.5 rounded-xl shadow-md border border-slate-200 hover:border-slate-300 transition-colors">
-                <div className="relative h-10 w-48">
+                <div className="relative h-10 w-48" style={{ position: "relative" }}>
                   <Image
                     src="/logo.svg"
                     alt="Kalem Gümrük Müşavirliği"
-                    fill
-                    className="object-contain object-left"
+                    width={192}
+                    height={40}
+                    className="h-10 w-auto max-w-full object-contain object-left"
                   />
                 </div>
               </div>

@@ -138,7 +138,10 @@ export default function GerekliBaglantilarSection({ initialLinks }: GerekliBagla
           >
             <div>
               {/* Görsel Kartı */}
-              <div className="relative w-full h-24 bg-white rounded-xl overflow-hidden border border-slate-200/80 mb-3.5 flex items-center justify-center p-2 group-hover:scale-[1.02] transition-transform">
+              <div
+                className="relative w-full h-24 bg-white rounded-xl overflow-hidden border border-slate-200/80 mb-3.5 flex items-center justify-center p-2 group-hover:scale-[1.02] transition-transform"
+                style={{ position: "relative" }}
+              >
                 {item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? (
                   <Image
                     src={item.image}
