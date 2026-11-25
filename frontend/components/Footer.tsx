@@ -212,9 +212,6 @@ export default function Footer() {
             <Link href={localePath("/sirkuler")} className="hover:text-white transition-colors">
               {t.nav.circularsBulletins}
             </Link>
-            <Link href="/admin" className="text-slate-400 hover:text-white transition-colors">
-              Yönetici Girişi
-            </Link>
           </div>
         </div>
       </div>
