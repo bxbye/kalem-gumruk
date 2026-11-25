@@ -31,7 +31,7 @@ export interface SendMailOptions {
  * Gönderici (From) başlığını formatlar: "Ad <email>" veya salt email
  */
 function formatSender(rawFrom?: string): string {
-  const defaultUser = process.env.SMTP_USER?.trim() || "bilgi@kalemgumruk.com";
+  const defaultUser = process.env.SMTP_USER?.trim() || "info@kalemgumruk.com";
   const configuredFrom = process.env.SMTP_FROM?.trim();
   const target = (rawFrom || configuredFrom || `"Kalem Gümrük" <${defaultUser}>`).trim();
 
@@ -48,7 +48,7 @@ function formatSender(rawFrom?: string): string {
  * Nodemailer Transporter örneği oluşturur ve önbelleğe alır.
  */
 export function getMailer(): Transporter | null {
-  const smtpHost = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
+  const smtpHost = process.env.SMTP_HOST?.trim() || "mail.kalemgumruk.com";
   const smtpPort = Number(process.env.SMTP_PORT || 465);
   const smtpUser = process.env.SMTP_USER?.trim();
   const rawPass = process.env.SMTP_PASS?.trim();
@@ -149,7 +149,7 @@ export async function sendEmailUnified(options: SendMailOptions): Promise<{ succ
  */
 export async function verifySmtp(): Promise<{ ok: boolean; message: string; host?: string; user?: string; port?: number }> {
   const transporter = getMailer();
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpHost = process.env.SMTP_HOST || "mail.kalemgumruk.com";
   const smtpPort = Number(process.env.SMTP_PORT || 465);
   const smtpUser = process.env.SMTP_USER;
 
@@ -234,7 +234,7 @@ export async function sendContactEmail({
   lang?: string;
 }) {
   const companySettings = await getCompanySettings();
-  const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+  const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
   const smtpUser = process.env.SMTP_USER;
 
   if (!getMailer() || !smtpUser) {
@@ -312,7 +312,7 @@ export async function sendChatLeadEmail({
   lang?: string;
 }) {
   const companySettings = await getCompanySettings();
-  const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+  const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
   const smtpUser = process.env.SMTP_USER;
 
   const cleanLang = (lang || "tr").toLowerCase();
@@ -427,7 +427,7 @@ export async function sendChatLeadEmail({
 // 3. Test E-postası Gönderimi
 export async function sendTestEmail(targetEmail?: string): Promise<{ success: boolean; message: string; messageId?: string }> {
   const companySettings = await getCompanySettings();
-  const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+  const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
   const smtpUser = process.env.SMTP_USER;
 
   if (!getMailer() || !smtpUser) {

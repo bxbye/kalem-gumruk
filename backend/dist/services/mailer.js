@@ -9,7 +9,7 @@ let lastSmtpConfigHash = "";
  * Gönderici (From) başlığını formatlar: "Ad <email>" veya salt email
  */
 function formatSender(rawFrom) {
-    const defaultUser = process.env.SMTP_USER?.trim() || "bilgi@kalemgumruk.com";
+    const defaultUser = process.env.SMTP_USER?.trim() || "info@kalemgumruk.com";
     const configuredFrom = process.env.SMTP_FROM?.trim();
     const target = (rawFrom || configuredFrom || `"Kalem Gümrük" <${defaultUser}>`).trim();
     const emailMatch = target.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
@@ -25,7 +25,7 @@ function formatSender(rawFrom) {
  * Nodemailer Transporter örneği oluşturur ve önbelleğe alır.
  */
 export function getMailer() {
-    const smtpHost = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
+    const smtpHost = process.env.SMTP_HOST?.trim() || "mail.kalemgumruk.com";
     const smtpPort = Number(process.env.SMTP_PORT || 465);
     const smtpUser = process.env.SMTP_USER?.trim();
     const rawPass = process.env.SMTP_PASS?.trim();
@@ -112,7 +112,7 @@ export async function sendEmailUnified(options) {
  */
 export async function verifySmtp() {
     const transporter = getMailer();
-    const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+    const smtpHost = process.env.SMTP_HOST || "mail.kalemgumruk.com";
     const smtpPort = Number(process.env.SMTP_PORT || 465);
     const smtpUser = process.env.SMTP_USER;
     if (!transporter || !smtpUser) {
@@ -166,7 +166,7 @@ export function getCustomerConfirmationEmail(params) {
 // 1. İletişim & Teklif Formu Bildirimi (Yetkili Müşavire)
 export async function sendContactEmail({ refCode, fullName, company, phone, email, serviceType, message, lang = "tr", }) {
     const companySettings = await getCompanySettings();
-    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
     const smtpUser = process.env.SMTP_USER;
     if (!getMailer() || !smtpUser) {
         console.warn(`[Mailer] SMTP yapilandirmasi eksik. Bildirim iletilemedi: [${refCode}] ${fullName} (${phone}) -> ${receiverEmail}`);
@@ -226,7 +226,7 @@ export async function sendContactEmail({ refCode, fullName, company, phone, emai
 // 2. Chatbot Mesajları & Ziyaretçi Bildirimi (Yetkili Müşavire)
 export async function sendChatLeadEmail({ refCode, contactInfo, contactName, question, messages, lang = "tr", }) {
     const companySettings = await getCompanySettings();
-    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+    const receiverEmail = process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
     const smtpUser = process.env.SMTP_USER;
     const cleanLang = (lang || "tr").toLowerCase();
     const langBadge = langBadgeMap[cleanLang] || cleanLang.toUpperCase();
@@ -334,7 +334,7 @@ export async function sendChatLeadEmail({ refCode, contactInfo, contactName, que
 // 3. Test E-postası Gönderimi
 export async function sendTestEmail(targetEmail) {
     const companySettings = await getCompanySettings();
-    const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || companySettings.email || "kadir.kaya@kayapermit.com";
+    const receiverEmail = targetEmail || process.env.CONTACT_RECEIVER || companySettings.email || "info@kalemgumruk.com";
     const smtpUser = process.env.SMTP_USER;
     if (!getMailer() || !smtpUser) {
         return {

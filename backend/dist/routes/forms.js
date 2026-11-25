@@ -278,7 +278,7 @@ async function handleFormSubmissionEmail(formSlug, formTitle, data, files, refCo
     const smtpUser = process.env.SMTP_USER;
     const companySettings = await getCompanySettings();
     // Hedef e-posta: Öncelik CONTACT_RECEIVER -> form ayarı -> firma ayarı
-    const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || companySettings.email || "kadir.kaya@kayapermit.com";
+    const companyEmail = process.env.CONTACT_RECEIVER || settings.notificationEmail || companySettings.email || "info@kalemgumruk.com";
     if (!transporter || !smtpUser) {
         console.warn(`[Form Mailer] SMTP yapilandirmasi eksik. Form e-postasi gonderilemedi: [${refCode}] -> ${companyEmail}`);
         return;

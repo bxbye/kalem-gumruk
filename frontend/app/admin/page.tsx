@@ -3631,7 +3631,7 @@ export default function AdminPage() {
                     <span>📧 E-Posta Bildirim Servisi (Nodemailer SMTP)</span>
                   </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    İletişim formu, fiyat teklifi ve web chatbot üzerinden iletilen tüm talepler anında <code className="bg-slate-100 px-1 py-0.5 rounded text-sky-700 font-semibold">kadir.kaya@kayapermit.com</code> adresine iletilir.
+                    İletişim formu, fiyat teklifi ve web chatbot üzerinden iletilen tüm talepler anında <code className="bg-slate-100 px-1 py-0.5 rounded text-sky-700 font-semibold">{siteSettings.email || "info@kalemgumruk.com"}</code> adresine iletilir.
                   </p>
                 </div>
                 <button
